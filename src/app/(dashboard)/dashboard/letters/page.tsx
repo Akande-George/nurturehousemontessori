@@ -53,7 +53,7 @@ export default function AcceptanceLettersPage() {
     {
       id: "1",
       name: "Noah Williams",
-      program: "Elementary (6-9)",
+      program: "Infant Community (Nurture Bloomers)",
       status: "draft",
       date: "Oct 25, 2023",
       parent: "Jessica W.",
@@ -62,7 +62,7 @@ export default function AcceptanceLettersPage() {
     {
       id: "2",
       name: "Ava Brown",
-      program: "Primary (3-6)",
+      program: "Children's House (Nurture Explorers)",
       status: "draft",
       date: "Oct 25, 2023",
       parent: "David B.",
@@ -71,7 +71,7 @@ export default function AcceptanceLettersPage() {
     {
       id: "3",
       name: "Sophia Chen",
-      program: "Toddler (18mo-3)",
+      program: "Toddler Community (Nurture Buds)",
       status: "sent",
       date: "Oct 20, 2023",
       parent: "Michael C.",
@@ -80,7 +80,7 @@ export default function AcceptanceLettersPage() {
     {
       id: "4",
       name: "James Wilson",
-      program: "Primary (3-6)",
+      program: "Children's House (Nurture Explorers)",
       status: "sent",
       date: "Oct 19, 2023",
       parent: "Sarah W.",

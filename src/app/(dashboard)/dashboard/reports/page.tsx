@@ -45,21 +45,21 @@ type AgeGroup = "0-2 years" | "3-6 years" | "7-9 years";
 const AGE_GROUPS: { key: AgeGroup; label: string; description: string }[] = [
   {
     key: "0-2 years",
-    label: "0–2 Years",
+    label: "Infant Community",
     description:
-      "Toddler daily sheet — mood, care routine, fun learning, home follow-up, and signatures.",
+      "Infant Community daily sheet — mood, care routine, fun learning, home follow-up, and signatures.",
   },
   {
     key: "3-6 years",
-    label: "3–6 Years",
+    label: "Children's House",
     description:
-      "Primary daily sheet — Montessori work cycle, concentration, independence, social development, and meal notes.",
+      "Children's House daily sheet — Montessori work cycle, concentration, independence, social development, and meal notes.",
   },
   {
     key: "7-9 years",
     label: "7–9 Years",
     description:
-      "Lower Elementary daily sheet — subject progress, project work, behaviour notes, and teacher feedback.",
+      "Extended work-cycle daily sheet — subject progress, project work, behaviour notes, and teacher feedback.",
   },
 ];
 
@@ -185,7 +185,9 @@ export default function ReportsPage() {
     const snapshot = getDemoSnapshot();
     const rows = groupReports
       .map((report) => {
-        const student = snapshot.students.find((s) => s.id === report.studentId);
+        const student = snapshot.students.find(
+          (s) => s.id === report.studentId,
+        );
         return `<tr><td>${student?.name ?? report.studentId}</td><td>${report.date}</td><td>${report.status}</td><td>${report.generalMood}</td></tr>`;
       })
       .join("");

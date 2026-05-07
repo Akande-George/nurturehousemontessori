@@ -72,7 +72,7 @@ const resources: ResourceItem[] = [
     id: 5,
     title: "Grace and Courtesy in the Classroom",
     description:
-      "A walkthrough of how social lessons are introduced and reinforced from toddler through elementary levels.",
+      "A walkthrough of how social lessons are introduced and reinforced from Nurture Bloomers through Nurture Explorers.",
     type: "video",
     category: "videos",
     tag: "Classroom Culture",
