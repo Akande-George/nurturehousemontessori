@@ -42,6 +42,20 @@ export type DemoActivityPost = {
   createdAt: string;
 };
 
+export type DemoDailyActivityType = "meals" | "nap" | "hygiene";
+
+export type DemoDailyActivityLog = {
+  id: string;
+  studentId: string;
+  teacherId: string;
+  date: string;
+  time: string;
+  activityType: DemoDailyActivityType;
+  value: string;
+  notes: string;
+  createdAt: string;
+};
+
 export type DemoNotice = {
   id: string;
   title: string;
@@ -229,6 +243,7 @@ type DemoState = {
   invoices: DemoInvoice[];
   dailyReports: DemoDailyReport[];
   activityPosts: DemoActivityPost[];
+  dailyActivityLogs: DemoDailyActivityLog[];
   progressData: Record<string, DemoProgress>;
 };
 
@@ -1582,6 +1597,41 @@ let state: DemoState = {
       createdAt: "2026-05-01T13:45:00.000Z",
     },
   ],
+  dailyActivityLogs: [
+    {
+      id: "dlog-zoe-2026-05-07-1",
+      studentId: "zoe",
+      teacherId: "user-teacher",
+      date: "2026-05-07",
+      time: "12:20",
+      activityType: "meals",
+      value: "Lunch (Most)",
+      notes: "Ate vegetables first and needed one reminder for water.",
+      createdAt: "2026-05-07T12:20:00.000Z",
+    },
+    {
+      id: "dlog-leo-2026-05-07-1",
+      studentId: "leo",
+      teacherId: "user-teacher",
+      date: "2026-05-07",
+      time: "13:05",
+      activityType: "nap",
+      value: "45 mins",
+      notes: "Settled after gentle back patting.",
+      createdAt: "2026-05-07T13:05:00.000Z",
+    },
+    {
+      id: "dlog-emma-2026-05-07-1",
+      studentId: "emma",
+      teacherId: "user-teacher",
+      date: "2026-05-07",
+      time: "10:10",
+      activityType: "hygiene",
+      value: "Hand Wash",
+      notes: "Completed independently before snack.",
+      createdAt: "2026-05-07T10:10:00.000Z",
+    },
+  ],
   progressData: {
     zoe: progressDataMap.zoe,
     emma: progressDataMap.emma,
@@ -1688,6 +1738,45 @@ export function getStudentDailyReports(studentId: string) {
   return state.dailyReports
     .filter((report) => report.studentId === studentId)
     .sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+export function getTeacherDailyActivityLogs(
+  date: string,
+  teacherId = state.users.teacher.id,
+) {
+  return [...state.dailyActivityLogs]
+    .filter((log) => log.date === date && log.teacherId === teacherId)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+export function addDailyActivityLogs(input: {
+  studentIds: string[];
+  date: string;
+  time: string;
+  activityType: DemoDailyActivityType;
+  value: string;
+  notes?: string;
+}) {
+  if (input.studentIds.length === 0) return;
+
+  const createdAt = new Date().toISOString();
+  const logs = input.studentIds.map((studentId) => ({
+    id: nextId("dlog"),
+    studentId,
+    teacherId: state.users.teacher.id,
+    date: input.date,
+    time: input.time,
+    activityType: input.activityType,
+    value: input.value,
+    notes: input.notes?.trim() ?? "",
+    createdAt,
+  }));
+
+  state = {
+    ...state,
+    dailyActivityLogs: [...logs, ...state.dailyActivityLogs],
+  };
+  emit();
 }
 
 export function getParentDailyReports(parentId: string) {
