@@ -194,9 +194,9 @@ const calendarEvents: DemoCalendarEvent[] = [
     title: "Toddler Field Trip",
     startsAt: "2026-05-18T10:30:00.000Z",
     endsAt: "2026-05-18T13:00:00.000Z",
-    location: "Lekki Conservation Centre",
+    location: "University of Ilorin Zoological Garden",
     description:
-      "Outdoor discovery walk focused on birds, leaves, and practical life observation activities.",
+      "Outdoor discovery walk focused on birds, leaves, animal observation, and practical life exploration.",
     type: "activity",
     audience: "public",
   },

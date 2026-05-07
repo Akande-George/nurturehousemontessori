@@ -548,7 +548,7 @@ export default function ChildReportPage() {
 
     <div class="footer">
       <p>This report was generated on ${new Date().toLocaleDateString("en-NG")} for ${childData.parentName}</p>
-      <p>Nurture House Montessori, Lagos, Nigeria</p>
+      <p>Nurture House Montessori, Ilorin, Nigeria</p>
     </div>
   </div>
 </body>

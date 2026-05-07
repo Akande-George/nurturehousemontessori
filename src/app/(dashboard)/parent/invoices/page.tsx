@@ -74,7 +74,7 @@ export default function InvoicesPage() {
 <body>
   <div class="header">
     <h1>RECEIPT / INVOICE</h1>
-    <div class="school">Nurture House Montessori, Lagos, Nigeria</div>
+    <div class="school">Nurture House Montessori, Ilorin, Nigeria</div>
   </div>
 
   <div class="invoice-details">

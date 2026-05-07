@@ -77,7 +77,7 @@ export default function DailyReportsPage() {
 <body>
   <div class="header">
     <h1>DAILY REPORT</h1>
-    <div class="school">Nurture House Montessori, Lagos, Nigeria</div>
+    <div class="school">Nurture House Montessori, Ilorin, Nigeria</div>
   </div>
 
   <div class="student-info">

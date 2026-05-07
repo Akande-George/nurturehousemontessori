@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   BookOpen,
   Download,
@@ -12,10 +12,10 @@ import {
   FileText,
   Search,
   Video,
-} from 'lucide-react';
+} from "lucide-react";
 
-type ResourceType = 'article' | 'video' | 'policy';
-type ResourceCategory = 'all' | 'articles' | 'videos' | 'policies';
+type ResourceType = "article" | "video" | "policy";
+type ResourceCategory = "all" | "articles" | "videos" | "policies";
 
 type ResourceItem = {
   id: number;
@@ -30,63 +30,63 @@ type ResourceItem = {
 const resources: ResourceItem[] = [
   {
     id: 1,
-    title: 'Montessori at Home: Practical Life for Lagos Families',
+    title: "Montessori at Home: Practical Life for Ilorin Families",
     description:
-      'Simple routines you can use at home: pouring work, table setting, shoe care, and self-dressing practice.',
-    type: 'article',
-    category: 'articles',
-    tag: 'Parent Guide',
-    meta: '6 min read',
+      "Simple routines you can use at home: pouring work, table setting, shoe care, and self-dressing practice.",
+    type: "article",
+    category: "articles",
+    tag: "Parent Guide",
+    meta: "6 min read",
   },
   {
     id: 2,
-    title: 'Language Development in the Primary Years',
+    title: "Language Development in the Primary Years",
     description:
-      'How our teachers move children from sound games and sandpaper letters to independent reading and writing.',
-    type: 'video',
-    category: 'videos',
-    tag: 'Curriculum Video',
-    meta: '11 min watch',
+      "How our teachers move children from sound games and sandpaper letters to independent reading and writing.",
+    type: "video",
+    category: "videos",
+    tag: "Curriculum Video",
+    meta: "11 min watch",
   },
   {
     id: 3,
-    title: 'Parent and Student Handbook (2026 Edition)',
+    title: "Parent and Student Handbook (2026 Edition)",
     description:
-      'Official school guidelines including attendance, uniforms, communication channels, and safeguarding policy.',
-    type: 'policy',
-    category: 'policies',
-    tag: 'Official Policy',
-    meta: 'PDF download',
+      "Official school guidelines including attendance, uniforms, communication channels, and safeguarding policy.",
+    type: "policy",
+    category: "policies",
+    tag: "Official Policy",
+    meta: "PDF download",
   },
   {
     id: 4,
-    title: 'Supporting Numeracy with Everyday Activities',
+    title: "Supporting Numeracy with Everyday Activities",
     description:
-      'Use shopping lists, cooking measurements, and household sorting games to build mathematical confidence.',
-    type: 'article',
-    category: 'articles',
-    tag: 'Math at Home',
-    meta: '7 min read',
+      "Use shopping lists, cooking measurements, and household sorting games to build mathematical confidence.",
+    type: "article",
+    category: "articles",
+    tag: "Math at Home",
+    meta: "7 min read",
   },
   {
     id: 5,
-    title: 'Grace and Courtesy in the Classroom',
+    title: "Grace and Courtesy in the Classroom",
     description:
-      'A walkthrough of how social lessons are introduced and reinforced from toddler through elementary levels.',
-    type: 'video',
-    category: 'videos',
-    tag: 'Classroom Culture',
-    meta: '9 min watch',
+      "A walkthrough of how social lessons are introduced and reinforced from toddler through elementary levels.",
+    type: "video",
+    category: "videos",
+    tag: "Classroom Culture",
+    meta: "9 min watch",
   },
   {
     id: 6,
-    title: 'Health and Allergy Safety Procedures',
+    title: "Health and Allergy Safety Procedures",
     description:
-      'Reference document for medication handling, lunchbox guidance, and emergency response expectations.',
-    type: 'policy',
-    category: 'policies',
-    tag: 'Safety',
-    meta: 'PDF download',
+      "Reference document for medication handling, lunchbox guidance, and emergency response expectations.",
+    type: "policy",
+    category: "policies",
+    tag: "Safety",
+    meta: "PDF download",
   },
 ];
 
@@ -97,13 +97,13 @@ const iconByType: Record<ResourceType, React.ReactNode> = {
 };
 
 export default function ResourceLibraryPage() {
-  const [activeCategory, setActiveCategory] = useState<ResourceCategory>('all');
-  const [search, setSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState<ResourceCategory>("all");
+  const [search, setSearch] = useState("");
 
   const filteredResources = useMemo(() => {
     return resources.filter((resource) => {
       const matchCategory =
-        activeCategory === 'all' || resource.category === activeCategory;
+        activeCategory === "all" || resource.category === activeCategory;
       const q = search.trim().toLowerCase();
       const matchSearch =
         q.length === 0 ||
@@ -118,7 +118,9 @@ export default function ResourceLibraryPage() {
     <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8 mt-4">
         <div>
-          <h1 className="text-2xl font-serif text-slate-900 mb-1">Resource Library</h1>
+          <h1 className="text-2xl font-serif text-slate-900 mb-1">
+            Resource Library
+          </h1>
           <p className="text-sm text-slate-500">
             Curriculum guides, school policies, and parent learning resources.
           </p>
@@ -137,45 +139,45 @@ export default function ResourceLibraryPage() {
 
       <div className="flex gap-2 overflow-x-auto pb-4 mb-4 no-scrollbar">
         <Button
-          variant={activeCategory === 'all' ? 'default' : 'outline'}
-          onClick={() => setActiveCategory('all')}
+          variant={activeCategory === "all" ? "default" : "outline"}
+          onClick={() => setActiveCategory("all")}
           className={`rounded-full ${
-            activeCategory === 'all'
-              ? 'bg-slate-900 text-white hover:bg-slate-800'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            activeCategory === "all"
+              ? "bg-slate-900 text-white hover:bg-slate-800"
+              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
           }`}
         >
           All Resources
         </Button>
         <Button
-          variant={activeCategory === 'articles' ? 'default' : 'outline'}
-          onClick={() => setActiveCategory('articles')}
+          variant={activeCategory === "articles" ? "default" : "outline"}
+          onClick={() => setActiveCategory("articles")}
           className={`rounded-full ${
-            activeCategory === 'articles'
-              ? 'bg-montessori-primary text-white hover:bg-montessori-primary/90 border-none'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            activeCategory === "articles"
+              ? "bg-montessori-primary text-white hover:bg-montessori-primary/90 border-none"
+              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
           }`}
         >
           Articles & Guides
         </Button>
         <Button
-          variant={activeCategory === 'videos' ? 'default' : 'outline'}
-          onClick={() => setActiveCategory('videos')}
+          variant={activeCategory === "videos" ? "default" : "outline"}
+          onClick={() => setActiveCategory("videos")}
           className={`rounded-full ${
-            activeCategory === 'videos'
-              ? 'bg-montessori-secondary text-white hover:bg-montessori-secondary/90 border-none'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            activeCategory === "videos"
+              ? "bg-montessori-secondary text-white hover:bg-montessori-secondary/90 border-none"
+              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
           }`}
         >
           Curriculum Videos
         </Button>
         <Button
-          variant={activeCategory === 'policies' ? 'default' : 'outline'}
-          onClick={() => setActiveCategory('policies')}
+          variant={activeCategory === "policies" ? "default" : "outline"}
+          onClick={() => setActiveCategory("policies")}
           className={`rounded-full ${
-            activeCategory === 'policies'
-              ? 'bg-slate-900 text-white hover:bg-slate-800 border-none'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            activeCategory === "policies"
+              ? "bg-slate-900 text-white hover:bg-slate-800 border-none"
+              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
           }`}
         >
           Policies & Handbooks
@@ -218,9 +220,11 @@ export default function ResourceLibraryPage() {
                 </p>
 
                 <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-auto">
-                  <span className="text-xs font-medium text-slate-400">{resource.meta}</span>
+                  <span className="text-xs font-medium text-slate-400">
+                    {resource.meta}
+                  </span>
 
-                  {resource.type === 'policy' ? (
+                  {resource.type === "policy" ? (
                     <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 group-hover:text-montessori-primary">
                       <Download className="w-3.5 h-3.5" /> Download
                     </div>
