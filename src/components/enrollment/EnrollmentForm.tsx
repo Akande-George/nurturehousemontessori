@@ -1,141 +1,431 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+
+const PROGRAM_OPTIONS = [
+  "Infant Community (Nurture Bloomers) - 6 months to 18 months",
+  "Toddler Community (Nurture Buds) - 18 months to 3 years",
+  "Children's House (Nurture Explorers) - 3 to 6 years",
+] as const;
+
+function getTodayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function calculateAge(dob: string) {
+  if (!dob) return "";
+
+  const birth = new Date(dob);
+  if (Number.isNaN(birth.getTime())) return "";
+
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  if (now.getDate() < birth.getDate()) {
+    months = Math.max(0, months - 1);
+  }
+
+  return `${years} years ${months} months`;
+}
 
 export default function EnrollmentForm() {
-  const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dob, setDob] = useState("");
+  const [age, setAge] = useState("");
+  const [applicationDate, setApplicationDate] = useState(getTodayDate());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (step < 3) {
-      setStep(step + 1);
-      return;
-    }
-    
+
     setIsSubmitting(true);
-    // Simulate API call
+
     setTimeout(() => {
       setIsSubmitting(false);
-      alert('Application submitted successfully!');
+      alert(
+        "Waitlist form submitted successfully. Our admissions team will contact you soon.",
+      );
     }, 1500);
+  };
+
+  const handleDobChange = (value: string) => {
+    setDob(value);
+    setAge(calculateAge(value));
   };
 
   return (
     <Card className="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border-slate-100 overflow-hidden">
-      {/* Progress Bar */}
-      <div className="bg-slate-50 border-b border-slate-100 px-8 py-5 flex items-center justify-between">
-        <h2 className="font-serif text-xl text-slate-900">Digital Enrollment</h2>
-        <div className="flex gap-2">
-          {[1, 2, 3].map((s) => (
-            <div 
-              key={s} 
-              className={cn(
-                "w-2 h-2 rounded-full transition-all duration-300",
-                step >= s ? "bg-montessori-primary w-6" : "bg-slate-200"
-              )} 
-            />
-          ))}
-        </div>
+      <div className="bg-slate-50 border-b border-slate-100 px-8 py-5">
+        <h2 className="font-serif text-xl text-slate-900">
+          Waitlist Application
+        </h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Complete this form to join the Nurture House Montessori waitlist.
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="p-8">
-        
-        {/* Step 1: Parent Info */}
-        {step === 1 && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <section className="space-y-5">
             <div>
-              <h3 className="text-lg font-medium text-slate-900 mb-1">Parent/Guardian Information</h3>
-              <p className="text-sm text-slate-500 mb-6">Let's start with your contact details.</p>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName" className="text-slate-700">First Name</Label>
-                <Input id="firstName" required className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5" placeholder="Jane" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName" className="text-slate-700">Last Name</Label>
-                <Input id="lastName" required className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5" placeholder="Doe" />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-700">Email Address</Label>
-              <Input id="email" type="email" required className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5" placeholder="jane@example.com" />
+              <h3 className="text-lg font-medium text-slate-900 mb-1">
+                Contact
+              </h3>
+              <p className="text-sm text-slate-500">
+                Parent or guardian primary contact details.
+              </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-slate-700">Phone Number</Label>
-              <Input id="phone" type="tel" required className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5" placeholder="(555) 123-4567" />
+              <Label htmlFor="email" className="text-slate-700">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                required
+                className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                placeholder="name@example.com"
+              />
             </div>
-          </div>
-        )}
 
-        {/* Step 2: Child Info */}
-        {step === 2 && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="parentName" className="text-slate-700">
+                  Parent/Guardian Name
+                </Label>
+                <Input
+                  id="parentName"
+                  required
+                  className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                  placeholder="Full name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="relationship" className="text-slate-700">
+                  Relationship to Child
+                </Label>
+                <Input
+                  id="relationship"
+                  required
+                  className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                  placeholder="Mother, Father, Guardian..."
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-slate-700">
+                  Phone Number
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  required
+                  className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                  placeholder="0801 234 5678"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp" className="text-slate-700">
+                  WhatsApp Number
+                </Label>
+                <Input
+                  id="whatsapp"
+                  type="tel"
+                  required
+                  className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                  placeholder="0801 234 5678"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="occupation" className="text-slate-700">
+                Occupation
+              </Label>
+              <Input
+                id="occupation"
+                required
+                className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                placeholder="Occupation"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="preferredCommunication"
+                className="text-slate-700"
+              >
+                Preferred Method of Communication
+              </Label>
+              <select
+                id="preferredCommunication"
+                required
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-montessori-primary"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Select a method
+                </option>
+                <option value="phone-call">Phone Call</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="email">Email</option>
+                <option value="sms">SMS</option>
+              </select>
+            </div>
+          </section>
+
+          <section className="space-y-5">
             <div>
-              <h3 className="text-lg font-medium text-slate-900 mb-1">Child Information</h3>
-              <p className="text-sm text-slate-500 mb-6">Tell us about the prospective student.</p>
+              <h3 className="text-lg font-medium text-slate-900 mb-1">
+                Child Information
+              </h3>
+              <p className="text-sm text-slate-500">
+                Prospective learner details.
+              </p>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="childFirstName" className="text-slate-700">First Name</Label>
-                <Input id="childFirstName" required className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5" placeholder="Child's First Name" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="childLastName" className="text-slate-700">Last Name</Label>
-                <Input id="childLastName" required className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5" placeholder="Child's Last Name" />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="dob" className="text-slate-700">Date of Birth</Label>
-              <Input id="dob" type="date" required className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5" />
-            </div>
-          </div>
-        )}
 
-        {/* Step 3: Additional Details */}
-        {step === 3 && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="space-y-2">
+              <Label htmlFor="childName" className="text-slate-700">
+                Child's Name
+              </Label>
+              <Input
+                id="childName"
+                required
+                className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                placeholder="Full name"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="gender" className="text-slate-700">
+                  Gender
+                </Label>
+                <select
+                  id="gender"
+                  required
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-montessori-primary"
+                  defaultValue=""
+                >
+                  <option value="" disabled>
+                    Select gender
+                  </option>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dob" className="text-slate-700">
+                  Date of Birth
+                </Label>
+                <Input
+                  id="dob"
+                  type="date"
+                  required
+                  value={dob}
+                  onChange={(e) => handleDobChange(e.target.value)}
+                  className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="childAge" className="text-slate-700">
+                Child's Age
+              </Label>
+              <Input
+                id="childAge"
+                value={age}
+                readOnly
+                placeholder="Calculated from date of birth"
+                className="rounded-xl border-slate-200 bg-slate-50 text-slate-700 py-5"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="nationality" className="text-slate-700">
+                  Nationality
+                </Label>
+                <Input
+                  id="nationality"
+                  required
+                  className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                  placeholder="Nationality"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="preferredStartDate" className="text-slate-700">
+                  Preferred Start Date
+                </Label>
+                <Input
+                  id="preferredStartDate"
+                  type="date"
+                  required
+                  className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="address" className="text-slate-700">
+                Address
+              </Label>
+              <Textarea
+                id="address"
+                required
+                className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary min-h-[90px] resize-none"
+                placeholder="Home address"
+              />
+            </div>
+          </section>
+
+          <section className="space-y-5">
             <div>
-              <h3 className="text-lg font-medium text-slate-900 mb-1">Additional Details</h3>
-              <p className="text-sm text-slate-500 mb-6">Any special considerations we should know about.</p>
+              <h3 className="text-lg font-medium text-slate-900 mb-1">
+                Programme & Background
+              </h3>
+              <p className="text-sm text-slate-500">
+                Help us place your child in the right programme.
+              </p>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="allergies" className="text-slate-700">Allergies or Medical Conditions</Label>
-              <Textarea id="allergies" className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary min-h-[100px] resize-none" placeholder="Please list any allergies or medical conditions we should be aware of..."></Textarea>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="interest" className="text-slate-700">Why are you interested in a Montessori education?</Label>
-              <Textarea id="interest" className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary min-h-[100px] resize-none" placeholder="Briefly explain your interest..."></Textarea>
-            </div>
-          </div>
-        )}
 
-        {/* Form Actions */}
-        <div className="mt-8 flex items-center justify-between pt-6 border-t border-slate-100">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setStep(Math.max(1, step - 1))}
-            className="rounded-full font-medium"
-            disabled={step === 1 || isSubmitting}
-          >
-            Back
-          </Button>
-          
+            <div className="space-y-2">
+              <Label htmlFor="program" className="text-slate-700">
+                Which program are you interested in?
+              </Label>
+              <select
+                id="program"
+                required
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-montessori-primary"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Select a program
+                </option>
+                {PROGRAM_OPTIONS.map((program) => (
+                  <option key={program} value={program}>
+                    {program}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="firstSchool" className="text-slate-700">
+                Is this your child&apos;s first school experience?
+              </Label>
+              <select
+                id="firstSchool"
+                required
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-montessori-primary"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Select an option
+                </option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="partnerSupport" className="text-slate-700">
+                Are you willing to partner with the school in supporting your
+                child&apos;s independence and development?
+              </Label>
+              <select
+                id="partnerSupport"
+                required
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-montessori-primary"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Select an option
+                </option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="tourDate" className="text-slate-700">
+                  Preferred Tour/Interview Date
+                </Label>
+                <Input
+                  id="tourDate"
+                  type="date"
+                  required
+                  className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="applicationDate" className="text-slate-700">
+                  Date
+                </Label>
+                <Input
+                  id="applicationDate"
+                  type="date"
+                  required
+                  value={applicationDate}
+                  onChange={(e) => setApplicationDate(e.target.value)}
+                  className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="interestReason" className="text-slate-700">
+                Why are you interested in Nurture House Montessori School?
+              </Label>
+              <Textarea
+                id="interestReason"
+                required
+                className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary min-h-[110px] resize-none"
+                placeholder="Share what drew you to our Montessori environment."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="referralSource" className="text-slate-700">
+                How did you hear about us?
+              </Label>
+              <Input
+                id="referralSource"
+                required
+                className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary py-5"
+                placeholder="Friend, Instagram, Google, community event..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="additionalInfo" className="text-slate-700">
+                Any Additional Information
+              </Label>
+              <Textarea
+                id="additionalInfo"
+                className="rounded-xl border-slate-200 focus-visible:ring-montessori-primary min-h-[110px] resize-none"
+                placeholder="Share anything else that would help our admissions team understand your child and family better."
+              />
+            </div>
+          </section>
+        </div>
+
+        <div className="mt-8 flex items-center justify-end pt-6 border-t border-slate-100">
           <Button
             type="submit"
             disabled={isSubmitting}
@@ -147,7 +437,7 @@ export default function EnrollmentForm() {
                 Processing...
               </>
             ) : (
-              step === 3 ? 'Submit Application' : 'Continue'
+              "Submit Waitlist Application"
             )}
           </Button>
         </div>
