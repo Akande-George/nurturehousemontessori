@@ -224,7 +224,9 @@ export default function StudentsPage() {
                           </Badge>
                         </div>
                         <div className="flex justify-between items-center text-xs">
-                          <span className="text-slate-500">Latest Focus</span>
+                          <span className="text-slate-500">
+                            New Presentation
+                          </span>
                           <span className="font-medium text-slate-700">
                             {student.ms}
                           </span>

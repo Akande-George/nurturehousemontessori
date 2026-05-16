@@ -8,6 +8,7 @@ import {
   getRoleUser,
   getStudentProgress,
   getStudentsForParent,
+  getStudentObservations,
   useDemoStore,
 } from "@/lib/mock/demo-store";
 
@@ -27,13 +28,20 @@ export default function AcademicProgressPage() {
     ? getStudentProgress(selectedChild.id)
     : null;
 
-  const averageScore = useMemo(() => {
-    if (!progressData?.areas) return 0;
-    const scores = progressData.areas.map((a: any) => a.score);
-    return Math.round(
-      scores.reduce((a: number, b: number) => a + b, 0) / scores.length,
-    );
-  }, [progressData]);
+  const observations = selectedChild
+    ? getStudentObservations(selectedChild.id)
+    : [];
+
+  // Group observations by area tag
+  const obsByArea = useMemo(() => {
+    const map: Record<string, typeof observations> = {};
+    for (const obs of observations) {
+      const key = obs.area ?? "General";
+      if (!map[key]) map[key] = [];
+      map[key].push(obs);
+    }
+    return map;
+  }, [observations]);
 
   const getTrendIcon = (trend: string) => {
     if (trend === "up") return <ArrowUp className="w-4 h-4 text-emerald-600" />;
@@ -77,17 +85,8 @@ export default function AcademicProgressPage() {
     );
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-emerald-600";
-    if (score >= 60) return "text-amber-600";
-    return "text-slate-600";
-  };
-
-  const getScoreBgColor = (score: number) => {
-    if (score >= 80) return "bg-emerald-50";
-    if (score >= 60) return "bg-amber-50";
-    return "bg-slate-50";
-  };
+  const getScoreColor = (_score: number) => "text-slate-700";
+  const getScoreBgColor = (_score: number) => "bg-slate-50";
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
@@ -135,18 +134,12 @@ export default function AcademicProgressPage() {
                     <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">
                       Overall Progress
                     </p>
-                    <p
-                      className={`text-2xl font-serif font-bold ${getScoreColor(averageScore)}`}
-                    >
-                      {averageScore}%
+                    <p className="text-2xl font-serif font-bold text-slate-900">
+                      {progressData.areas.length} areas tracked
                     </p>
                   </div>
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center ${getScoreBgColor(averageScore)}`}
-                  >
-                    <TrendingUp
-                      className={`w-6 h-6 ${getScoreColor(averageScore)}`}
-                    />
+                  <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-montessori-primary" />
                   </div>
                 </div>
               </CardContent>
@@ -220,28 +213,44 @@ export default function AcademicProgressPage() {
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2 shrink-0">
-                        <div
-                          className={`text-3xl font-serif font-bold ${getScoreColor(area.score)}`}
-                        >
-                          {area.score}%
-                        </div>
                         {getLevelBadge(area.level)}
+                        {getTrendIcon(area.trend)}
                       </div>
                     </div>
 
-                    {/* Progress bar */}
-                    <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          area.score >= 80
-                            ? "bg-emerald-500"
-                            : area.score >= 60
-                              ? "bg-amber-500"
-                              : "bg-slate-400"
-                        }`}
-                        style={{ width: `${area.score}%` }}
-                      />
-                    </div>
+                    {/* Observations for this area */}
+                    {obsByArea[area.name] &&
+                      obsByArea[area.name].length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-slate-100">
+                          <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">
+                            Observations
+                          </p>
+                          <ul className="space-y-2">
+                            {obsByArea[area.name].map((obs) => (
+                              <li
+                                key={obs.id}
+                                className="text-sm text-slate-700 flex items-start gap-2"
+                              >
+                                <span className="text-montessori-primary mt-0.5">
+                                  ·
+                                </span>
+                                <div>
+                                  <span>{obs.note}</span>
+                                  <span className="ml-2 text-xs text-slate-400">
+                                    —{" "}
+                                    {new Date(
+                                      obs.observedAt,
+                                    ).toLocaleDateString("en-NG", {
+                                      day: "numeric",
+                                      month: "short",
+                                    })}
+                                  </span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
                     {/* Details */}
                     {area.recentActivities &&

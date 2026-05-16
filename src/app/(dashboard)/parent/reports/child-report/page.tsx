@@ -400,14 +400,9 @@ export default function ChildReportPage() {
         <div class="progress-area">
           <div class="progress-area-title">
             <span>${area.name}</span>
-            <span class="score">${area.score}%</span>
+            <span style="font-size: 13px; font-weight: 600; color: #334155; text-transform: capitalize;">${area.level}</span>
           </div>
-          <div class="progress-bar">
-            <div class="progress-fill" style="width: ${area.score}%"></div>
-          </div>
-          <div style="font-size: 13px; color: #718096;">
-            Level: <strong>${area.level.charAt(0).toUpperCase() + area.level.slice(1)}</strong>
-          </div>
+          <div style="font-size: 13px; color: #718096;">${area.description}</div>
           <div class="progress-description">${area.description}</div>
           ${
             area.recentActivities && area.recentActivities.length > 0
@@ -744,18 +739,15 @@ export default function ChildReportPage() {
                         <p className="text-sm font-medium text-slate-900 mb-2">
                           {area.name}
                         </p>
-                        <p className="text-2xl font-serif font-bold text-montessori-primary">
-                          {area.score}%
-                        </p>
-                        <p className="text-xs text-slate-500 mt-2 capitalize">
+                        <Badge
+                          variant="outline"
+                          className="text-xs capitalize font-medium"
+                        >
                           {area.level}
+                        </Badge>
+                        <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                          {area.description}
                         </p>
-                        <div className="w-full bg-slate-200 rounded-full h-1.5 mt-3 overflow-hidden">
-                          <div
-                            className="h-full bg-montessori-primary rounded-full transition-all duration-300"
-                            style={{ width: `${area.score}%` }}
-                          />
-                        </div>
                       </div>
                     ))}
                 </div>

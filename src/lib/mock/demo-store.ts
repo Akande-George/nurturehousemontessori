@@ -28,6 +28,8 @@ export type DemoStudent = {
   avatarColor: string; // tailwind bg class
   emergencyContact: { name: string; phone: string; relationship: string };
   parentName: string;
+  medications: DemoMedication[];
+  frequentLatePickup?: boolean; // flag for after-school recommendation
 };
 
 export type DemoActivityPost = {
@@ -63,6 +65,21 @@ export type DemoNotice = {
   audience: "all-parents";
   createdAt: string;
   createdBy: string;
+  readBy: string[]; // parentIds who have opened this notice
+};
+
+export type DemoMedication = {
+  id: string;
+  name: string;
+  dosage: string;
+  time: string; // e.g. "08:30 AM"
+  notes: string;
+};
+
+export type DemoAfterSchoolEnrollment = {
+  studentId: string;
+  enrolledAt: string;
+  enrolledBy: string; // parentId
 };
 
 export type DemoCalendarEventType =
@@ -245,6 +262,7 @@ type DemoState = {
   activityPosts: DemoActivityPost[];
   dailyActivityLogs: DemoDailyActivityLog[];
   progressData: Record<string, DemoProgress>;
+  afterSchoolEnrollments: DemoAfterSchoolEnrollment[];
 };
 
 const progressDataMap: Record<string, DemoProgress> = {
@@ -779,6 +797,16 @@ let state: DemoState = {
         relationship: "Father",
       },
       parentName: "Amanda Wong",
+      medications: [
+        {
+          id: "med-zoe-1",
+          name: "Cetirizine (antihistamine)",
+          dosage: "2.5 ml",
+          time: "08:00 AM",
+          notes: "Give with morning snack if allergy symptoms appear.",
+        },
+      ],
+      frequentLatePickup: false,
     },
     {
       id: "leo",
@@ -799,6 +827,8 @@ let state: DemoState = {
         relationship: "Mother",
       },
       parentName: "Carlos Martinez",
+      medications: [],
+      frequentLatePickup: true,
     },
     {
       id: "sarah",
@@ -819,6 +849,8 @@ let state: DemoState = {
         relationship: "Father",
       },
       parentName: "Claire Jenkins",
+      medications: [],
+      frequentLatePickup: false,
     },
     {
       id: "emma",
@@ -839,6 +871,8 @@ let state: DemoState = {
         relationship: "Father",
       },
       parentName: "Amanda Wong",
+      medications: [],
+      frequentLatePickup: false,
     },
     {
       id: "noah",
@@ -859,6 +893,8 @@ let state: DemoState = {
         relationship: "Mother",
       },
       parentName: "Kwame Osei",
+      medications: [],
+      frequentLatePickup: false,
     },
     {
       id: "aisha",
@@ -879,6 +915,8 @@ let state: DemoState = {
         relationship: "Father",
       },
       parentName: "Priya Patel",
+      medications: [],
+      frequentLatePickup: false,
     },
     {
       id: "james",
@@ -899,6 +937,8 @@ let state: DemoState = {
         relationship: "Mother",
       },
       parentName: "Chidi Okonkwo",
+      medications: [],
+      frequentLatePickup: false,
     },
   ],
   notices: [
@@ -910,6 +950,7 @@ let state: DemoState = {
       audience: "all-parents",
       createdAt: "2026-05-03T09:00:00.000Z",
       createdBy: "user-admin",
+      readBy: ["user-parent"],
     },
     {
       id: "notice-2",
@@ -919,6 +960,7 @@ let state: DemoState = {
       audience: "all-parents",
       createdAt: "2026-05-01T09:15:00.000Z",
       createdBy: "user-admin",
+      readBy: ["user-parent"],
     },
     {
       id: "notice-3",
@@ -928,6 +970,7 @@ let state: DemoState = {
       audience: "all-parents",
       createdAt: "2026-04-28T10:30:00.000Z",
       createdBy: "user-admin",
+      readBy: [],
     },
     {
       id: "notice-4",
@@ -937,6 +980,7 @@ let state: DemoState = {
       audience: "all-parents",
       createdAt: "2026-04-25T08:00:00.000Z",
       createdBy: "user-admin",
+      readBy: [],
     },
   ],
   observations: [
@@ -1148,17 +1192,30 @@ let state: DemoState = {
       status: "generated",
       generalMood: "Happy",
       careEntries: [
-        { label: "Food I ate", value: "Rice and vegetables", time: "12:10 PM" },
-        { label: "How much", value: "Most of lunch" },
         {
-          label: "Toilet use",
-          value: "Diaper changed twice",
+          label: "Breakfast",
+          value: "Oat porridge and banana",
+          time: "08:15 AM",
+        },
+        { label: "How much (Breakfast)", value: "All" },
+        {
+          label: "Morning Snack",
+          value: "Crackers and water",
+          time: "10:00 AM",
+        },
+        { label: "Bowel Movement", value: "Normal, once", time: "10:30 AM" },
+        { label: "Lunch", value: "Rice and vegetables", time: "12:10 PM" },
+        { label: "How much (Lunch)", value: "Most" },
+        { label: "Nap", value: "1 hour 20 minutes", time: "1:00 PM – 2:20 PM" },
+        {
+          label: "Diaper / Toilet",
+          value: "Changed twice",
           time: "10:40 AM / 1:25 PM",
         },
         {
-          label: "Nap time",
-          value: "1 hour 20 minutes",
-          time: "1:00 PM - 2:20 PM",
+          label: "Mood of the Day",
+          value:
+            "Happy and calm. Smiled often, engaged with peers during circle time.",
         },
       ],
       funLearning:
@@ -1182,14 +1239,22 @@ let state: DemoState = {
       status: "pending",
       generalMood: "Neutral",
       careEntries: [
-        { label: "Food I ate", value: "Porridge and fruit", time: "11:55 AM" },
-        { label: "How much", value: "Some" },
+        { label: "Breakfast", value: "Porridge and fruit", time: "08:20 AM" },
+        { label: "How much (Breakfast)", value: "Some" },
+        { label: "Bowel Movement", value: "Soft, once", time: "09:50 AM" },
+        { label: "Lunch", value: "Porridge and fruit", time: "11:55 AM" },
+        { label: "How much (Lunch)", value: "Some" },
+        { label: "Nap", value: "45 minutes", time: "12:50 PM – 1:35 PM" },
         {
-          label: "Toilet use",
+          label: "Diaper / Toilet",
           value: "Potty attempt with support",
           time: "10:15 AM",
         },
-        { label: "Nap time", value: "45 minutes", time: "12:50 PM - 1:35 PM" },
+        {
+          label: "Mood of the Day",
+          value:
+            "Settled but needed brief reassurance at transitions. Generally calm.",
+        },
       ],
       funLearning:
         "Leo explored spoon transfer work, water play, and shape sorting with close guidance from the guide.",
@@ -1212,17 +1277,29 @@ let state: DemoState = {
       generalMood: "Happy",
       careEntries: [
         {
-          label: "Food I ate",
+          label: "Breakfast",
+          value: "Banana and dairy-free toast",
+          time: "08:10 AM",
+        },
+        { label: "How much (Breakfast)", value: "All" },
+        { label: "Bowel Movement", value: "Normal, once", time: "10:00 AM" },
+        {
+          label: "Lunch",
           value: "Beans, plantain, and water",
           time: "12:05 PM",
         },
-        { label: "How much", value: "All" },
+        { label: "How much (Lunch)", value: "All" },
+        { label: "Nap", value: "1 hour", time: "1:10 PM – 2:10 PM" },
         {
-          label: "Toilet use",
+          label: "Diaper / Toilet",
           value: "Independent toilet visit with reminder",
           time: "11:20 AM",
         },
-        { label: "Nap time", value: "1 hour", time: "1:10 PM - 2:10 PM" },
+        {
+          label: "Mood of the Day",
+          value:
+            "Playful, cooperative, and proud. Showed great enthusiasm during finger painting.",
+        },
       ],
       funLearning:
         "Sarah had fun with finger painting, rolling balls during outdoor play, and naming colors in the book corner.",
@@ -1640,6 +1717,7 @@ let state: DemoState = {
     noah: progressDataMap.noah,
     james: progressDataMap.james,
   },
+  afterSchoolEnrollments: [],
 };
 
 const listeners = new Set<() => void>();
@@ -1982,4 +2060,104 @@ export function addActivityPost(input: {
 
 export function getStudentProgress(studentId: string): DemoProgress | null {
   return state.progressData[studentId] || null;
+}
+
+export function markNoticeRead(noticeId: string, parentId: string) {
+  state = {
+    ...state,
+    notices: state.notices.map((n) =>
+      n.id === noticeId && !n.readBy.includes(parentId)
+        ? { ...n, readBy: [...n.readBy, parentId] }
+        : n,
+    ),
+  };
+  emit();
+}
+
+export function getNoticeReadCount(noticeId: string) {
+  const notice = state.notices.find((n) => n.id === noticeId);
+  return notice ? notice.readBy.length : 0;
+}
+
+export function getTotalParentCount() {
+  return new Set(
+    state.students.map((s) =>
+      Array.isArray(s.parentId) ? s.parentId[0] : s.parentId,
+    ),
+  ).size;
+}
+
+export function enrollAfterSchool(studentId: string, parentId: string) {
+  const already = state.afterSchoolEnrollments.some(
+    (e) => e.studentId === studentId,
+  );
+  if (already) return;
+  state = {
+    ...state,
+    afterSchoolEnrollments: [
+      ...state.afterSchoolEnrollments,
+      { studentId, enrolledAt: new Date().toISOString(), enrolledBy: parentId },
+    ],
+  };
+  emit();
+}
+
+export function unenrollAfterSchool(studentId: string) {
+  state = {
+    ...state,
+    afterSchoolEnrollments: state.afterSchoolEnrollments.filter(
+      (e) => e.studentId !== studentId,
+    ),
+  };
+  emit();
+}
+
+export function isAfterSchoolEnrolled(studentId: string) {
+  return state.afterSchoolEnrollments.some((e) => e.studentId === studentId);
+}
+
+export function getAfterSchoolEnrollments() {
+  return [...state.afterSchoolEnrollments];
+}
+
+export function getFrequentLatePickupStudents() {
+  return state.students.filter((s) => s.frequentLatePickup);
+}
+
+export function addMedication(
+  studentId: string,
+  input: { name: string; dosage: string; time: string; notes: string },
+) {
+  state = {
+    ...state,
+    students: state.students.map((s) =>
+      s.id === studentId
+        ? {
+            ...s,
+            medications: [...s.medications, { id: nextId("med"), ...input }],
+          }
+        : s,
+    ),
+  };
+  emit();
+}
+
+export function removeMedication(studentId: string, medicationId: string) {
+  state = {
+    ...state,
+    students: state.students.map((s) =>
+      s.id === studentId
+        ? {
+            ...s,
+            medications: s.medications.filter((m) => m.id !== medicationId),
+          }
+        : s,
+    ),
+  };
+  emit();
+}
+
+export function getTeacherName(teacherId: string) {
+  if (teacherId === state.users.teacher.id) return state.users.teacher.name;
+  return "Guide";
 }

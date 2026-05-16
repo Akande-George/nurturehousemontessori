@@ -18,8 +18,10 @@ import { useToast } from "@/hooks/use-toast";
 import {
   createNotice,
   getParentNotices,
+  getTotalParentCount,
   useDemoStore,
 } from "@/lib/mock/demo-store";
+import { Eye, Users } from "lucide-react";
 
 export default function DashboardPage() {
   const [isNoticeOpen, setIsNoticeOpen] = useState(false);
@@ -44,6 +46,7 @@ export default function DashboardPage() {
   }, [store]);
 
   const notices = getParentNotices().slice(0, 4);
+  const totalParents = getTotalParentCount();
 
   const handlePostNotice = () => {
     if (!noticeTitle.trim() || !noticeBody.trim()) {
@@ -133,20 +136,42 @@ export default function DashboardPage() {
             <CardTitle>Recent notices</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {notices.map((notice) => (
-              <div
-                key={notice.id}
-                className="rounded-lg border border-slate-100 p-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-slate-900">{notice.title}</p>
-                  <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 border-none">
-                    All parents
-                  </Badge>
+            {notices.map((notice) => {
+              const readCount = notice.readBy.length;
+              const seenAll = readCount >= totalParents;
+              return (
+                <div
+                  key={notice.id}
+                  className="rounded-lg border border-slate-100 p-3"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="font-medium text-slate-900">{notice.title}</p>
+                    <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 border-none">
+                      All parents
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-2 line-clamp-2">
+                    {notice.content}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {readCount} of {totalParents} parent
+                      {totalParents !== 1 ? "s" : ""} seen
+                    </span>
+                    {seenAll && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-4 py-0 border-emerald-200 text-emerald-700 bg-emerald-50 ml-1"
+                      >
+                        All seen
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                <p className="text-sm text-slate-600 mt-2">{notice.content}</p>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       </div>

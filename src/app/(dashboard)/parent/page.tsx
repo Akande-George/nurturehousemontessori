@@ -14,6 +14,8 @@ import {
   getRoleUser,
   getStudentInvoices,
   getStudentsForParent,
+  getStudentDailyReports,
+  getTeacherName,
   toggleActivityLike,
   useDemoStore,
 } from "@/lib/mock/demo-store";
@@ -28,6 +30,7 @@ import {
   Sun,
   UtensilsCrossed,
   BedDouble,
+  Filter,
 } from "lucide-react";
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -103,8 +106,17 @@ export default function ParentDashboardPage() {
     children.length > 1 ? "__all__" : (children[0]?.id ?? ""),
   );
   const [feedFilter, setFeedFilter] = useState("All");
+  const [dateFilter, setDateFilter] = useState<string>("all");
 
   const allFeedPosts = getActivityFeedForParent(parent.id);
+
+  // Unique dates available in the feed
+  const availableDates = useMemo(() => {
+    const dateSet = new Set(
+      allFeedPosts.map((p) => new Date(p.createdAt).toDateString()),
+    );
+    return Array.from(dateSet);
+  }, [allFeedPosts]);
 
   const filteredPosts = useMemo(() => {
     let posts = allFeedPosts;
@@ -112,9 +124,13 @@ export default function ParentDashboardPage() {
       posts = posts.filter((p) => p.studentId === activeChildId);
     if (feedFilter !== "All")
       posts = posts.filter((p) => p.category === feedFilter);
+    if (dateFilter !== "all")
+      posts = posts.filter(
+        (p) => new Date(p.createdAt).toDateString() === dateFilter,
+      );
     return posts;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot, activeChildId, feedFilter]);
+  }, [snapshot, activeChildId, feedFilter, dateFilter]);
 
   const activeChild = children.find((c) => c.id === activeChildId);
   const invoices = activeChild ? getStudentInvoices(activeChild.id) : [];
@@ -142,44 +158,95 @@ export default function ParentDashboardPage() {
   );
 
   const flowChild = activeChildId === "__all__" ? children[0] : activeChild;
-  const dayFlowSteps: RoutineStep[] = [
-    {
-      id: "breakfast",
-      label: "Breakfast",
-      time: "08:15 AM",
-      note: `${flowChild?.name.split(" ")[0] ?? "Child"} had a balanced breakfast and started the morning calmly.`,
-      icon: Sun,
-    },
-    {
-      id: "nap",
-      label: "Nap",
-      time: "11:45 AM",
-      note: "Settled quickly after story time and rested well.",
-      icon: Moon,
-    },
-    {
-      id: "lunch",
-      label: "Lunch",
-      time: "01:00 PM",
-      note: "Ate independently and enjoyed fruit and rice.",
-      icon: UtensilsCrossed,
-    },
-    {
-      id: "sleep",
-      label: "Sleep",
-      time: "03:15 PM",
-      note: "Quiet sleep block before pickup activities and reflection circle.",
-      icon: BedDouble,
-    },
-  ];
 
-  const hour = new Date().getHours();
-  const defaultFlowIndex = hour < 10 ? 0 : hour < 13 ? 1 : hour < 15 ? 2 : 3;
-  const [activeFlowStep, setActiveFlowStep] = useState<RoutineStep["id"]>(
-    dayFlowSteps[defaultFlowIndex].id,
-  );
+  // Build daily flow from today's report for the flow child
+  const flowReports = flowChild ? getStudentDailyReports(flowChild.id) : [];
+  const todayStr = new Date().toISOString().slice(0, 10);
+  // Use most recent report (could be today or latest available for demo)
+  const latestReport = flowReports[0] ?? null;
+  const is02 = flowChild?.ageGroup === "0-2 years";
+
+  // For 0-2: use all careEntries as individual flow steps
+  // For 3-6: single summary step (breakfast + lunch + nap)
+  type FlowStep = {
+    id: string;
+    label: string;
+    time?: string;
+    note: string;
+    icon: typeof Sun;
+  };
+
+  const careStepIcon = (label: string): typeof Sun => {
+    const l = label.toLowerCase();
+    if (l.includes("breakfast") || l.includes("snack")) return Sun;
+    if (l.includes("lunch")) return UtensilsCrossed;
+    if (l.includes("nap") || l.includes("sleep")) return Moon;
+    if (l.includes("bowel") || l.includes("diaper") || l.includes("toilet"))
+      return BedDouble;
+    return Sun;
+  };
+
+  const dynamicFlowSteps: FlowStep[] = useMemo(() => {
+    if (!latestReport)
+      return [
+        {
+          id: "none",
+          label: "No report yet",
+          note: "Today's daily flow will appear here once the guide submits a report.",
+          icon: Sun,
+        },
+      ];
+    if (is02 && latestReport.careEntries) {
+      return latestReport.careEntries.map((entry, i) => ({
+        id: `care-${i}`,
+        label: entry.label,
+        time: entry.time,
+        note: entry.value,
+        icon: careStepIcon(entry.label),
+      }));
+    }
+    // 3-6: single consolidated step
+    const parts: string[] = [];
+    if (latestReport.mealNotes) parts.push(`Meals: ${latestReport.mealNotes}`);
+    if (latestReport.workCycle?.length)
+      parts.push(
+        `Work cycle: ${latestReport.workCycle.map((w) => w.activity).join(", ")}`,
+      );
+    if (latestReport.independenceSkills)
+      parts.push(`Independence: ${latestReport.independenceSkills}`);
+    if (latestReport.socialDevelopment)
+      parts.push(`Social: ${latestReport.socialDevelopment}`);
+    return [
+      {
+        id: "morning",
+        label: "Morning",
+        note: parts[0] ?? latestReport.teacherComments,
+        icon: Sun,
+      },
+      {
+        id: "lunch",
+        label: "Lunch & Work",
+        note: parts[1] ?? latestReport.teacherComments,
+        icon: UtensilsCrossed,
+      },
+      {
+        id: "afternoon",
+        label: "Afternoon",
+        note: parts[2] ?? "Afternoon activity in progress.",
+        icon: BedDouble,
+      },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestReport, is02]);
+
+  // Legacy steps (fallback used for step progress bar in 0-2 we skip the progress bar)
+  const dayFlowSteps = dynamicFlowSteps;
+
+  const [activeFlowStep, setActiveFlowStep] = useState<string>("");
   const activeFlowIndex = Math.max(
-    dayFlowSteps.findIndex((step) => step.id === activeFlowStep),
+    dayFlowSteps.findIndex(
+      (step) => step.id === (activeFlowStep || dayFlowSteps[0]?.id),
+    ),
     0,
   );
 
@@ -438,9 +505,8 @@ export default function ParentDashboardPage() {
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 {flowChild
-                  ? `${flowChild.name.split(" ")[0]}'s routine updates`
-                  : "Routine updates"}{" "}
-                · Tap a step to view details.
+                  ? `${flowChild.name.split(" ")[0]}'s routine · ${is02 ? "0–2 yr full log" : "3–6 yr summary"}`
+                  : "Routine updates"}
               </p>
             </div>
             <Badge
@@ -451,7 +517,8 @@ export default function ParentDashboardPage() {
             </Badge>
           </div>
 
-          <div className="relative">
+          {/* Progress bar only for non-0-2 (keeps manageable) */}
+          {!is02 && (
             <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-montessori-primary to-emerald-400 transition-all duration-700"
@@ -460,53 +527,75 @@ export default function ParentDashboardPage() {
                 }}
               />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
-              {dayFlowSteps.map((step, index) => {
-                const StepIcon = step.icon;
-                const status =
-                  index < activeFlowIndex
-                    ? "done"
-                    : index === activeFlowIndex
-                      ? "current"
-                      : "upcoming";
-                return (
-                  <button
-                    key={step.id}
-                    onClick={() => setActiveFlowStep(step.id)}
-                    className={`text-left rounded-xl border p-3 transition-all duration-300 ${
-                      activeFlowStep === step.id
-                        ? "border-montessori-primary bg-montessori-primary/5 shadow-sm scale-[1.02]"
-                        : "border-slate-200 bg-white hover:border-slate-300 hover:-translate-y-0.5"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center ${status === "done" ? "bg-emerald-100 text-emerald-700" : status === "current" ? "bg-montessori-primary/15 text-montessori-primary animate-pulse" : "bg-slate-100 text-slate-500"}`}
-                      >
-                        <StepIcon className="w-3.5 h-3.5" />
-                      </div>
+          )}
+
+          <div
+            className={`grid gap-2 ${is02 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-3"}`}
+          >
+            {dayFlowSteps.map((step, index) => {
+              const StepIcon = step.icon;
+              const status =
+                index < activeFlowIndex
+                  ? "done"
+                  : index === activeFlowIndex
+                    ? "current"
+                    : "upcoming";
+              const selected =
+                (activeFlowStep || dayFlowSteps[0]?.id) === step.id;
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => setActiveFlowStep(step.id)}
+                  className={`text-left rounded-xl border p-3 transition-all duration-300 ${
+                    selected
+                      ? "border-montessori-primary bg-montessori-primary/5 shadow-sm scale-[1.02]"
+                      : "border-slate-200 bg-white hover:border-slate-300 hover:-translate-y-0.5"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div
+                      className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                        status === "done"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : status === "current"
+                            ? "bg-montessori-primary/15 text-montessori-primary animate-pulse"
+                            : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      <StepIcon className="w-3.5 h-3.5" />
+                    </div>
+                    {!is02 && (
                       <span
-                        className={`text-[10px] font-semibold uppercase tracking-wide ${status === "done" ? "text-emerald-600" : status === "current" ? "text-montessori-primary" : "text-slate-400"}`}
+                        className={`text-[10px] font-semibold uppercase tracking-wide ${
+                          status === "done"
+                            ? "text-emerald-600"
+                            : status === "current"
+                              ? "text-montessori-primary"
+                              : "text-slate-400"
+                        }`}
                       >
                         {status}
                       </span>
-                    </div>
-                    <p className="text-sm font-semibold text-slate-900">
-                      {step.label}
-                    </p>
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 truncate">
+                    {step.label}
+                  </p>
+                  {step.time && (
                     <p className="text-xs text-slate-500 mt-0.5">{step.time}</p>
-                  </button>
-                );
-              })}
-            </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 transition-all duration-500 animate-in fade-in">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-              Moment Detail
+              {dayFlowSteps[activeFlowIndex]?.label ?? "Detail"}
             </p>
             <p className="text-sm text-slate-700 leading-relaxed">
-              {dayFlowSteps[activeFlowIndex].note}
+              {dayFlowSteps[activeFlowIndex]?.note ??
+                "Tap a step above to view details."}
             </p>
             <div className="flex items-center gap-2 mt-3">
               <button className="px-2.5 py-1 text-xs rounded-full bg-rose-50 text-rose-600 border border-rose-100 hover:scale-105 transition-transform">
@@ -522,25 +611,57 @@ export default function ParentDashboardPage() {
 
       {/* Activity Timeline */}
       <div>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-5">
           <h2 className="text-xl font-serif text-slate-900">
             Activity Timeline
           </h2>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setFeedFilter(cat)}
-                className={`px-3 py-1 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
-                  feedFilter === cat
-                    ? (CATEGORY_COLORS[cat] ??
-                      "bg-montessori-primary/10 text-montessori-primary border-montessori-primary/20")
-                    : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="flex flex-col gap-2">
+            {/* Category filter */}
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setFeedFilter(cat)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
+                    feedFilter === cat
+                      ? (CATEGORY_COLORS[cat] ??
+                        "bg-montessori-primary/10 text-montessori-primary border-montessori-primary/20")
+                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+            {/* Date filter */}
+            {availableDates.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-1 items-center">
+                <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <button
+                  onClick={() => setDateFilter("all")}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
+                    dateFilter === "all"
+                      ? "bg-montessori-primary/10 text-montessori-primary border-montessori-primary/20"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                  }`}
+                >
+                  All dates
+                </button>
+                {availableDates.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setDateFilter(d)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
+                      dateFilter === d
+                        ? "bg-montessori-primary/10 text-montessori-primary border-montessori-primary/20"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    {formatDateLabel(new Date(d).toISOString())}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -590,6 +711,9 @@ export default function ParentDashboardPage() {
                                 "en-NG",
                                 { hour: "2-digit", minute: "2-digit" },
                               )}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              Posted by {getTeacherName(post.teacherId)}
                             </p>
                           </div>
                           <Badge

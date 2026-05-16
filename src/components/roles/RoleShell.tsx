@@ -62,6 +62,11 @@ const adminNav: NavSection[] = [
     label: "Operations",
     items: [
       { href: "/dashboard/accounting", label: "Billing", icon: CreditCard },
+      {
+        href: "/dashboard/after-school",
+        label: "After School Care",
+        icon: Heart,
+      },
       { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ],
   },
@@ -115,6 +120,16 @@ const parentNav: NavSection[] = [
         href: "/parent/invoices",
         label: "Invoices & Receipts",
         icon: CreditCard,
+      },
+      {
+        href: "/parent/parameters",
+        label: "Child Parameters",
+        icon: Settings,
+      },
+      {
+        href: "/parent/after-school",
+        label: "After School Care",
+        icon: Heart,
       },
     ],
   },
