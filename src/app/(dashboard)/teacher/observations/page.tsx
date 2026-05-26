@@ -8,13 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   formatDateTime,
   getAllObservations,
+  getCurriculumStats,
   getRoleUser,
   getStudentById,
   getStudentObservations,
   getTeacherStudents,
   useDemoStore,
 } from "@/lib/mock/demo-store";
-import { BookOpen, Clock, Search } from "lucide-react";
+import { BookOpen, Clock, GraduationCap, Search } from "lucide-react";
 
 const TAG_COLORS: Record<string, string> = {
   Sensorial: "bg-violet-100 text-violet-700 border-violet-200",
@@ -92,6 +93,17 @@ export default function TeacherObservationsIndexPage() {
             {filteredStudents.map((student) => {
               const obsCount = getStudentObservations(student.id).length;
               const latest = getStudentObservations(student.id)[0];
+              const curr = getCurriculumStats(student.id);
+              const currPct =
+                curr.overall.total === 0
+                  ? 0
+                  : Math.round(
+                      ((curr.overall.introduced +
+                        curr.overall.practicing +
+                        curr.overall.mastered) /
+                        curr.overall.total) *
+                        100,
+                    );
               return (
                 <Link
                   key={student.id}
@@ -116,9 +128,18 @@ export default function TeacherObservationsIndexPage() {
                             {student.classroom}
                           </p>
                         </div>
-                        <span className="ml-auto text-xs font-semibold text-montessori-primary bg-montessori-primary/10 rounded-full px-2.5 py-0.5">
-                          {obsCount}
-                        </span>
+                        <div className="ml-auto flex items-center gap-1.5">
+                          <span
+                            className="flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5"
+                            title={`Curriculum · ${currPct}% touched`}
+                          >
+                            <GraduationCap className="h-3 w-3" />
+                            {currPct}%
+                          </span>
+                          <span className="text-xs font-semibold text-montessori-primary bg-montessori-primary/10 rounded-full px-2.5 py-0.5">
+                            {obsCount}
+                          </span>
+                        </div>
                       </div>
                       {latest ? (
                         <div className="rounded-lg bg-slate-50 border border-slate-100 p-3 space-y-1.5">

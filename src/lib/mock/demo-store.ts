@@ -1,6 +1,12 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import {
+  getAllLeaves,
+  getLeafById,
+  CURRICULUM,
+  type Leaf,
+} from "@/lib/curriculum/curriculum";
 
 export type Role = "admin" | "teacher" | "parent";
 
@@ -252,6 +258,13 @@ const calendarEvents: DemoCalendarEvent[] = [
   },
 ];
 
+export type DemoCurriculumProgress = {
+  studentId: string;
+  leafId: string;
+  dates: (string | undefined)[]; // up to 3 ISO date strings; undefined slots allowed
+  updatedAt: string;
+};
+
 type DemoState = {
   users: Record<Role, DemoUser>;
   students: DemoStudent[];
@@ -263,6 +276,7 @@ type DemoState = {
   dailyActivityLogs: DemoDailyActivityLog[];
   progressData: Record<string, DemoProgress>;
   afterSchoolEnrollments: DemoAfterSchoolEnrollment[];
+  curriculumProgress: DemoCurriculumProgress[];
 };
 
 const progressDataMap: Record<string, DemoProgress> = {
@@ -1718,6 +1732,7 @@ let state: DemoState = {
     james: progressDataMap.james,
   },
   afterSchoolEnrollments: [],
+  curriculumProgress: seedCurriculumProgress(),
 };
 
 const listeners = new Set<() => void>();
@@ -2160,4 +2175,364 @@ export function removeMedication(studentId: string, medicationId: string) {
 export function getTeacherName(teacherId: string) {
   if (teacherId === state.users.teacher.id) return state.users.teacher.name;
   return "Guide";
+}
+
+// ---------------------------------------------------------------------------
+// Curriculum progress
+// ---------------------------------------------------------------------------
+
+export type CurriculumStatus =
+  | "not-started"
+  | "introduced"
+  | "practicing"
+  | "mastered";
+
+export type CurriculumAreaStats = {
+  total: number;
+  introduced: number;
+  practicing: number;
+  mastered: number;
+  notStarted: number;
+};
+
+export type CurriculumStats = {
+  overall: CurriculumAreaStats;
+  byArea: Record<string, CurriculumAreaStats>;
+};
+
+function isoDaysAgo(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+function seedCurriculumProgress(): DemoCurriculumProgress[] {
+  // Hard-coded seed offsets — gives several students realistic histories so
+  // the parent view has content. Uses leaf ids defined in curriculum.ts.
+  const recipes: Array<{
+    studentId: string;
+    entries: Array<{ leafId: string; daysAgo: number[] }>;
+  }> = [
+    {
+      studentId: "zoe",
+      entries: [
+        { leafId: "pl-pouring-rice", daysAgo: [120, 90, 30] }, // mastered
+        { leafId: "pl-pouring-water", daysAgo: [60, 15] }, // practicing
+        { leafId: "pl-spooning", daysAgo: [80, 40, 10] }, // mastered
+        { leafId: "pl-handwashing", daysAgo: [100, 50, 5] }, // mastered
+        { leafId: "pl-rolling-rug", daysAgo: [25] }, // introduced
+        { leafId: "sens-pt-build", daysAgo: [70, 35] }, // practicing
+        { leafId: "sens-pt-measure", daysAgo: [20] }, // introduced
+        { leafId: "math-nr-align", daysAgo: [12] }, // introduced
+      ],
+    },
+    {
+      studentId: "emma",
+      entries: [
+        { leafId: "sens-pt-build", daysAgo: [180, 130, 60] },
+        { leafId: "sens-pt-measure", daysAgo: [150, 95, 40] },
+        { leafId: "sens-pt-blindfold", daysAgo: [70, 30] },
+        { leafId: "sens-bs-build", daysAgo: [140, 90, 35] },
+        { leafId: "sens-rr-align", daysAgo: [120, 70, 25] },
+        { leafId: "sens-cb-one", daysAgo: [110, 55, 18] },
+        { leafId: "lang-sp-a", daysAgo: [100, 60, 20] },
+        { leafId: "lang-sp-m", daysAgo: [90, 50, 15] },
+        { leafId: "lang-sp-s", daysAgo: [85, 42] },
+        { leafId: "lang-sp-t", daysAgo: [30] },
+        { leafId: "lang-sg-beg", daysAgo: [95, 45, 12] },
+        { leafId: "math-nr-align", daysAgo: [90, 50, 18] },
+        { leafId: "math-nr-names", daysAgo: [70, 30] },
+        { leafId: "math-sp-14", daysAgo: [60, 25] },
+        { leafId: "math-spindle", daysAgo: [22] },
+        { leafId: "cult-continent-map", daysAgo: [50, 18] },
+        { leafId: "cult-cutting", daysAgo: [110, 60, 25] },
+        { leafId: "cult-painting", daysAgo: [80] },
+      ],
+    },
+    {
+      studentId: "leo",
+      entries: [
+        { leafId: "pl-pouring-rice", daysAgo: [60, 30] },
+        { leafId: "pl-spooning", daysAgo: [45, 18, 4] },
+        { leafId: "pl-handwashing", daysAgo: [70, 35, 10] },
+        { leafId: "sens-touch-boards", daysAgo: [30] },
+      ],
+    },
+    {
+      studentId: "noah",
+      entries: [
+        { leafId: "sens-pt-build", daysAgo: [150, 100, 45] },
+        { leafId: "sens-pt-measure", daysAgo: [120, 70, 28] },
+        { leafId: "sens-bs-build", daysAgo: [130, 80, 30] },
+        { leafId: "sens-rr-align", daysAgo: [100, 55, 20] },
+        { leafId: "sens-rr-measure", daysAgo: [42, 15] },
+        { leafId: "sens-c2-3pairs", daysAgo: [88, 40, 14] },
+        { leafId: "sens-c2-6pairs", daysAgo: [22] },
+        { leafId: "lang-sg-beg", daysAgo: [95, 50, 18] },
+        { leafId: "lang-sg-end", daysAgo: [40, 12] },
+        { leafId: "lang-sp-a", daysAgo: [90, 45, 15] },
+        { leafId: "math-nr-align", daysAgo: [85, 40, 12] },
+        { leafId: "math-spindle", daysAgo: [55, 20] },
+        { leafId: "math-cards-counters", daysAgo: [28] },
+        { leafId: "cult-painting", daysAgo: [70, 30] },
+      ],
+    },
+    {
+      studentId: "aisha",
+      entries: [
+        { leafId: "lang-sp-a", daysAgo: [110, 65, 22] },
+        { leafId: "lang-sp-m", daysAgo: [100, 55, 18] },
+        { leafId: "lang-sp-s", daysAgo: [88, 42, 14] },
+        { leafId: "lang-sp-t", daysAgo: [70, 30] },
+        { leafId: "lang-sp-p", daysAgo: [40, 12] },
+        { leafId: "lang-ma-box", daysAgo: [50, 20] },
+        { leafId: "lang-metal-insets", daysAgo: [60, 25] },
+        { leafId: "math-nr-align", daysAgo: [100, 55, 18] },
+        { leafId: "math-nr-names", daysAgo: [85, 38, 12] },
+        { leafId: "math-sp-14", daysAgo: [70, 28] },
+        { leafId: "math-sp-59", daysAgo: [22] },
+        { leafId: "math-teen-board", daysAgo: [35, 8] },
+        { leafId: "cult-continent-map", daysAgo: [60, 22] },
+        { leafId: "cult-north-america", daysAgo: [25] },
+      ],
+    },
+    {
+      studentId: "james",
+      entries: [
+        { leafId: "lang-puzzle-words", daysAgo: [120, 70, 25] },
+        { leafId: "lang-phonetic-box", daysAgo: [100, 50, 18] },
+        { leafId: "math-teen-board", daysAgo: [110, 60, 22] },
+        { leafId: "math-hundred-board", daysAgo: [80, 40, 12] },
+        { leafId: "math-gb-names", daysAgo: [70, 35, 10] },
+        { leafId: "math-gb-bank", daysAgo: [55, 22] },
+        { leafId: "cult-north-america", daysAgo: [90, 45, 15] },
+        { leafId: "cult-lw-forms", daysAgo: [60, 25] },
+        { leafId: "cult-lw-cards", daysAgo: [30] },
+      ],
+    },
+  ];
+
+  const records: DemoCurriculumProgress[] = [];
+  for (const recipe of recipes) {
+    for (const e of recipe.entries) {
+      const dates = e.daysAgo.map((d) => isoDaysAgo(d));
+      const padded: (string | undefined)[] = [
+        dates[0],
+        dates[1],
+        dates[2],
+      ];
+      records.push({
+        studentId: recipe.studentId,
+        leafId: e.leafId,
+        dates: padded,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  }
+  return records;
+}
+
+function statusFromDates(dates: (string | undefined)[]): CurriculumStatus {
+  const filled = dates.filter(Boolean).length;
+  if (filled === 0) return "not-started";
+  if (filled === 1) return "introduced";
+  if (filled === 2) return "practicing";
+  return "mastered";
+}
+
+export function getCurriculumStatusFromDates(dates: (string | undefined)[]) {
+  return statusFromDates(dates);
+}
+
+export function getStudentCurriculumProgress(
+  studentId: string,
+): Record<string, DemoCurriculumProgress> {
+  const map: Record<string, DemoCurriculumProgress> = {};
+  for (const p of state.curriculumProgress) {
+    if (p.studentId === studentId) map[p.leafId] = p;
+  }
+  return map;
+}
+
+export function getProgressForLeaf(
+  studentId: string,
+  leafId: string,
+): DemoCurriculumProgress | undefined {
+  return state.curriculumProgress.find(
+    (p) => p.studentId === studentId && p.leafId === leafId,
+  );
+}
+
+function upsertProgress(
+  studentId: string,
+  leafId: string,
+  updater: (existing: DemoCurriculumProgress) => DemoCurriculumProgress,
+) {
+  const idx = state.curriculumProgress.findIndex(
+    (p) => p.studentId === studentId && p.leafId === leafId,
+  );
+  const blank: DemoCurriculumProgress = {
+    studentId,
+    leafId,
+    dates: [undefined, undefined, undefined],
+    updatedAt: new Date().toISOString(),
+  };
+  const existing = idx >= 0 ? state.curriculumProgress[idx] : blank;
+  const next = updater({
+    ...existing,
+    dates: [...existing.dates],
+  });
+  if (idx >= 0) {
+    state.curriculumProgress[idx] = next;
+  } else {
+    state.curriculumProgress.push(next);
+  }
+  emit();
+}
+
+export function markPresentation(
+  studentId: string,
+  leafId: string,
+  date?: string,
+) {
+  const iso = (date ?? new Date().toISOString().slice(0, 10));
+  upsertProgress(studentId, leafId, (existing) => {
+    const dates = [...existing.dates];
+    const emptyIdx = dates.findIndex((d) => !d);
+    if (emptyIdx === -1) {
+      // All three slots filled — replace the oldest
+      let oldestIdx = 0;
+      for (let i = 1; i < dates.length; i++) {
+        if ((dates[i] ?? "") < (dates[oldestIdx] ?? "")) oldestIdx = i;
+      }
+      dates[oldestIdx] = iso;
+    } else {
+      dates[emptyIdx] = iso;
+    }
+    return {
+      ...existing,
+      dates,
+      updatedAt: new Date().toISOString(),
+    };
+  });
+}
+
+export function setPresentationDate(
+  studentId: string,
+  leafId: string,
+  slot: number,
+  date: string,
+) {
+  if (slot < 0 || slot > 2) return;
+  upsertProgress(studentId, leafId, (existing) => {
+    const dates = [...existing.dates];
+    dates[slot] = date;
+    return {
+      ...existing,
+      dates,
+      updatedAt: new Date().toISOString(),
+    };
+  });
+}
+
+export function clearPresentation(
+  studentId: string,
+  leafId: string,
+  slot: number,
+) {
+  if (slot < 0 || slot > 2) return;
+  upsertProgress(studentId, leafId, (existing) => {
+    const dates = [...existing.dates];
+    dates[slot] = undefined;
+    return {
+      ...existing,
+      dates,
+      updatedAt: new Date().toISOString(),
+    };
+  });
+}
+
+function emptyStats(): CurriculumAreaStats {
+  return {
+    total: 0,
+    introduced: 0,
+    practicing: 0,
+    mastered: 0,
+    notStarted: 0,
+  };
+}
+
+function tallyStatus(stats: CurriculumAreaStats, status: CurriculumStatus) {
+  stats.total += 1;
+  if (status === "introduced") stats.introduced += 1;
+  else if (status === "practicing") stats.practicing += 1;
+  else if (status === "mastered") stats.mastered += 1;
+  else stats.notStarted += 1;
+}
+
+export function getCurriculumStats(studentId: string): CurriculumStats {
+  const progress = getStudentCurriculumProgress(studentId);
+  const overall = emptyStats();
+  const byArea: Record<string, CurriculumAreaStats> = {};
+  for (const area of CURRICULUM) {
+    byArea[area.id] = emptyStats();
+  }
+  for (const leaf of getAllLeaves()) {
+    const p = progress[leaf.leafId];
+    const status: CurriculumStatus = p
+      ? statusFromDates(p.dates)
+      : "not-started";
+    tallyStatus(overall, status);
+    tallyStatus(byArea[leaf.areaId], status);
+  }
+  return { overall, byArea };
+}
+
+export type RecentPresentation = {
+  studentId: string;
+  leafId: string;
+  date: string;
+  slot: number; // 0-indexed (0 = 1st presentation)
+  leaf: Leaf;
+};
+
+export function getRecentPresentations(
+  studentId: string,
+  limit = 8,
+): RecentPresentation[] {
+  const out: RecentPresentation[] = [];
+  for (const p of state.curriculumProgress) {
+    if (p.studentId !== studentId) continue;
+    const leaf = getLeafById(p.leafId);
+    if (!leaf) continue;
+    // Sort dates ascending so the slot mapping reflects 1st/2nd/3rd presentation order
+    const sortable = p.dates
+      .map((d, i) => ({ d, i }))
+      .filter((x) => x.d) as { d: string; i: number }[];
+    const sortedAsc = [...sortable].sort((a, b) =>
+      (a.d ?? "") < (b.d ?? "") ? -1 : 1,
+    );
+    sortedAsc.forEach((entry, sortedIdx) => {
+      out.push({
+        studentId: p.studentId,
+        leafId: p.leafId,
+        date: entry.d,
+        slot: sortedIdx, // 0 = 1st presentation chronologically
+        leaf,
+      });
+    });
+  }
+  return out.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, limit);
+}
+
+export function getMasteredLeaves(studentId: string): Leaf[] {
+  const progress = getStudentCurriculumProgress(studentId);
+  const mastered: Leaf[] = [];
+  for (const leaf of getAllLeaves()) {
+    const p = progress[leaf.leafId];
+    if (p && statusFromDates(p.dates) === "mastered") {
+      mastered.push(leaf);
+    }
+  }
+  return mastered;
 }
