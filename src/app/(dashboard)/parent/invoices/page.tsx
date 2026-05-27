@@ -13,6 +13,7 @@ import {
   getStudentsForParent,
   useDemoStore,
 } from "@/lib/mock/demo-store";
+import { downloadStructuredPdf } from "@/lib/pdf/download-pdf";
 
 export default function InvoicesPage() {
   useDemoStore();
@@ -46,100 +47,63 @@ export default function InvoicesPage() {
     return { unpaid, paid, total: unpaid + paid };
   }, [allInvoices]);
 
-  const handleDownloadReceipt = (invoiceId: string, description: string) => {
+  const handleDownloadReceipt = async (
+    invoiceId: string,
+    _description: string,
+  ) => {
     const invoice = allInvoices.find((inv) => inv.id === invoiceId);
     if (!invoice) return;
-
-    const receiptHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>${invoice.id}</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: 0; padding: 20px; }
-    .header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
-    h1 { margin: 0; font-size: 24px; }
-    .school { color: #666; font-size: 12px; margin-top: 5px; }
-    .invoice-details { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
-    .detail-group { }
-    .label { font-weight: bold; font-size: 12px; text-transform: uppercase; color: #666; }
-    .value { font-size: 14px; margin-top: 5px; }
-    .line { border-top: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; }
-    .total-line { border-top: 2px solid #333; font-weight: bold; font-size: 18px; }
-    .status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-top: 10px; }
-    .status-paid { background: #d1fae5; color: #065f46; }
-    .status-unpaid { background: #fee2e2; color: #7f1d1d; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>RECEIPT / INVOICE</h1>
-    <div class="school">Nurture House Montessori, Ilorin, Nigeria</div>
-  </div>
-
-  <div class="invoice-details">
-    <div class="detail-group">
-      <div class="label">Invoice Number</div>
-      <div class="value">${invoice.id}</div>
-      <div class="label" style="margin-top: 15px;">Date Issued</div>
-      <div class="value">${new Date(invoice.issuedAt).toLocaleDateString(
-        "en-NG",
+    const issued = new Date(invoice.issuedAt).toLocaleDateString("en-NG", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+    const due = new Date(invoice.dueDate).toLocaleDateString("en-NG", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+    await downloadStructuredPdf({
+      filename: `${invoice.id}.pdf`,
+      header: "Nurture House Montessori · Ilorin, Nigeria",
+      footer: "Thank you for your payment. Queries: admin@nurturehouse.edu",
+      lines: [
+        { kind: "title", text: "Receipt / Invoice" },
+        { kind: "subtitle", text: invoice.id },
+        { kind: "spacer", size: 6 },
+        { kind: "rule" },
+        { kind: "label-value", label: "Date Issued", value: issued },
+        { kind: "label-value", label: "Student", value: selectedChild?.name ?? "" },
         {
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
+          kind: "label-value",
+          label: "Classroom",
+          value: selectedChild?.classroom ?? "",
         },
-      )}</div>
-    </div>
-    <div class="detail-group">
-      <div class="label">Student</div>
-      <div class="value">${selectedChild?.name}</div>
-      <div class="label" style="margin-top: 15px;">Classroom</div>
-      <div class="value">${selectedChild?.classroom}</div>
-    </div>
-  </div>
-
-  <div class="line">
-    <span>${invoice.description}</span>
-    <strong>${formatCurrency(invoice.amountCents)}</strong>
-  </div>
-
-  <div class="line total-line">
-    <span>TOTAL AMOUNT DUE</span>
-    <span>${formatCurrency(invoice.amountCents)}</span>
-  </div>
-
-  <div style="margin-top: 20px;">
-    <span class="status ${invoice.status === "paid" ? "status-paid" : "status-unpaid"}">
-      ${invoice.status.toUpperCase()}
-    </span>
-    ${
-      invoice.status === "unpaid"
-        ? `<div style="color: #666; font-size: 12px; margin-top: 10px;">Due date: ${new Date(
-            invoice.dueDate,
-          ).toLocaleDateString("en-NG", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-          })}</div>`
-        : ""
-    }
-  </div>
-
-  <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666;">
-    <p>Thank you for your payment. For queries, contact admin@nurturehouse.edu</p>
-  </div>
-</body>
-</html>
-    `;
-
-    const blob = new Blob([receiptHTML], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${invoice.id}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
+        { kind: "rule" },
+        { kind: "heading", text: "Items" },
+        {
+          kind: "table",
+          headers: ["Description", "Amount"],
+          rows: [
+            [invoice.description, formatCurrency(invoice.amountCents)],
+          ],
+        },
+        { kind: "rule" },
+        {
+          kind: "label-value",
+          label: "TOTAL DUE",
+          value: formatCurrency(invoice.amountCents),
+        },
+        {
+          kind: "label-value",
+          label: "Status",
+          value: invoice.status.toUpperCase(),
+        },
+        ...(invoice.status === "unpaid"
+          ? ([{ kind: "label-value", label: "Due Date", value: due }] as const)
+          : []),
+      ],
+    });
   };
 
   return (

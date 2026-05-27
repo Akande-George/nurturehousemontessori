@@ -86,8 +86,8 @@ export default function TeacherObservationsIndexPage() {
                   ? 0
                   : Math.round(
                       ((curr.overall.introduced +
-                        curr.overall.practicing +
-                        curr.overall.mastered) /
+                        curr.overall.developing +
+                        curr.overall.proficient) /
                         curr.overall.total) *
                         100,
                     );

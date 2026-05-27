@@ -16,7 +16,7 @@ import {
   useDemoStore,
 } from "@/lib/mock/demo-store";
 
-type LogTab = "meals" | "nap" | "hygiene";
+type LogTab = "meals" | "nap" | "hygiene" | "temperature";
 
 function getTodayIsoDate() {
   return new Date().toISOString().slice(0, 10);
@@ -32,11 +32,38 @@ function getCurrentTime() {
 function getValueForTab(tab: LogTab, opts: Record<string, string>) {
   if (tab === "meals") return `${opts.mealType} (${opts.mealAmount})`;
   if (tab === "nap") return opts.napDuration;
+  if (tab === "temperature") return `${opts.temperatureC}°C`;
   return opts.hygieneType;
 }
 
 function toTitle(tab: LogTab) {
-  return tab === "meals" ? "Meal" : tab === "nap" ? "Nap" : "Hygiene";
+  if (tab === "meals") return "Meal";
+  if (tab === "nap") return "Nap";
+  if (tab === "temperature") return "Temperature";
+  return "Hygiene";
+}
+
+function temperatureFlag(c: number): {
+  label: string;
+  className: string;
+} | null {
+  if (Number.isNaN(c)) return null;
+  if (c >= 38.0)
+    return {
+      label: "Fever — notify parents",
+      className: "text-rose-700 bg-rose-50 border-rose-200",
+    };
+  if (c >= 37.5)
+    return {
+      label: "Slightly elevated — monitor",
+      className: "text-amber-700 bg-amber-50 border-amber-200",
+    };
+  if (c < 36.0)
+    return {
+      label: "Low — keep warm and recheck",
+      className: "text-sky-700 bg-sky-50 border-sky-200",
+    };
+  return null;
 }
 
 export default function TeacherDailyLogPage() {
@@ -53,6 +80,7 @@ export default function TeacherDailyLogPage() {
   const [mealAmount, setMealAmount] = useState("All");
   const [napDuration, setNapDuration] = useState("45 mins");
   const [hygieneType, setHygieneType] = useState("Toilet");
+  const [temperatureC, setTemperatureC] = useState("36.8");
   const [details, setDetails] = useState("");
 
   const studentMap = useMemo(
@@ -84,6 +112,7 @@ export default function TeacherDailyLogPage() {
     setMealAmount("All");
     setNapDuration("45 mins");
     setHygieneType("Toilet");
+    setTemperatureC("36.8");
     setTime(getCurrentTime());
   };
 
@@ -95,6 +124,7 @@ export default function TeacherDailyLogPage() {
       mealAmount,
       napDuration,
       hygieneType,
+      temperatureC,
     });
 
     addDailyActivityLogs({
@@ -241,10 +271,11 @@ export default function TeacherDailyLogPage() {
               onValueChange={(v) => setActiveTab(v as LogTab)}
               className="mb-6"
             >
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="meals">Meals</TabsTrigger>
                 <TabsTrigger value="nap">Naps</TabsTrigger>
                 <TabsTrigger value="hygiene">Hygiene</TabsTrigger>
+                <TabsTrigger value="temperature">Temperature</TabsTrigger>
               </TabsList>
             </Tabs>
 
@@ -340,6 +371,57 @@ export default function TeacherDailyLogPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "temperature" && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">
+                    Temperature (°C)
+                  </label>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="34"
+                      max="42"
+                      value={temperatureC}
+                      onChange={(e) => setTemperatureC(e.target.value)}
+                      className="w-full sm:w-40 text-lg font-semibold"
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {["36.5", "37.0", "37.5", "38.0", "38.5"].map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setTemperatureC(t)}
+                          className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
+                            temperatureC === t
+                              ? "border-montessori-primary bg-montessori-primary/5 text-montessori-primary"
+                              : "border-slate-200 text-slate-600 hover:border-slate-300"
+                          }`}
+                        >
+                          {t}°
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {(() => {
+                    const flag = temperatureFlag(parseFloat(temperatureC));
+                    return flag ? (
+                      <p
+                        className={`mt-3 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border ${flag.className}`}
+                      >
+                        {flag.label}
+                      </p>
+                    ) : (
+                      <p className="mt-3 text-xs text-slate-500">
+                        Normal range. Recheck if the child becomes warm to the
+                        touch.
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
             )}

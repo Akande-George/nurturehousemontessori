@@ -60,6 +60,21 @@ const adminNav: NavSection[] = [
     ],
   },
   {
+    label: "Classrooms",
+    items: [
+      {
+        href: "/dashboard/assignments",
+        label: "Class Assignments",
+        icon: Users,
+      },
+      {
+        href: "/dashboard/attendance",
+        label: "Attendance",
+        icon: Calendar,
+      },
+    ],
+  },
+  {
     label: "Operations",
     items: [
       { href: "/dashboard/accounting", label: "Billing", icon: CreditCard },
@@ -106,6 +121,7 @@ const parentNav: NavSection[] = [
         label: "Resource Library",
         icon: FolderOpen,
       },
+      { href: "/parent/attendance", label: "Attendance", icon: Calendar },
     ],
   },
   {

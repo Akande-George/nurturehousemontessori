@@ -18,6 +18,35 @@ export type DemoUser = {
   initial: string;
 };
 
+// Admin comment about how to best handle a particular child.
+// Visible to teachers ONLY — never surfaced in any parent-facing view.
+export type AdminCommentKind = "guidance" | "move-recommendation";
+
+export type DemoAdminComment = {
+  id: string;
+  studentId: string;
+  adminId: string;
+  kind: AdminCommentKind;
+  body: string;
+  // For move recommendations, the destination the admin suggests (free text,
+  // e.g. "Children's House — 3-6 years group A").
+  suggestedMove?: string;
+  createdAt: string;
+};
+
+// Attendance recorded by a teacher for a single student on a single date.
+export type AttendanceStatus = "present" | "late" | "absent" | "excused";
+
+export type DemoAttendance = {
+  id: string;
+  studentId: string;
+  date: string; // YYYY-MM-DD
+  status: AttendanceStatus;
+  recordedBy: string; // teacherId
+  notes?: string;
+  createdAt: string;
+};
+
 export type DemoStudent = {
   id: string;
   name: string;
@@ -52,7 +81,11 @@ export type DemoActivityPost = {
 
 export type ActivityPostWithLeaf = DemoActivityPost & { leaf: Leaf };
 
-export type DemoDailyActivityType = "meals" | "nap" | "hygiene";
+export type DemoDailyActivityType =
+  | "meals"
+  | "nap"
+  | "hygiene"
+  | "temperature";
 
 export type DemoDailyActivityLog = {
   id: string;
@@ -143,7 +176,7 @@ export type DemoDailyCareEntry = {
 export type DemoWorkEntry = {
   area: string;
   activity: string;
-  level: "Introduced" | "Practicing" | "Mastered";
+  level: "Introduced" | "Developing" | "Proficient";
 };
 
 export type DemoSubjectEntry = {
@@ -160,6 +193,9 @@ export type DemoDailyReport = {
   weekLabel: string;
   status: DemoDailyReportStatus;
   generalMood: DemoDailyMood;
+  // shared health
+  temperatureCelsius?: number;
+  temperatureTakenAt?: string;
   // 0-2 specific
   careEntries?: DemoDailyCareEntry[];
   funLearning?: string;
@@ -262,10 +298,21 @@ const calendarEvents: DemoCalendarEvent[] = [
   },
 ];
 
+export type CurriculumStatus =
+  | "not-started"
+  | "introduced"
+  | "developing"
+  | "proficient";
+
 export type DemoCurriculumProgress = {
   studentId: string;
   leafId: string;
-  dates: (string | undefined)[]; // up to 3 ISO date strings; undefined slots allowed
+  // Unlimited chronological list of practice dates (ISO strings).
+  // A child may practice many times before the teacher promotes the status.
+  practices: string[];
+  // Teacher-controlled status. Independent of practice count — only the
+  // teacher's satisfaction promotes Developing to Proficient.
+  status: CurriculumStatus;
   updatedAt: string;
 };
 
@@ -274,6 +321,10 @@ type DemoState = {
   students: DemoStudent[];
   notices: DemoNotice[];
   observations: DemoObservation[];
+  adminComments: DemoAdminComment[];
+  attendance: DemoAttendance[];
+  // teacherAssignments maps teacherId → list of classroom names that teacher manages.
+  teacherAssignments: Record<string, string[]>;
   invoices: DemoInvoice[];
   dailyReports: DemoDailyReport[];
   activityPosts: DemoActivityPost[];
@@ -286,7 +337,7 @@ type DemoState = {
 const progressDataMap: Record<string, DemoProgress> = {
   zoe: {
     studentId: "zoe",
-    term: "Spring 2",
+    term: "Second Term",
     academicYear: "2025-2026",
     areas: [
       {
@@ -358,9 +409,23 @@ const progressDataMap: Record<string, DemoProgress> = {
   },
   emma: {
     studentId: "emma",
-    term: "Spring 2",
+    term: "Second Term",
     academicYear: "2025-2026",
     areas: [
+      {
+        id: "practical-life",
+        name: "Practical Life",
+        description: "Care of self, environment, and grace & courtesy",
+        score: 90,
+        level: "proficient",
+        trend: "up",
+        recentActivities: [
+          "Pouring water between jugs (proficient)",
+          "Dressing frames — independent zipping",
+          "Rolled and stored her work mat without prompting",
+          "Served herself at snack and cleared her place",
+        ],
+      },
       {
         id: "mathematics",
         name: "Mathematics",
@@ -445,7 +510,7 @@ const progressDataMap: Record<string, DemoProgress> = {
   },
   leo: {
     studentId: "leo",
-    term: "Spring 2",
+    term: "Second Term",
     academicYear: "2025-2026",
     areas: [
       {
@@ -518,9 +583,22 @@ const progressDataMap: Record<string, DemoProgress> = {
   },
   aisha: {
     studentId: "aisha",
-    term: "Spring 2",
+    term: "Second Term",
     academicYear: "2025-2026",
     areas: [
+      {
+        id: "practical-life",
+        name: "Practical Life",
+        description: "Care of self, environment, and grace & courtesy",
+        score: 88,
+        level: "proficient",
+        trend: "stable",
+        recentActivities: [
+          "Manages personal belongings and workspace independently",
+          "Models grace & courtesy for younger peers",
+          "Leads tidying routines at end of work cycle",
+        ],
+      },
       {
         id: "language-arts",
         name: "Language Arts",
@@ -607,9 +685,23 @@ const progressDataMap: Record<string, DemoProgress> = {
   },
   noah: {
     studentId: "noah",
-    term: "Spring 2",
+    term: "Second Term",
     academicYear: "2025-2026",
     areas: [
+      {
+        id: "practical-life",
+        name: "Practical Life",
+        description: "Care of self, environment, and grace & courtesy",
+        score: 82,
+        level: "proficient",
+        trend: "up",
+        recentActivities: [
+          "Independent shoe-tying and dressing routines",
+          "Carrying and setting up his own work tray",
+          "Polishing wood with full sequence",
+          "Helps younger peers with self-care",
+        ],
+      },
       {
         id: "sensorial",
         name: "Sensorial",
@@ -683,9 +775,22 @@ const progressDataMap: Record<string, DemoProgress> = {
   },
   james: {
     studentId: "james",
-    term: "Spring 2",
+    term: "Second Term",
     academicYear: "2025-2026",
     areas: [
+      {
+        id: "practical-life",
+        name: "Practical Life",
+        description: "Care of self, environment, and grace & courtesy",
+        score: 84,
+        level: "proficient",
+        trend: "stable",
+        recentActivities: [
+          "Manages his desk, journal, and research folders independently",
+          "Sweeps and resets shared work spaces unprompted",
+          "Models calm transitions between work cycles",
+        ],
+      },
       {
         id: "research",
         name: "Research & Academic Inquiry",
@@ -1209,6 +1314,8 @@ let state: DemoState = {
       weekLabel: "Week 2",
       status: "generated",
       generalMood: "Happy",
+      temperatureCelsius: 36.8,
+      temperatureTakenAt: "08:30",
       careEntries: [
         {
           label: "Breakfast",
@@ -1256,6 +1363,8 @@ let state: DemoState = {
       weekLabel: "Week 2",
       status: "pending",
       generalMood: "Neutral",
+      temperatureCelsius: 37.6,
+      temperatureTakenAt: "10:15",
       careEntries: [
         { label: "Breakfast", value: "Porridge and fruit", time: "08:20 AM" },
         { label: "How much (Breakfast)", value: "Some" },
@@ -1293,6 +1402,8 @@ let state: DemoState = {
       weekLabel: "Week 2",
       status: "sent",
       generalMood: "Happy",
+      temperatureCelsius: 36.6,
+      temperatureTakenAt: "08:45",
       careEntries: [
         {
           label: "Breakfast",
@@ -1343,7 +1454,7 @@ let state: DemoState = {
         {
           area: "Practical Life",
           activity: "Pouring water between jugs",
-          level: "Practicing",
+          level: "Developing",
         },
         {
           area: "Sensorial",
@@ -1353,12 +1464,12 @@ let state: DemoState = {
         {
           area: "Language",
           activity: "Sandpaper letters (a, m, s)",
-          level: "Practicing",
+          level: "Developing",
         },
         {
           area: "Mathematics",
           activity: "Number rods 1–10",
-          level: "Mastered",
+          level: "Proficient",
         },
         {
           area: "Cultural",
@@ -1368,7 +1479,7 @@ let state: DemoState = {
         {
           area: "Art",
           activity: "Collage with natural materials",
-          level: "Practicing",
+          level: "Developing",
         },
       ],
       concentrationLevel:
@@ -1398,13 +1509,13 @@ let state: DemoState = {
         {
           area: "Practical Life",
           activity: "Button frame",
-          level: "Practicing",
+          level: "Developing",
         },
-        { area: "Sensorial", activity: "Pink tower", level: "Mastered" },
+        { area: "Sensorial", activity: "Pink tower", level: "Proficient" },
         {
           area: "Language",
           activity: "Object-picture matching",
-          level: "Practicing",
+          level: "Developing",
         },
         { area: "Mathematics", activity: "Spindle boxes", level: "Introduced" },
       ],
@@ -1737,6 +1848,29 @@ let state: DemoState = {
   },
   afterSchoolEnrollments: [],
   curriculumProgress: seedCurriculumProgress(),
+  adminComments: [
+    {
+      id: "admin-comment-1",
+      studentId: "noah",
+      adminId: "user-admin",
+      kind: "guidance",
+      body: "Noah is showing strong analytical reasoning and leadership in sensorial work. Continue gentle one-to-one introductions to the early math materials — he is ready for the number rods sequence. Please share notes on his social mentoring so we can recognise it formally at the end-of-term assembly.",
+      createdAt: "2026-05-04T09:30:00.000Z",
+    },
+    {
+      id: "admin-comment-2",
+      studentId: "emma",
+      adminId: "user-admin",
+      kind: "move-recommendation",
+      body: "Emma has consistently been working at a level beyond her current group. Several mastered presentations across Math, Sensorial, and Art. I'd like to propose moving her up to the older Children's House group at the start of next term — please observe her readiness during transitions over the next two weeks.",
+      suggestedMove: "Children's House — Lower Elementary (6-9 group)",
+      createdAt: "2026-05-05T11:15:00.000Z",
+    },
+  ],
+  attendance: seedAttendance(),
+  teacherAssignments: {
+    "user-teacher": ["Bloomers Nest", "Buds Garden", "Explorers Corner"],
+  },
 };
 
 const listeners = new Set<() => void>();
@@ -1818,6 +1952,15 @@ export function getStudentObservations(studentId: string): ObservationWithLeaf[]
 }
 
 export function getTeacherStudents(teacherId: string) {
+  const assignedClassrooms = state.teacherAssignments[teacherId];
+  if (assignedClassrooms && assignedClassrooms.length > 0) {
+    // Union: directly-assigned students plus any student whose classroom is
+    // in this teacher's class assignment list.
+    const set = new Set(assignedClassrooms);
+    return state.students.filter(
+      (s) => s.teacherId === teacherId || set.has(s.classroom),
+    );
+  }
   return state.students.filter((s) => s.teacherId === teacherId);
 }
 
@@ -2159,6 +2302,185 @@ export function isAfterSchoolEnrolled(studentId: string) {
   return state.afterSchoolEnrollments.some((e) => e.studentId === studentId);
 }
 
+// ---------------------------------------------------------------------------
+// Admin comments (teacher-only visibility)
+// ---------------------------------------------------------------------------
+
+export function getAdminCommentsForStudent(studentId: string) {
+  return state.adminComments
+    .filter((c) => c.studentId === studentId)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+export function getAllAdminComments() {
+  return [...state.adminComments].sort((a, b) =>
+    a.createdAt < b.createdAt ? 1 : -1,
+  );
+}
+
+export function addAdminComment(input: {
+  studentId: string;
+  kind: AdminCommentKind;
+  body: string;
+  suggestedMove?: string;
+}) {
+  const admin = state.users.admin;
+  state = {
+    ...state,
+    adminComments: [
+      {
+        id: nextId("admincomment"),
+        studentId: input.studentId,
+        adminId: admin.id,
+        kind: input.kind,
+        body: input.body,
+        suggestedMove: input.suggestedMove,
+        createdAt: new Date().toISOString(),
+      },
+      ...state.adminComments,
+    ],
+  };
+  emit();
+}
+
+export function deleteAdminComment(commentId: string) {
+  state = {
+    ...state,
+    adminComments: state.adminComments.filter((c) => c.id !== commentId),
+  };
+  emit();
+}
+
+// ---------------------------------------------------------------------------
+// Attendance
+// ---------------------------------------------------------------------------
+
+function seedAttendance(): DemoAttendance[] {
+  // Seed a week of attendance per student so admin and parent views have data.
+  const students = ["zoe", "leo", "emma", "noah", "aisha", "james", "sarah"];
+  const today = new Date();
+  const records: DemoAttendance[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) continue; // skip weekends
+    const date = d.toISOString().slice(0, 10);
+    students.forEach((studentId, idx) => {
+      // Deterministic but varied pattern
+      const roll = (idx * 31 + i * 7) % 13;
+      let status: AttendanceStatus = "present";
+      if (roll === 0) status = "absent";
+      else if (roll === 3) status = "late";
+      else if (roll === 7) status = "excused";
+      records.push({
+        id: `att-${studentId}-${date}`,
+        studentId,
+        date,
+        status,
+        recordedBy: "user-teacher",
+        notes: status === "excused" ? "Family event" : undefined,
+        createdAt: `${date}T08:30:00.000Z`,
+      });
+    });
+  }
+  return records;
+}
+
+export function recordAttendance(input: {
+  studentId: string;
+  date: string;
+  status: AttendanceStatus;
+  notes?: string;
+  teacherId?: string;
+}) {
+  const teacherId = input.teacherId ?? state.users.teacher.id;
+  // Upsert: replace any existing record for this (studentId, date) pair.
+  const existing = state.attendance.findIndex(
+    (a) => a.studentId === input.studentId && a.date === input.date,
+  );
+  const record: DemoAttendance = {
+    id:
+      existing >= 0
+        ? state.attendance[existing].id
+        : nextId("att"),
+    studentId: input.studentId,
+    date: input.date,
+    status: input.status,
+    notes: input.notes,
+    recordedBy: teacherId,
+    createdAt: new Date().toISOString(),
+  };
+  const next = [...state.attendance];
+  if (existing >= 0) next[existing] = record;
+  else next.unshift(record);
+  state = { ...state, attendance: next };
+  emit();
+}
+
+export function getAttendanceForStudent(studentId: string) {
+  return state.attendance
+    .filter((a) => a.studentId === studentId)
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+export function getAttendanceForDate(date: string) {
+  return state.attendance
+    .filter((a) => a.date === date)
+    .sort((a, b) => (a.studentId < b.studentId ? -1 : 1));
+}
+
+export function getAllAttendance() {
+  return [...state.attendance].sort((a, b) =>
+    a.date < b.date ? 1 : -1,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Teacher class assignments
+// ---------------------------------------------------------------------------
+
+export function getTeacherClassrooms(teacherId: string): string[] {
+  return state.teacherAssignments[teacherId] ?? [];
+}
+
+export function getAllTeacherAssignments() {
+  return { ...state.teacherAssignments };
+}
+
+export function setTeacherClassrooms(teacherId: string, classrooms: string[]) {
+  state = {
+    ...state,
+    teacherAssignments: {
+      ...state.teacherAssignments,
+      [teacherId]: [...new Set(classrooms)],
+    },
+  };
+  emit();
+}
+
+export function addTeacherClassroom(teacherId: string, classroom: string) {
+  const current = state.teacherAssignments[teacherId] ?? [];
+  if (current.includes(classroom)) return;
+  setTeacherClassrooms(teacherId, [...current, classroom]);
+}
+
+export function removeTeacherClassroom(teacherId: string, classroom: string) {
+  const current = state.teacherAssignments[teacherId] ?? [];
+  setTeacherClassrooms(
+    teacherId,
+    current.filter((c) => c !== classroom),
+  );
+}
+
+// Distinct classroom names that appear on any student record. Useful for the
+// admin assignment picker.
+export function getAllClassroomNames(): string[] {
+  const set = new Set<string>();
+  for (const s of state.students) set.add(s.classroom);
+  return [...set].sort();
+}
+
 export function getAfterSchoolEnrollments() {
   return [...state.afterSchoolEnrollments];
 }
@@ -2209,17 +2531,13 @@ export function getTeacherName(teacherId: string) {
 // Curriculum progress
 // ---------------------------------------------------------------------------
 
-export type CurriculumStatus =
-  | "not-started"
-  | "introduced"
-  | "practicing"
-  | "mastered";
+// CurriculumStatus is declared earlier in this file alongside DemoCurriculumProgress.
 
 export type CurriculumAreaStats = {
   total: number;
   introduced: number;
-  practicing: number;
-  mastered: number;
+  developing: number;
+  proficient: number;
   notStarted: number;
 };
 
@@ -2235,107 +2553,121 @@ function isoDaysAgo(days: number) {
 }
 
 function seedCurriculumProgress(): DemoCurriculumProgress[] {
-  // Hard-coded seed offsets — gives several students realistic histories so
-  // the parent view has content. Uses leaf ids defined in curriculum.ts.
+  // Seed shape: list of practice dates + an explicit teacher-set status.
+  // Status is decoupled from practice count — a child may practice many
+  // times before the teacher promotes them to "proficient".
   const recipes: Array<{
     studentId: string;
-    entries: Array<{ leafId: string; daysAgo: number[] }>;
+    entries: Array<{
+      leafId: string;
+      daysAgo: number[];
+      status: CurriculumStatus;
+    }>;
   }> = [
     {
       studentId: "zoe",
       entries: [
-        { leafId: "pl-pouring-rice", daysAgo: [120, 90, 30] }, // mastered
-        { leafId: "pl-pouring-water", daysAgo: [60, 15] }, // practicing
-        { leafId: "pl-spooning", daysAgo: [80, 40, 10] }, // mastered
-        { leafId: "pl-handwashing-complete", daysAgo: [100, 50, 5] }, // mastered
-        { leafId: "pl-rolling-rug", daysAgo: [25] }, // introduced
-        { leafId: "sens-pt-build", daysAgo: [70, 35] }, // practicing
-        { leafId: "sens-pt-measure", daysAgo: [20] }, // introduced
-        { leafId: "math-nr-align", daysAgo: [12] }, // introduced
+        { leafId: "pl-pouring-rice", daysAgo: [120, 90, 60, 30], status: "proficient" },
+        { leafId: "pl-pouring-water", daysAgo: [60, 40, 15], status: "developing" },
+        { leafId: "pl-spooning", daysAgo: [80, 60, 40, 20, 10], status: "proficient" },
+        { leafId: "pl-handwashing-complete", daysAgo: [100, 75, 50, 25, 5], status: "proficient" },
+        { leafId: "pl-rolling-rug", daysAgo: [25], status: "introduced" },
+        { leafId: "sens-pt-build", daysAgo: [70, 50, 35], status: "developing" },
+        { leafId: "sens-pt-measure", daysAgo: [20], status: "introduced" },
+        { leafId: "math-nr-align", daysAgo: [12], status: "introduced" },
       ],
     },
     {
       studentId: "emma",
       entries: [
-        { leafId: "sens-pt-build", daysAgo: [180, 130, 60] },
-        { leafId: "sens-pt-measure", daysAgo: [150, 95, 40] },
-        { leafId: "sens-pt-blindfold", daysAgo: [70, 30] },
-        { leafId: "sens-bs-build", daysAgo: [140, 90, 35] },
-        { leafId: "sens-rr-align", daysAgo: [120, 70, 25] },
-        { leafId: "sens-cb-one", daysAgo: [110, 55, 18] },
-        { leafId: "lang-sp-a", daysAgo: [100, 60, 20] },
-        { leafId: "lang-sp-m", daysAgo: [90, 50, 15] },
-        { leafId: "lang-sp-s", daysAgo: [85, 42] },
-        { leafId: "lang-sp-t", daysAgo: [30] },
-        { leafId: "lang-sg-beg", daysAgo: [95, 45, 12] },
-        { leafId: "math-nr-align", daysAgo: [90, 50, 18] },
-        { leafId: "math-nr-names", daysAgo: [70, 30] },
-        { leafId: "math-sp-14", daysAgo: [60, 25] },
-        { leafId: "math-spindle-counting", daysAgo: [22] },
-        { leafId: "cult-cm-color", daysAgo: [50, 18] },
-        { leafId: "cult-cutting-paper", daysAgo: [110, 60, 25] },
-        { leafId: "cult-painting-watercolors", daysAgo: [80] },
+        { leafId: "sens-pt-build", daysAgo: [180, 150, 130, 100, 60], status: "proficient" },
+        { leafId: "sens-pt-measure", daysAgo: [150, 120, 95, 70, 40], status: "proficient" },
+        { leafId: "sens-pt-blindfold", daysAgo: [70, 50, 30], status: "developing" },
+        { leafId: "sens-bs-build", daysAgo: [140, 110, 90, 60, 35], status: "proficient" },
+        { leafId: "sens-rr-align", daysAgo: [120, 95, 70, 45, 25], status: "proficient" },
+        { leafId: "sens-cb-one", daysAgo: [110, 80, 55, 35, 18], status: "proficient" },
+        { leafId: "lang-sp-a", daysAgo: [100, 80, 60, 40, 20], status: "proficient" },
+        { leafId: "lang-sp-m", daysAgo: [90, 70, 50, 30, 15], status: "proficient" },
+        { leafId: "lang-sp-s", daysAgo: [85, 60, 42], status: "developing" },
+        { leafId: "lang-sp-t", daysAgo: [30], status: "introduced" },
+        { leafId: "lang-sg-beg", daysAgo: [95, 70, 45, 25, 12], status: "proficient" },
+        { leafId: "math-nr-align", daysAgo: [90, 70, 50, 30, 18], status: "proficient" },
+        { leafId: "math-nr-names", daysAgo: [70, 50, 30], status: "developing" },
+        { leafId: "math-sp-14", daysAgo: [60, 40, 25], status: "developing" },
+        { leafId: "math-spindle-counting", daysAgo: [22], status: "introduced" },
+        { leafId: "cult-cm-color", daysAgo: [50, 30, 18], status: "developing" },
+        { leafId: "cult-cutting-paper", daysAgo: [110, 85, 60, 40, 25], status: "proficient" },
+        { leafId: "cult-painting-watercolors", daysAgo: [80], status: "introduced" },
+        { leafId: "pl-pouring-water", daysAgo: [200, 170, 140, 110, 80, 40], status: "proficient" },
+        { leafId: "pl-handwashing-complete", daysAgo: [195, 160, 125, 90, 55, 25], status: "proficient" },
+        { leafId: "pl-dressing-zipping", daysAgo: [120, 90, 65, 40, 20], status: "developing" },
       ],
     },
     {
       studentId: "leo",
       entries: [
-        { leafId: "pl-pouring-rice", daysAgo: [60, 30] },
-        { leafId: "pl-spooning", daysAgo: [45, 18, 4] },
-        { leafId: "pl-handwashing-complete", daysAgo: [70, 35, 10] },
-        { leafId: "sens-touch-boards", daysAgo: [30] },
+        { leafId: "pl-pouring-rice", daysAgo: [60, 45, 30], status: "developing" },
+        { leafId: "pl-spooning", daysAgo: [45, 30, 18, 10, 4], status: "proficient" },
+        { leafId: "pl-handwashing-complete", daysAgo: [70, 50, 35, 20, 10], status: "proficient" },
+        { leafId: "sens-touch-boards", daysAgo: [30], status: "introduced" },
       ],
     },
     {
       studentId: "noah",
       entries: [
-        { leafId: "sens-pt-build", daysAgo: [150, 100, 45] },
-        { leafId: "sens-pt-measure", daysAgo: [120, 70, 28] },
-        { leafId: "sens-bs-build", daysAgo: [130, 80, 30] },
-        { leafId: "sens-rr-align", daysAgo: [100, 55, 20] },
-        { leafId: "sens-rr-measure", daysAgo: [42, 15] },
-        { leafId: "sens-c2-3pairs", daysAgo: [88, 40, 14] },
-        { leafId: "sens-c2-6pairs", daysAgo: [22] },
-        { leafId: "lang-sg-beg", daysAgo: [95, 50, 18] },
-        { leafId: "lang-sg-end", daysAgo: [40, 12] },
-        { leafId: "lang-sp-a", daysAgo: [90, 45, 15] },
-        { leafId: "math-nr-align", daysAgo: [85, 40, 12] },
-        { leafId: "math-spindle-counting", daysAgo: [55, 20] },
-        { leafId: "math-cards-counters", daysAgo: [28] },
-        { leafId: "cult-painting-watercolors", daysAgo: [70, 30] },
+        { leafId: "sens-pt-build", daysAgo: [150, 120, 100, 70, 45], status: "proficient" },
+        { leafId: "sens-pt-measure", daysAgo: [120, 95, 70, 50, 28], status: "proficient" },
+        { leafId: "sens-bs-build", daysAgo: [130, 105, 80, 55, 30], status: "proficient" },
+        { leafId: "sens-rr-align", daysAgo: [100, 75, 55, 35, 20], status: "proficient" },
+        { leafId: "sens-rr-measure", daysAgo: [42, 28, 15], status: "developing" },
+        { leafId: "sens-c2-3pairs", daysAgo: [88, 65, 40, 25, 14], status: "proficient" },
+        { leafId: "sens-c2-6pairs", daysAgo: [22], status: "introduced" },
+        { leafId: "lang-sg-beg", daysAgo: [95, 70, 50, 30, 18], status: "proficient" },
+        { leafId: "lang-sg-end", daysAgo: [40, 25, 12], status: "developing" },
+        { leafId: "lang-sp-a", daysAgo: [90, 65, 45, 28, 15], status: "proficient" },
+        { leafId: "math-nr-align", daysAgo: [85, 60, 40, 25, 12], status: "proficient" },
+        { leafId: "math-spindle-counting", daysAgo: [55, 35, 20], status: "developing" },
+        { leafId: "math-cards-counters", daysAgo: [28], status: "introduced" },
+        { leafId: "cult-painting-watercolors", daysAgo: [70, 50, 30], status: "developing" },
+        { leafId: "pl-pouring-rice", daysAgo: [200, 170, 140, 110, 80, 50, 25], status: "proficient" },
+        { leafId: "pl-spooning", daysAgo: [180, 145, 110, 80, 50, 20], status: "proficient" },
       ],
     },
     {
       studentId: "aisha",
       entries: [
-        { leafId: "lang-sp-a", daysAgo: [110, 65, 22] },
-        { leafId: "lang-sp-m", daysAgo: [100, 55, 18] },
-        { leafId: "lang-sp-s", daysAgo: [88, 42, 14] },
-        { leafId: "lang-sp-t", daysAgo: [70, 30] },
-        { leafId: "lang-sp-p", daysAgo: [40, 12] },
-        { leafId: "lang-ma-box", daysAgo: [50, 20] },
-        { leafId: "lang-mi-outline", daysAgo: [60, 25] },
-        { leafId: "math-nr-align", daysAgo: [100, 55, 18] },
-        { leafId: "math-nr-names", daysAgo: [85, 38, 12] },
-        { leafId: "math-sp-14", daysAgo: [70, 28] },
-        { leafId: "math-sp-59", daysAgo: [22] },
-        { leafId: "math-teen-board", daysAgo: [35, 8] },
-        { leafId: "cult-cm-color", daysAgo: [60, 22] },
-        { leafId: "cult-na-color", daysAgo: [25] },
+        { leafId: "lang-sp-a", daysAgo: [110, 90, 65, 40, 22], status: "proficient" },
+        { leafId: "lang-sp-m", daysAgo: [100, 80, 55, 35, 18], status: "proficient" },
+        { leafId: "lang-sp-s", daysAgo: [88, 65, 42, 25, 14], status: "proficient" },
+        { leafId: "lang-sp-t", daysAgo: [70, 50, 30], status: "developing" },
+        { leafId: "lang-sp-p", daysAgo: [40, 25, 12], status: "developing" },
+        { leafId: "lang-ma-box", daysAgo: [50, 30, 20], status: "developing" },
+        { leafId: "lang-mi-outline", daysAgo: [60, 40, 25], status: "developing" },
+        { leafId: "math-nr-align", daysAgo: [100, 80, 55, 35, 18], status: "proficient" },
+        { leafId: "math-nr-names", daysAgo: [85, 60, 38, 22, 12], status: "proficient" },
+        { leafId: "math-sp-14", daysAgo: [70, 50, 28], status: "developing" },
+        { leafId: "math-sp-59", daysAgo: [22], status: "introduced" },
+        { leafId: "math-teen-board", daysAgo: [35, 20, 8], status: "developing" },
+        { leafId: "cult-cm-color", daysAgo: [60, 40, 22], status: "developing" },
+        { leafId: "cult-na-color", daysAgo: [25], status: "introduced" },
+        { leafId: "pl-pouring-water", daysAgo: [220, 185, 150, 115, 80, 45], status: "proficient" },
+        { leafId: "pl-handwashing-complete", daysAgo: [215, 175, 135, 95, 55, 20], status: "proficient" },
       ],
     },
     {
       studentId: "james",
       entries: [
-        { leafId: "lang-puzzle-words", daysAgo: [120, 70, 25] },
-        { leafId: "lang-pb-3part", daysAgo: [100, 50, 18] },
-        { leafId: "math-teen-board", daysAgo: [110, 60, 22] },
-        { leafId: "math-hundred-board", daysAgo: [80, 40, 12] },
-        { leafId: "math-gb-names", daysAgo: [70, 35, 10] },
-        { leafId: "math-gb-bank", daysAgo: [55, 22] },
-        { leafId: "cult-na-color", daysAgo: [90, 45, 15] },
-        { leafId: "cult-lw-forms", daysAgo: [60, 25] },
-        { leafId: "cult-lw-cards", daysAgo: [30] },
+        { leafId: "lang-puzzle-words", daysAgo: [120, 95, 70, 45, 25], status: "proficient" },
+        { leafId: "lang-pb-3part", daysAgo: [100, 75, 50, 30, 18], status: "proficient" },
+        { leafId: "math-teen-board", daysAgo: [110, 85, 60, 40, 22], status: "proficient" },
+        { leafId: "math-hundred-board", daysAgo: [80, 60, 40, 25, 12], status: "proficient" },
+        { leafId: "math-gb-names", daysAgo: [70, 50, 35, 20, 10], status: "proficient" },
+        { leafId: "math-gb-bank", daysAgo: [55, 38, 22], status: "developing" },
+        { leafId: "cult-na-color", daysAgo: [90, 70, 45, 30, 15], status: "proficient" },
+        { leafId: "cult-lw-forms", daysAgo: [60, 40, 25], status: "developing" },
+        { leafId: "cult-lw-cards", daysAgo: [30], status: "introduced" },
+        { leafId: "pl-pouring-cup", daysAgo: [180, 145, 110, 75, 40], status: "proficient" },
+        { leafId: "pl-handwashing-complete", daysAgo: [200, 165, 130, 95, 60, 25], status: "proficient" },
       ],
     },
   ];
@@ -2343,33 +2675,21 @@ function seedCurriculumProgress(): DemoCurriculumProgress[] {
   const records: DemoCurriculumProgress[] = [];
   for (const recipe of recipes) {
     for (const e of recipe.entries) {
-      const dates = e.daysAgo.map((d) => isoDaysAgo(d));
-      const padded: (string | undefined)[] = [
-        dates[0],
-        dates[1],
-        dates[2],
-      ];
+      // Convert daysAgo offsets to ISO date strings in chronological order
+      // (earliest first), so practice[0] is the first session.
+      const practices = [...e.daysAgo]
+        .sort((a, b) => b - a)
+        .map((d) => isoDaysAgo(d));
       records.push({
         studentId: recipe.studentId,
         leafId: e.leafId,
-        dates: padded,
+        practices,
+        status: e.status,
         updatedAt: new Date().toISOString(),
       });
     }
   }
   return records;
-}
-
-function statusFromDates(dates: (string | undefined)[]): CurriculumStatus {
-  const filled = dates.filter(Boolean).length;
-  if (filled === 0) return "not-started";
-  if (filled === 1) return "introduced";
-  if (filled === 2) return "practicing";
-  return "mastered";
-}
-
-export function getCurriculumStatusFromDates(dates: (string | undefined)[]) {
-  return statusFromDates(dates);
 }
 
 export function getStudentCurriculumProgress(
@@ -2402,13 +2722,14 @@ function upsertProgress(
   const blank: DemoCurriculumProgress = {
     studentId,
     leafId,
-    dates: [undefined, undefined, undefined],
+    practices: [],
+    status: "not-started",
     updatedAt: new Date().toISOString(),
   };
   const existing = idx >= 0 ? state.curriculumProgress[idx] : blank;
   const next = updater({
     ...existing,
-    dates: [...existing.dates],
+    practices: [...existing.practices],
   });
   if (idx >= 0) {
     state.curriculumProgress[idx] = next;
@@ -2418,74 +2739,61 @@ function upsertProgress(
   emit();
 }
 
-export function markPresentation(
+export function addPractice(
   studentId: string,
   leafId: string,
   date?: string,
 ) {
-  const iso = (date ?? new Date().toISOString().slice(0, 10));
+  const iso = date ?? new Date().toISOString().slice(0, 10);
   upsertProgress(studentId, leafId, (existing) => {
-    const dates = [...existing.dates];
-    const emptyIdx = dates.findIndex((d) => !d);
-    if (emptyIdx === -1) {
-      // All three slots filled — replace the oldest
-      let oldestIdx = 0;
-      for (let i = 1; i < dates.length; i++) {
-        if ((dates[i] ?? "") < (dates[oldestIdx] ?? "")) oldestIdx = i;
-      }
-      dates[oldestIdx] = iso;
-    } else {
-      dates[emptyIdx] = iso;
-    }
+    const practices = [...existing.practices, iso].sort();
     return {
       ...existing,
-      dates,
+      practices,
+      // First practice promotes from not-started to introduced.
+      status: existing.status === "not-started" ? "introduced" : existing.status,
       updatedAt: new Date().toISOString(),
     };
   });
 }
 
-export function setPresentationDate(
+export function removePractice(
   studentId: string,
   leafId: string,
-  slot: number,
   date: string,
 ) {
-  if (slot < 0 || slot > 2) return;
   upsertProgress(studentId, leafId, (existing) => {
-    const dates = [...existing.dates];
-    dates[slot] = date;
+    const idx = existing.practices.indexOf(date);
+    const practices = [...existing.practices];
+    if (idx >= 0) practices.splice(idx, 1);
     return {
       ...existing,
-      dates,
+      practices,
+      // If we removed the last practice, drop back to not-started.
+      status: practices.length === 0 ? "not-started" : existing.status,
       updatedAt: new Date().toISOString(),
     };
   });
 }
 
-export function clearPresentation(
+export function setCurriculumStatus(
   studentId: string,
   leafId: string,
-  slot: number,
+  status: CurriculumStatus,
 ) {
-  if (slot < 0 || slot > 2) return;
-  upsertProgress(studentId, leafId, (existing) => {
-    const dates = [...existing.dates];
-    dates[slot] = undefined;
-    return {
-      ...existing,
-      dates,
-      updatedAt: new Date().toISOString(),
-    };
-  });
+  upsertProgress(studentId, leafId, (existing) => ({
+    ...existing,
+    status,
+    updatedAt: new Date().toISOString(),
+  }));
 }
 
 function emptyStats(): CurriculumAreaStats {
   return {
     total: 0,
     introduced: 0,
-    practicing: 0,
-    mastered: 0,
+    developing: 0,
+    proficient: 0,
     notStarted: 0,
   };
 }
@@ -2493,8 +2801,8 @@ function emptyStats(): CurriculumAreaStats {
 function tallyStatus(stats: CurriculumAreaStats, status: CurriculumStatus) {
   stats.total += 1;
   if (status === "introduced") stats.introduced += 1;
-  else if (status === "practicing") stats.practicing += 1;
-  else if (status === "mastered") stats.mastered += 1;
+  else if (status === "developing") stats.developing += 1;
+  else if (status === "proficient") stats.proficient += 1;
   else stats.notStarted += 1;
 }
 
@@ -2507,9 +2815,7 @@ export function getCurriculumStats(studentId: string): CurriculumStats {
   }
   for (const leaf of getAllLeaves()) {
     const p = progress[leaf.leafId];
-    const status: CurriculumStatus = p
-      ? statusFromDates(p.dates)
-      : "not-started";
+    const status: CurriculumStatus = p ? p.status : "not-started";
     tallyStatus(overall, status);
     tallyStatus(byArea[leaf.areaId], status);
   }
@@ -2520,7 +2826,7 @@ export type RecentPresentation = {
   studentId: string;
   leafId: string;
   date: string;
-  slot: number; // 0-indexed (0 = 1st presentation)
+  sessionIndex: number; // 0-indexed within this leaf's practice history
   leaf: Leaf;
 };
 
@@ -2533,19 +2839,13 @@ export function getRecentPresentations(
     if (p.studentId !== studentId) continue;
     const leaf = getLeafById(p.leafId);
     if (!leaf) continue;
-    // Sort dates ascending so the slot mapping reflects 1st/2nd/3rd presentation order
-    const sortable = p.dates
-      .map((d, i) => ({ d, i }))
-      .filter((x) => x.d) as { d: string; i: number }[];
-    const sortedAsc = [...sortable].sort((a, b) =>
-      (a.d ?? "") < (b.d ?? "") ? -1 : 1,
-    );
-    sortedAsc.forEach((entry, sortedIdx) => {
+    // practices are stored chronologically; sessionIndex 0 = first ever session.
+    p.practices.forEach((date, i) => {
       out.push({
         studentId: p.studentId,
         leafId: p.leafId,
-        date: entry.d,
-        slot: sortedIdx, // 0 = 1st presentation chronologically
+        date,
+        sessionIndex: i,
         leaf,
       });
     });
@@ -2554,13 +2854,19 @@ export function getRecentPresentations(
 }
 
 export function getMasteredLeaves(studentId: string): Leaf[] {
+  return getLeavesByStatus(studentId, "proficient");
+}
+
+export function getLeavesByStatus(
+  studentId: string,
+  status: CurriculumStatus,
+): Leaf[] {
   const progress = getStudentCurriculumProgress(studentId);
-  const mastered: Leaf[] = [];
+  const out: Leaf[] = [];
   for (const leaf of getAllLeaves()) {
     const p = progress[leaf.leafId];
-    if (p && statusFromDates(p.dates) === "mastered") {
-      mastered.push(leaf);
-    }
+    const current: CurriculumStatus = p ? p.status : "not-started";
+    if (current === status) out.push(leaf);
   }
-  return mastered;
+  return out;
 }

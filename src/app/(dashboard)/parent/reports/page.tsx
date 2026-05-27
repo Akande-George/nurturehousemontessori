@@ -16,6 +16,7 @@ import {
   getStudentsForParent,
   useDemoStore,
 } from "@/lib/mock/demo-store";
+import { downloadStructuredPdf, type PdfTextLine } from "@/lib/pdf/download-pdf";
 
 export default function DailyReportsPage() {
   useDemoStore();
@@ -50,172 +51,124 @@ export default function DailyReportsPage() {
     return ageGroup;
   };
 
-  const handleDownloadReport = (report: DemoDailyReport) => {
-    const reportHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Daily Report - ${report.date}</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0; padding: 20px; color: #333; }
-    .header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
-    h1 { margin: 0; font-size: 24px; }
-    .school { color: #666; font-size: 12px; margin-top: 5px; }
-    .student-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; padding: 15px; background: #f9fafb; border-radius: 8px; }
-    .info-row { }
-    .label { font-weight: bold; font-size: 12px; text-transform: uppercase; color: #666; }
-    .value { font-size: 14px; margin-top: 5px; }
-    .section { margin-bottom: 30px; }
-    .section-title { font-weight: bold; font-size: 14px; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 15px; }
-    .content-row { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
-    .content-label { font-weight: 500; }
-    .mood { font-size: 32px; margin: 10px 0; }
-    .signature-section { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
-    .signature-line { border-top: 1px solid #333; padding-top: 10px; text-align: center; font-size: 12px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>DAILY REPORT</h1>
-    <div class="school">Nurture House Montessori, Ilorin, Nigeria</div>
-  </div>
+  const handleDownloadReport = async (report: DemoDailyReport) => {
+    const lines: PdfTextLine[] = [
+      { kind: "title", text: "Daily Report" },
+      {
+        kind: "subtitle",
+        text: new Date(report.date).toLocaleDateString("en-NG", {
+          weekday: "long",
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        }),
+      },
+      { kind: "rule" },
+      { kind: "label-value", label: "Student", value: selectedChild?.name ?? "" },
+      {
+        kind: "label-value",
+        label: "Classroom",
+        value: selectedChild?.classroom ?? "",
+      },
+      {
+        kind: "label-value",
+        label: "Age Group",
+        value: getDisplayAgeBand(report.ageGroup),
+      },
+      {
+        kind: "label-value",
+        label: "General Mood",
+        value: `${moodEmoji(report.generalMood)}  ${report.generalMood}`,
+      },
+    ];
 
-  <div class="student-info">
-    <div class="info-row">
-      <div class="label">Student</div>
-      <div class="value">${selectedChild?.name}</div>
-    </div>
-    <div class="info-row">
-      <div class="label">Date</div>
-      <div class="value">${new Date(report.date).toLocaleDateString("en-NG", {
-        weekday: "long",
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      })}</div>
-    </div>
-    <div class="info-row">
-      <div class="label">Classroom</div>
-      <div class="value">${selectedChild?.classroom}</div>
-    </div>
-    <div class="info-row">
-      <div class="label">Age Group</div>
-      <div class="value">${getDisplayAgeBand(report.ageGroup)}</div>
-    </div>
-  </div>
+    if (typeof report.temperatureCelsius === "number") {
+      lines.push({
+        kind: "label-value",
+        label: "Temperature",
+        value: `${report.temperatureCelsius.toFixed(1)}°C${
+          report.temperatureTakenAt ? ` (taken at ${report.temperatureTakenAt})` : ""
+        }`,
+      });
+    }
 
-  <div class="section">
-    <div class="section-title">General Mood</div>
-    <div class="mood">${moodEmoji(report.generalMood)}</div>
-    <p>${report.generalMood}</p>
-  </div>
+    lines.push({ kind: "rule" });
 
-  ${
-    report.careEntries
-      ? `
-  <div class="section">
-    <div class="section-title">Care Entries (0-3 Years)</div>
-    ${report.careEntries
-      .map(
-        (entry: DemoDailyCareEntry) => `
-      <div class="content-row">
-        <span class="content-label">${entry.label}</span>
-        <span>${entry.value}</span>
-      </div>
-    `,
-      )
-      .join("")}
-    <div style="margin-top: 15px;">
-      <strong>Fun Learning:</strong>
-      <p>${report.funLearning}</p>
-    </div>
-    <div>
-      <strong>Follow Up at Home:</strong>
-      <p>${report.followUpAtHome}</p>
-    </div>
-  </div>
-  `
-      : ""
-  }
+    if (report.careEntries && report.careEntries.length > 0) {
+      lines.push({ kind: "heading", text: "Care Routine" });
+      lines.push({
+        kind: "table",
+        headers: ["Entry", "Value"],
+        rows: report.careEntries.map((e) => [
+          e.label + (e.time ? ` · ${e.time}` : ""),
+          e.value,
+        ]),
+      });
+      if (report.funLearning)
+        lines.push({ kind: "label-value", label: "Fun Learning", value: report.funLearning });
+      if (report.followUpAtHome)
+        lines.push({ kind: "label-value", label: "Follow Up at Home", value: report.followUpAtHome });
+      lines.push({ kind: "rule" });
+    }
 
-  ${
-    report.workCycle
-      ? `
-  <div class="section">
-    <div class="section-title">Work Cycle (3-6 Years)</div>
-    ${report.workCycle
-      .map(
-        (work: DemoWorkEntry) => `
-      <div class="content-row">
-        <span><strong>${work.area}</strong> — ${work.activity}</span>
-        <span>${work.level}</span>
-      </div>
-    `,
-      )
-      .join("")}
-    ${report.concentrationLevel ? `<p><strong>Concentration:</strong> ${report.concentrationLevel}</p>` : ""}
-    ${report.socialDevelopment ? `<p><strong>Social:</strong> ${report.socialDevelopment}</p>` : ""}
-    ${report.independenceSkills ? `<p><strong>Independence:</strong> ${report.independenceSkills}</p>` : ""}
-  </div>
-  `
-      : ""
-  }
+    if (report.workCycle && report.workCycle.length > 0) {
+      lines.push({ kind: "heading", text: "Work Cycle" });
+      lines.push({
+        kind: "table",
+        headers: ["Area", "Activity", "Level"],
+        rows: report.workCycle.map((w) => [w.area, w.activity, w.level]),
+      });
+      if (report.concentrationLevel)
+        lines.push({ kind: "label-value", label: "Concentration", value: report.concentrationLevel });
+      if (report.independenceSkills)
+        lines.push({ kind: "label-value", label: "Independence", value: report.independenceSkills });
+      if (report.socialDevelopment)
+        lines.push({ kind: "label-value", label: "Social", value: report.socialDevelopment });
+      if (report.mealNotes)
+        lines.push({ kind: "label-value", label: "Meal Notes", value: report.mealNotes });
+      lines.push({ kind: "rule" });
+    }
 
-  ${
-    report.subjectProgress
-      ? `
-  <div class="section">
-    <div class="section-title">Subject Progress (6-9 Years)</div>
-    ${report.subjectProgress
-      .map(
-        (subj: DemoSubjectEntry) => `
-      <div style="margin-bottom: 15px; padding: 10px; background: #f9fafb; border-radius: 4px;">
-        <strong>${subj.subject}</strong>
-        <p>${subj.activity}</p>
-        <small><em>${subj.note}</em></small>
-      </div>
-    `,
-      )
-      .join("")}
-    ${report.projectWork ? `<p><strong>Project Work:</strong> ${report.projectWork}</p>` : ""}
-  </div>
-  `
-      : ""
-  }
+    if (report.subjectProgress && report.subjectProgress.length > 0) {
+      lines.push({ kind: "heading", text: "Subject Progress" });
+      lines.push({
+        kind: "table",
+        headers: ["Subject", "Activity", "Note"],
+        rows: report.subjectProgress.map((s) => [s.subject, s.activity, s.note]),
+      });
+      if (report.projectWork)
+        lines.push({ kind: "label-value", label: "Project Work", value: report.projectWork });
+      if (report.behaviorNotes)
+        lines.push({ kind: "label-value", label: "Behavior", value: report.behaviorNotes });
+      lines.push({ kind: "rule" });
+    }
 
-  <div class="section">
-    <div class="section-title">Teacher Comments</div>
-    <p>${report.teacherComments}</p>
-  </div>
+    lines.push({ kind: "heading", text: "Teacher Comments" });
+    lines.push({ kind: "body", text: report.teacherComments || "—" });
+    lines.push({ kind: "spacer" });
+    lines.push({ kind: "heading", text: "Parent Comments" });
+    lines.push({
+      kind: "body",
+      text: report.parentComments || "(No comments yet)",
+    });
+    lines.push({ kind: "rule" });
+    lines.push({
+      kind: "label-value",
+      label: "Teacher Signature",
+      value: report.teacherSignature || "Pending",
+    });
+    lines.push({
+      kind: "label-value",
+      label: "Parent Signature",
+      value: report.parentSignature || "Pending",
+    });
 
-  <div class="section">
-    <div class="section-title">Parent Comments</div>
-    <p>${report.parentComments || "(No comments yet)"}</p>
-  </div>
-
-  <div class="signature-section">
-    <div>
-      <p><strong>Teacher:</strong></p>
-      <p>${report.teacherSignature}</p>
-      <div class="signature-line">Signature</div>
-    </div>
-    <div>
-      <p><strong>Parent:</strong></p>
-      <p>${report.parentSignature || "Pending"}</p>
-      <div class="signature-line">Signature</div>
-    </div>
-  </div>
-</body>
-</html>
-    `;
-
-    const blob = new Blob([reportHTML], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Report-${selectedChild?.name.replace(/\s+/g, "-")}-${report.date}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await downloadStructuredPdf({
+      filename: `Report-${(selectedChild?.name ?? "child").replace(/\s+/g, "-")}-${report.date}.pdf`,
+      header: "Nurture House Montessori · Daily Report",
+      footer: `Report generated ${new Date().toLocaleDateString("en-NG")}`,
+      lines,
+    });
   };
 
   return (

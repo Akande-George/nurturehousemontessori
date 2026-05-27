@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { downloadStructuredPdf } from "@/lib/pdf/download-pdf";
 
 type ProgramType = "infant" | "toddler" | "childrensHouse";
 
@@ -66,6 +67,34 @@ export default function SchoolKitPage() {
     toast({
       title: actionName,
       description: "Kit list action completed for the selected programme.",
+    });
+  };
+
+  const handleDownloadPdf = async () => {
+    const items = kitItems[selectedProgram];
+    await downloadStructuredPdf({
+      filename: `${PROGRAM_LABELS[selectedProgram].replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-kit-list.pdf`,
+      header: "Nurture House Montessori · Welcome Kit",
+      footer: `Generated ${new Date().toLocaleDateString("en-NG")}`,
+      lines: [
+        { kind: "title", text: "Welcome Kit" },
+        { kind: "subtitle", text: PROGRAM_LABELS[selectedProgram] },
+        { kind: "rule" },
+        {
+          kind: "body",
+          text: "Please label every item with your child's full name. Items below help your child settle into the prepared environment with confidence.",
+        },
+        { kind: "spacer", size: 8 },
+        {
+          kind: "table",
+          headers: ["Item", "Status"],
+          rows: items.map((it) => [it.name, it.required ? "Required" : "Suggested"]),
+        },
+      ],
+    });
+    toast({
+      title: "Kit list downloaded",
+      description: `${PROGRAM_LABELS[selectedProgram]} kit list saved as PDF.`,
     });
   };
 
@@ -128,7 +157,7 @@ export default function SchoolKitPage() {
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            onClick={() => handleAction("Download PDF")}
+            onClick={handleDownloadPdf}
             className="font-medium"
           >
             <Download className="w-4 h-4 mr-2" /> Download PDF

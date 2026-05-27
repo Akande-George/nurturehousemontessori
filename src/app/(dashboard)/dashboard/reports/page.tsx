@@ -39,6 +39,7 @@ import {
   useDemoStore,
 } from "@/lib/mock/demo-store";
 import { Calendar, Clock, FileDown, Printer, Send } from "lucide-react";
+import { downloadStructuredPdf } from "@/lib/pdf/download-pdf";
 
 type AgeGroup = "0-2 years" | "3-6 years" | "7-9 years";
 
@@ -181,30 +182,40 @@ export default function ReportsPage() {
     });
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     const snapshot = getDemoSnapshot();
-    const rows = groupReports
-      .map((report) => {
-        const student = snapshot.students.find(
-          (s) => s.id === report.studentId,
-        );
-        return `<tr><td>${student?.name ?? report.studentId}</td><td>${report.date}</td><td>${report.status}</td><td>${report.generalMood}</td></tr>`;
-      })
-      .join("");
+    const rows = groupReports.map((report) => {
+      const student = snapshot.students.find((s) => s.id === report.studentId);
+      return [
+        student?.name ?? report.studentId,
+        report.date,
+        report.status,
+        report.generalMood,
+        typeof report.temperatureCelsius === "number"
+          ? `${report.temperatureCelsius.toFixed(1)}°C`
+          : "—",
+      ];
+    });
 
-    const html = `<!doctype html><html><head><meta charset=\"utf-8\"><title>${activeAgeGroup} Daily Reports</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#0f172a}h1{margin:0 0 8px}p{margin:0 0 16px;color:#475569}table{width:100%;border-collapse:collapse}th,td{border:1px solid #e2e8f0;padding:8px;text-align:left;font-size:12px}th{background:#f8fafc;text-transform:uppercase;font-size:11px;letter-spacing:.04em}</style></head><body><h1>${activeAgeGroup} Daily Reports</h1><p>Generated ${new Date().toLocaleDateString("en-NG")}</p><table><thead><tr><th>Student</th><th>Date</th><th>Status</th><th>Mood</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
-
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `daily-reports-${activeAgeGroup.replace(/\s+/g, "-")}-${new Date().toISOString().slice(0, 10)}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await downloadStructuredPdf({
+      filename: `daily-reports-${activeAgeGroup.replace(/\s+/g, "-")}-${new Date().toISOString().slice(0, 10)}.pdf`,
+      header: "Nurture House Montessori · Daily Reports Summary",
+      footer: `Exported ${new Date().toLocaleDateString("en-NG")}`,
+      lines: [
+        { kind: "title", text: `${activeAgeGroup} Daily Reports` },
+        { kind: "subtitle", text: `Generated ${new Date().toLocaleDateString("en-NG")}` },
+        { kind: "rule" },
+        {
+          kind: "table",
+          headers: ["Student", "Date", "Status", "Mood", "Temp"],
+          rows,
+        },
+      ],
+    });
 
     toast({
       title: "Report exported",
-      description: `${activeAgeGroup} summary downloaded successfully.`,
+      description: `${activeAgeGroup} summary downloaded as PDF.`,
     });
   };
 
@@ -524,6 +535,25 @@ export default function ReportsPage() {
                   >
                     {selectedReport.status}
                   </Badge>
+                  {typeof selectedReport.temperatureCelsius === "number" && (
+                    <Badge
+                      variant="outline"
+                      className={
+                        selectedReport.temperatureCelsius >= 38
+                          ? "bg-rose-50 text-rose-700 border-rose-200"
+                          : selectedReport.temperatureCelsius >= 37.5
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : selectedReport.temperatureCelsius < 36
+                              ? "bg-sky-50 text-sky-700 border-sky-200"
+                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      }
+                    >
+                      🌡 {selectedReport.temperatureCelsius.toFixed(1)}°C
+                      {selectedReport.temperatureTakenAt
+                        ? ` · ${selectedReport.temperatureTakenAt}`
+                        : ""}
+                    </Badge>
+                  )}
                 </div>
               </div>
             </CardHeader>

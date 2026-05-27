@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import {
   getCurriculumStats,
+  getLeavesByStatus,
   getMasteredLeaves,
   getRecentPresentations,
   getRoleUser,
@@ -101,6 +102,18 @@ export default function AcademicProgressPage() {
   const getScoreColor = (_score: number) => "text-slate-700";
   const getScoreBgColor = (_score: number) => "bg-slate-50";
 
+  // Render whatever the seed says (e.g. "First Term", "Second Term") with a
+  // tolerant fallback for legacy values like "Spring 2" or "Term 2".
+  const formatTerm = (term: string): string => {
+    if (/first/i.test(term)) return "First Term";
+    if (/second/i.test(term)) return "Second Term";
+    if (/third/i.test(term)) return "Third Term";
+    if (/\b1\b|fall|autumn/i.test(term)) return "First Term";
+    if (/\b2\b|spring/i.test(term)) return "Second Term";
+    if (/\b3\b|summer/i.test(term)) return "Third Term";
+    return term;
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div>
@@ -187,7 +200,7 @@ export default function AcademicProgressPage() {
                       Current Period
                     </p>
                     <p className="text-2xl font-serif font-bold text-slate-900">
-                      {progressData.term}
+                      {formatTerm(progressData.term)}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
                       {progressData.academicYear}
@@ -432,11 +445,16 @@ export default function AcademicProgressPage() {
 // gallery. Reads from the same demo-store progress data the teacher writes.
 // ---------------------------------------------------------------------------
 
-const SLOT_ORDINAL = ["1st", "2nd", "3rd"] as const;
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
 
 function CurriculumJourney({ studentId }: { studentId: string }) {
   const stats = getCurriculumStats(studentId);
   const recent = getRecentPresentations(studentId, 8);
+  const developing = getLeavesByStatus(studentId, "developing");
   const mastered = getMasteredLeaves(studentId);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -445,11 +463,21 @@ function CurriculumJourney({ studentId }: { studentId: string }) {
       ? 0
       : Math.round(
           ((stats.overall.introduced +
-            stats.overall.practicing +
-            stats.overall.mastered) /
+            stats.overall.developing +
+            stats.overall.proficient) /
             stats.overall.total) *
             100,
         );
+
+  // Group developing leaves by area for the gallery
+  const developingByArea = useMemo(() => {
+    const groups: Record<string, typeof developing> = {};
+    for (const leaf of developing) {
+      if (!groups[leaf.areaId]) groups[leaf.areaId] = [];
+      groups[leaf.areaId].push(leaf);
+    }
+    return groups;
+  }, [developing]);
 
   // Group mastered leaves by area for the gallery
   const masteredByArea = useMemo(() => {
@@ -470,28 +498,30 @@ function CurriculumJourney({ studentId }: { studentId: string }) {
       >
         <Info className="h-3.5 w-3.5 mt-0.5 text-slate-400 shrink-0" />
         <span>
-          <span className="font-semibold">What does this mean?</span> In a
-          Montessori classroom, each material is presented three times —
-          introduction, practice, and mastery. {showHelp ? "Tap to hide." : "Tap to learn more."}
+          <span className="font-semibold">What does this mean?</span> A child
+          practices each material as many times as they need. The guide
+          decides when readiness becomes proficiency.{" "}
+          {showHelp ? "Tap to hide." : "Tap to learn more."}
         </span>
       </button>
       {showHelp && (
         <Card className="border-slate-100 shadow-sm bg-gradient-to-br from-sky-50/40 to-white">
           <CardContent className="p-4 space-y-2 text-sm text-slate-700">
             <p>
-              <strong>1st presentation</strong> — the guide introduces the
-              material to your child for the first time. Your child watches
-              and tries it under guidance.
+              <strong>Introduced</strong> — the guide has shown your child the
+              material for the first time. Your child watches and tries it
+              under guidance.
             </p>
             <p>
-              <strong>2nd presentation</strong> — your child returns to the
-              material with growing independence. The guide observes and
-              reinforces.
+              <strong>Developing</strong> — your child returns to the material
+              repeatedly with growing independence. There is no fixed number
+              of practices — the work continues for as long as it serves the
+              child.
             </p>
             <p>
-              <strong>3rd presentation</strong> — your child uses the material
-              fluently and can teach a peer. We consider this "mastered" for
-              that cycle of work.
+              <strong>Proficient</strong> — the guide is satisfied that your
+              child uses the material fluently and can teach a peer. Only the
+              guide promotes a child to proficient.
             </p>
           </CardContent>
         </Card>
@@ -507,25 +537,25 @@ function CurriculumJourney({ studentId }: { studentId: string }) {
               </p>
               <p className="text-3xl font-serif text-slate-900 mt-1">
                 {stats.overall.introduced +
-                  stats.overall.practicing +
-                  stats.overall.mastered}{" "}
+                  stats.overall.developing +
+                  stats.overall.proficient}{" "}
                 <span className="text-base font-sans text-slate-500 font-normal">
                   of {stats.overall.total} Montessori activities experienced
                 </span>
               </p>
               <p className="text-sm text-slate-500 mt-2">
                 <span className="text-emerald-700 font-semibold">
-                  {stats.overall.mastered}
+                  {stats.overall.proficient}
                 </span>{" "}
-                mastered ·{" "}
+                proficient ·{" "}
                 <span className="text-amber-700 font-semibold">
-                  {stats.overall.practicing}
+                  {stats.overall.developing}
                 </span>{" "}
-                practicing ·{" "}
+                developing ·{" "}
                 <span className="text-sky-700 font-semibold">
                   {stats.overall.introduced}
                 </span>{" "}
-                just introduced
+                introduced
               </p>
             </div>
             <PetalChart stats={stats} overallPct={overallPct} />
@@ -545,12 +575,12 @@ function CurriculumJourney({ studentId }: { studentId: string }) {
           {recent.length === 0 ? (
             <p className="text-sm text-slate-500 italic">
               Your child's curriculum activity will appear here as their guide
-              records presentations.
+              records practices.
             </p>
           ) : (
             <ul className="space-y-3">
               {recent.map((entry, i) => (
-                <li key={`${entry.leafId}-${entry.slot}-${i}`} className="flex items-start gap-3">
+                <li key={`${entry.leafId}-${entry.sessionIndex}-${i}`} className="flex items-start gap-3">
                   <div
                     className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${entry.leaf.areaTone.accent}`}
                   />
@@ -572,8 +602,7 @@ function CurriculumJourney({ studentId }: { studentId: string }) {
                         {entry.leaf.areaName}
                       </Badge>
                       <span className="text-[10px] text-slate-400 uppercase tracking-wide">
-                        {SLOT_ORDINAL[entry.slot] ?? `#${entry.slot + 1}`}{" "}
-                        presentation
+                        {ordinal(entry.sessionIndex + 1)} practice
                       </span>
                     </div>
                     {entry.leaf.description && (
@@ -597,19 +626,74 @@ function CurriculumJourney({ studentId }: { studentId: string }) {
         </CardContent>
       </Card>
 
-      {/* Mastered gallery */}
+      {/* Developing gallery */}
+      <Card className="border-slate-100 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-amber-600" />
+            Developing
+            <span className="ml-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+              {developing.length}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {developing.length === 0 ? (
+            <p className="text-sm text-slate-500 italic">
+              No activities are in active practice yet — items show up here
+              once your child has been introduced and is returning to the
+              work with growing independence.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {CURRICULUM.map((area) => {
+                const items = developingByArea[area.id];
+                if (!items || items.length === 0) return null;
+                return (
+                  <div key={area.id}>
+                    <p
+                      className={`text-[11px] uppercase tracking-wide font-semibold ${area.tone.text} mb-2`}
+                    >
+                      {area.name} · {items.length}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {items.map((leaf) => (
+                        <span
+                          key={leaf.leafId}
+                          className={`text-xs px-2.5 py-1 rounded-full border ${area.tone.soft} ${area.tone.text} ${area.tone.border}`}
+                        >
+                          {leaf.activityName}
+                          {leaf.leafName !== leaf.activityName && (
+                            <span className="opacity-60">
+                              {" · "}
+                              {leaf.leafName}
+                            </span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Proficient gallery */}
       <Card className="border-slate-100 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
             <Award className="h-4 w-4 text-emerald-600" />
-            Mastered
+            Proficient
           </CardTitle>
         </CardHeader>
         <CardContent>
           {mastered.length === 0 ? (
             <p className="text-sm text-slate-500 italic">
-              No activities have been mastered yet — mastery takes patient
-              repetition over weeks or months.
+              No activities have been marked proficient yet — proficiency
+              comes when the guide is satisfied with the child's mastery,
+              after as many practices as it takes.
             </p>
           ) : (
             <div className="space-y-4">
@@ -681,9 +765,9 @@ function PetalChart({
           const pct =
             s.total === 0
               ? 0
-              : (s.introduced + s.practicing + s.mastered) / s.total;
+              : (s.introduced + s.developing + s.proficient) / s.total;
           const masteredPct =
-            s.total === 0 ? 0 : s.mastered / s.total;
+            s.total === 0 ? 0 : s.proficient / s.total;
           const angle = (i / CURRICULUM.length) * 2 * Math.PI - Math.PI / 2;
           const colors = colorMap[area.color] ?? colorMap.emerald;
           const tipX = center + Math.cos(angle) * petalLength;

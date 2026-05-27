@@ -83,8 +83,8 @@ export default function TeacherCurriculumIndexPage() {
           const stats = getCurriculumStats(student.id);
           const touched =
             stats.overall.introduced +
-            stats.overall.practicing +
-            stats.overall.mastered;
+            stats.overall.developing +
+            stats.overall.proficient;
           const pct =
             stats.overall.total === 0
               ? 0
@@ -133,7 +133,7 @@ export default function TeacherCurriculumIndexPage() {
                         s.total === 0
                           ? 0
                           : Math.round(
-                              ((s.introduced + s.practicing + s.mastered) /
+                              ((s.introduced + s.developing + s.proficient) /
                                 s.total) *
                                 100,
                             );
@@ -161,9 +161,9 @@ export default function TeacherCurriculumIndexPage() {
                       <Sparkles className="h-3 w-3 text-amber-500" />
                       <span>
                         <span className="font-semibold text-slate-700">
-                          {stats.overall.mastered}
+                          {stats.overall.proficient}
                         </span>{" "}
-                        mastered
+                        proficient
                       </span>
                     </div>
                     <span className="flex items-center gap-1 font-medium text-montessori-primary group-hover:gap-1.5 transition-all">

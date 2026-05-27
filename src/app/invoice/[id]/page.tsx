@@ -11,6 +11,7 @@ import {
   markInvoicePaid,
   useDemoStore,
 } from "@/lib/mock/demo-store";
+import { downloadStructuredPdf } from "@/lib/pdf/download-pdf";
 
 export default function InvoicePage({ params }: { params: { id: string } }) {
   const store = useDemoStore();
@@ -111,7 +112,59 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
                 Pay now
               </Button>
             ) : (
-              <Button variant="outline">Download receipt</Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  const student = getStudentById(invoice.studentId);
+                  await downloadStructuredPdf({
+                    filename: `${invoice.id}.pdf`,
+                    header: "Nurture House Montessori",
+                    footer: "Thank you for your payment.",
+                    lines: [
+                      { kind: "title", text: "Receipt" },
+                      { kind: "subtitle", text: invoice.id },
+                      { kind: "rule" },
+                      {
+                        kind: "label-value",
+                        label: "Student",
+                        value: student?.name ?? invoice.studentId,
+                      },
+                      {
+                        kind: "label-value",
+                        label: "Date Issued",
+                        value: new Date(invoice.issuedAt).toLocaleDateString(
+                          "en-NG",
+                          {
+                            day: "2-digit",
+                            month: "long",
+                            year: "numeric",
+                          },
+                        ),
+                      },
+                      { kind: "rule" },
+                      {
+                        kind: "table",
+                        headers: ["Description", "Amount"],
+                        rows: [
+                          [invoice.description, formatCurrency(invoice.amountCents)],
+                        ],
+                      },
+                      {
+                        kind: "label-value",
+                        label: "TOTAL PAID",
+                        value: formatCurrency(invoice.amountCents),
+                      },
+                      {
+                        kind: "label-value",
+                        label: "Status",
+                        value: invoice.status.toUpperCase(),
+                      },
+                    ],
+                  });
+                }}
+              >
+                Download receipt
+              </Button>
             )}
           </div>
         </CardContent>

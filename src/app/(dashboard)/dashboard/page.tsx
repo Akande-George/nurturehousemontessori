@@ -21,7 +21,7 @@ import {
   getTotalParentCount,
   useDemoStore,
 } from "@/lib/mock/demo-store";
-import { Eye, Users } from "lucide-react";
+import { AlertTriangle, Eye, HeartPulse, Pill, Users } from "lucide-react";
 
 export default function DashboardPage() {
   const [isNoticeOpen, setIsNoticeOpen] = useState(false);
@@ -103,6 +103,99 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      {/* Medical Watchlist — school-wide */}
+      {(() => {
+        const flagged = store.students.filter(
+          (s) =>
+            s.medications.length > 0 ||
+            s.allergies.length > 0 ||
+            (s.medicalNotes ?? "").trim().length > 0,
+        );
+        if (flagged.length === 0) return null;
+        return (
+          <Card className="border-2 border-rose-200 shadow-sm bg-rose-50/40">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-rose-900">
+                  <HeartPulse className="w-4 h-4 text-rose-600" />
+                  Medical Watchlist
+                  <Badge
+                    variant="outline"
+                    className="bg-white text-rose-700 border-rose-200 ml-1"
+                  >
+                    {flagged.length} of {store.students.length}
+                  </Badge>
+                </CardTitle>
+                <p className="text-xs text-rose-700/80 font-medium">
+                  Required reading for staff and front-office
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {flagged.map((student) => (
+                  <div
+                    key={student.id}
+                    className="rounded-xl bg-white border border-rose-100 p-3.5"
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div
+                        className={`w-9 h-9 rounded-full ${student.avatarColor} text-white flex items-center justify-center text-xs font-bold shrink-0`}
+                      >
+                        {student.name.split(" ").map((n) => n[0]).join("")}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">
+                          {student.name}
+                        </p>
+                        <p className="text-xs text-slate-500 truncate">
+                          {student.classroom}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-1 text-xs">
+                      {student.allergies.length > 0 && (
+                        <p className="flex items-start gap-1.5 text-amber-800">
+                          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
+                          <span>
+                            <span className="font-semibold">Allergies: </span>
+                            {student.allergies.join(", ")}
+                          </span>
+                        </p>
+                      )}
+                      {student.medications.length > 0 && (
+                        <p className="flex items-start gap-1.5 text-rose-800">
+                          <Pill className="w-3.5 h-3.5 mt-0.5 shrink-0 text-rose-600" />
+                          <span>
+                            <span className="font-semibold">
+                              Medication{student.medications.length === 1 ? "" : "s"}:{" "}
+                            </span>
+                            {student.medications
+                              .map(
+                                (m) =>
+                                  `${m.name} ${m.dosage} · ${m.time}`,
+                              )
+                              .join(" / ")}
+                          </span>
+                        </p>
+                      )}
+                      {(student.medicalNotes ?? "").trim().length > 0 && (
+                        <p className="text-slate-700">
+                          <span className="font-semibold text-slate-900">
+                            Notes:{" "}
+                          </span>
+                          {student.medicalNotes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-slate-100 shadow-sm">

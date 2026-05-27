@@ -136,12 +136,31 @@ export default function ParentReportDetailsPage() {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-3">
+          <div className="mt-4 flex items-center gap-3 flex-wrap">
             <Badge variant="outline" className={statusColor(report.status)}>
               {report.status.charAt(0).toUpperCase() + report.status.slice(1)}
             </Badge>
             <span className="text-2xl">{moodEmoji(report.generalMood)}</span>
             <span className="text-sm text-slate-600">{report.generalMood}</span>
+            {typeof report.temperatureCelsius === "number" && (
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${
+                  report.temperatureCelsius >= 38
+                    ? "bg-rose-50 text-rose-700 border-rose-200"
+                    : report.temperatureCelsius >= 37.5
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : report.temperatureCelsius < 36
+                        ? "bg-sky-50 text-sky-700 border-sky-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                }`}
+              >
+                <span aria-hidden>🌡</span>
+                Temperature {report.temperatureCelsius.toFixed(1)}°C
+                {report.temperatureTakenAt
+                  ? ` · ${report.temperatureTakenAt}`
+                  : ""}
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
