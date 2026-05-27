@@ -2731,11 +2731,14 @@ function upsertProgress(
     ...existing,
     practices: [...existing.practices],
   });
-  if (idx >= 0) {
-    state.curriculumProgress[idx] = next;
-  } else {
-    state.curriculumProgress.push(next);
-  }
+  // Replace the whole array (and the top-level state object) so
+  // useSyncExternalStore's referential snapshot comparison sees a change
+  // and triggers a re-render of subscribed components.
+  const nextProgress =
+    idx >= 0
+      ? state.curriculumProgress.map((p, i) => (i === idx ? next : p))
+      : [...state.curriculumProgress, next];
+  state = { ...state, curriculumProgress: nextProgress };
   emit();
 }
 

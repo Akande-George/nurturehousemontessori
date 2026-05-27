@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Search, Sparkles } from "lucide-react";
+import { ArrowRight, Grid3x3, Search, Sparkles, Users } from "lucide-react";
 import {
   getCurriculumStats,
   getRoleUser,
@@ -12,11 +12,13 @@ import {
   useDemoStore,
 } from "@/lib/mock/demo-store";
 import { CURRICULUM } from "@/lib/curriculum/curriculum";
+import { CurriculumMatrix } from "./CurriculumMatrix";
 
 export default function TeacherCurriculumIndexPage() {
   useDemoStore();
   const teacher = getRoleUser("teacher");
   const students = getTeacherStudents(teacher.id);
+  const [view, setView] = useState<"students" | "matrix">("matrix");
   const [search, setSearch] = useState("");
 
   const filtered = students.filter(
@@ -44,6 +46,34 @@ export default function TeacherCurriculumIndexPage() {
         </div>
       </div>
 
+      {/* View toggle */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setView("matrix")}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            view === "matrix"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Grid3x3 className="h-3.5 w-3.5" /> Matrix
+        </button>
+        <button
+          onClick={() => setView("students")}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            view === "students"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Users className="h-3.5 w-3.5" /> By student
+        </button>
+      </div>
+
+      {view === "matrix" && <CurriculumMatrix students={students} />}
+
+      {view === "students" && (
+        <>
       {/* Area legend */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         {CURRICULUM.map((area) => (
@@ -183,6 +213,8 @@ export default function TeacherCurriculumIndexPage() {
           </p>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }
