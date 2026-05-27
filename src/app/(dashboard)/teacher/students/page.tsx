@@ -356,7 +356,7 @@ export default function TeacherStudentsPage() {
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={post.imageUrl}
-                            alt={post.category}
+                            alt={post.leaf.activityName}
                             className="w-full h-full object-cover"
                           />
                         </div>

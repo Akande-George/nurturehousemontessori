@@ -44,11 +44,13 @@ export type DemoActivityPost = {
   teacherId: string;
   caption: string;
   imageUrl: string;
-  category: string;
+  leafId: string;
   likes: number;
   likedByParent: boolean;
   createdAt: string;
 };
+
+export type ActivityPostWithLeaf = DemoActivityPost & { leaf: Leaf };
 
 export type DemoDailyActivityType = "meals" | "nap" | "hygiene";
 
@@ -1516,7 +1518,7 @@ let state: DemoState = {
       caption:
         "Zoe spent nearly 20 minutes at the water-transfer tray today — completely absorbed, pouring from the small jug with steady focus. She corrected herself when water spilled, then looked up and smiled proudly. 💧",
       imageUrl: "https://picsum.photos/seed/zoewater/600/400",
-      category: "Practical Life",
+      leafId: "pl-pouring-water",
       likes: 4,
       likedByParent: true,
       createdAt: "2026-05-06T10:20:00.000Z",
@@ -1528,7 +1530,7 @@ let state: DemoState = {
       caption:
         "Circle time was full of giggles today! Zoe led the animal sound game and had the whole group mooing and clucking along. Her confidence during group activities has really blossomed. 🐮",
       imageUrl: "https://picsum.photos/seed/zoecircle/600/400",
-      category: "Circle Time",
+      leafId: "lang-sg-beg",
       likes: 7,
       likedByParent: true,
       createdAt: "2026-05-05T09:45:00.000Z",
@@ -1540,7 +1542,7 @@ let state: DemoState = {
       caption:
         "Outdoor play — Zoe discovered that pouring sand through the funnel makes a satisfying stream. She repeated it at least 12 times, experimenting with speed and height. Pure toddler science! ☀️",
       imageUrl: "https://picsum.photos/seed/zoeoutdoor/600/400",
-      category: "Outdoor",
+      leafId: "pl-pouring-different",
       likes: 5,
       likedByParent: false,
       createdAt: "2026-05-04T14:10:00.000Z",
@@ -1552,7 +1554,7 @@ let state: DemoState = {
       caption:
         "Emma revisited the colour tablet box for the second time this week. She matched all pairs quietly and even organised them into a gradient without any prompting — such a beautiful moment to witness. 🎨",
       imageUrl: "https://picsum.photos/seed/emmacolour/600/400",
-      category: "Sensorial",
+      leafId: "sens-c2-all",
       likes: 6,
       likedByParent: false,
       createdAt: "2026-05-06T11:00:00.000Z",
@@ -1564,7 +1566,7 @@ let state: DemoState = {
       caption:
         "Emma finished her natural-materials collage today — leaves, dried petals, and small sticks, all arranged with real intention. She named her piece 'the forest floor'. We've displayed it on the art wall! 🍂",
       imageUrl: "https://picsum.photos/seed/emmaart/600/400",
-      category: "Art",
+      leafId: "cult-join-wet-glue",
       likes: 9,
       likedByParent: true,
       createdAt: "2026-05-05T13:30:00.000Z",
@@ -1576,7 +1578,7 @@ let state: DemoState = {
       caption:
         "Number rods day! Emma lined up rods 1–10 in sequence, then counted each one aloud. She then challenged herself to combine rods to make ten — absolutely thriving in Mathematics this week. 🔢",
       imageUrl: "https://picsum.photos/seed/emmamath/600/400",
-      category: "Mathematics",
+      leafId: "math-rc-add-10",
       likes: 3,
       likedByParent: false,
       createdAt: "2026-05-03T10:50:00.000Z",
@@ -1588,7 +1590,7 @@ let state: DemoState = {
       caption:
         "Leo had his best spoon-transfer session yet — dry lentils from bowl to bowl, barely a spill! He has been practising this daily and his concentration span is visibly growing week by week. 🥄",
       imageUrl: "https://picsum.photos/seed/leospoon/600/400",
-      category: "Practical Life",
+      leafId: "pl-spooning",
       likes: 5,
       likedByParent: false,
       createdAt: "2026-05-06T09:55:00.000Z",
@@ -1600,7 +1602,7 @@ let state: DemoState = {
       caption:
         "Music corner was Leo's world today. He discovered that tapping the hanging chimes with different speeds makes different sounds. He repeated his 'song' five times — pure joy on his face! 🎵",
       imageUrl: "https://picsum.photos/seed/leomusic/600/400",
-      category: "Music",
+      leafId: "sens-bells-carry",
       likes: 8,
       likedByParent: false,
       createdAt: "2026-05-02T11:20:00.000Z",
@@ -1612,7 +1614,7 @@ let state: DemoState = {
       caption:
         "Sarah's finger painting today was an explosion of colour! She mixed red and yellow herself and announced that she made orange — her first intentional colour mix. The painting is drying and will come home Friday. 🖌️",
       imageUrl: "https://picsum.photos/seed/sarahpaint/600/400",
-      category: "Art",
+      leafId: "cult-painting-watercolors",
       likes: 11,
       likedByParent: false,
       createdAt: "2026-05-06T13:15:00.000Z",
@@ -1624,7 +1626,7 @@ let state: DemoState = {
       caption:
         "Noah spent the entire work cycle on the Pink Tower this morning — built it, knocked it down, built it again. He then built it beside the brown stair and spotted that the smallest cube matches the thinnest prism. Brilliant observation! 🏗️",
       imageUrl: "https://picsum.photos/seed/noahpink/600/400",
-      category: "Sensorial",
+      leafId: "sens-pt-build",
       likes: 6,
       likedByParent: false,
       createdAt: "2026-05-06T10:40:00.000Z",
@@ -1636,7 +1638,7 @@ let state: DemoState = {
       caption:
         "Outdoor morning — Noah organised a small 'construction site' with his friends, assigning roles and materials. His leadership skills are quietly blossoming. We love watching this! 🌿",
       imageUrl: "https://picsum.photos/seed/noahoutdoor/600/400",
-      category: "Outdoor",
+      leafId: "lang-ld-double",
       likes: 4,
       likedByParent: false,
       createdAt: "2026-05-04T14:30:00.000Z",
@@ -1648,7 +1650,7 @@ let state: DemoState = {
       caption:
         "Aisha completed the second section of her animal adaptation research project today — desert animals. Her writing shows great structure: topic sentence, two supporting details, and a closing thought. Really impressive for her level! 📝",
       imageUrl: "https://picsum.photos/seed/aishawrite/600/400",
-      category: "Language Arts",
+      leafId: "lang-ma-write",
       likes: 7,
       likedByParent: false,
       createdAt: "2026-05-06T11:50:00.000Z",
@@ -1660,7 +1662,7 @@ let state: DemoState = {
       caption:
         "Drum circle Friday! Aisha held a steady rhythm the entire session and even tried a variation on the second round. She also helped a younger student count the beats — leadership in action. 🥁",
       imageUrl: "https://picsum.photos/seed/aishadrum/600/400",
-      category: "Music",
+      leafId: "cult-make-percussion",
       likes: 10,
       likedByParent: false,
       createdAt: "2026-05-02T14:00:00.000Z",
@@ -1672,7 +1674,7 @@ let state: DemoState = {
       caption:
         "James chose Marie Curie for his biography project! He spent the morning reading three reference cards and filling in his research organiser. He was so engaged he asked to continue after lunch. 🔬",
       imageUrl: "https://picsum.photos/seed/jamesbio/600/400",
-      category: "Language Arts",
+      leafId: "lang-rc-cards",
       likes: 5,
       likedByParent: false,
       createdAt: "2026-05-06T10:00:00.000Z",
@@ -1684,7 +1686,7 @@ let state: DemoState = {
       caption:
         "Watercolour wash technique — James experimented with wet-on-wet today and created a soft sunset gradient completely by accident. He immediately said 'I want to do that again' — we call that the Montessori moment! 🌅",
       imageUrl: "https://picsum.photos/seed/jamesart/600/400",
-      category: "Art",
+      leafId: "cult-painting-watercolors",
       likes: 8,
       likedByParent: false,
       createdAt: "2026-05-01T13:45:00.000Z",
@@ -2029,18 +2031,32 @@ export function formatDateTime(iso: string) {
   }).format(new Date(iso));
 }
 
-export function getActivityPostsForStudent(studentId: string) {
-  return [...state.activityPosts]
-    .filter((p) => p.studentId === studentId)
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+function postWithLeaf(post: DemoActivityPost): ActivityPostWithLeaf | null {
+  const leaf = getLeafById(post.leafId);
+  if (!leaf) return null;
+  return { ...post, leaf };
 }
 
-export function getActivityFeedForParent(parentId: string) {
+export function getActivityPostsForStudent(
+  studentId: string,
+): ActivityPostWithLeaf[] {
+  return [...state.activityPosts]
+    .filter((p) => p.studentId === studentId)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .map(postWithLeaf)
+    .filter((p): p is ActivityPostWithLeaf => p !== null);
+}
+
+export function getActivityFeedForParent(
+  parentId: string,
+): ActivityPostWithLeaf[] {
   const students = getStudentsForParent(parentId);
   const studentIds = new Set(students.map((s) => s.id));
   return [...state.activityPosts]
     .filter((p) => studentIds.has(p.studentId))
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .map(postWithLeaf)
+    .filter((p): p is ActivityPostWithLeaf => p !== null);
 }
 
 export function toggleActivityLike(postId: string) {
@@ -2063,7 +2079,7 @@ export function addActivityPost(input: {
   studentId: string;
   caption: string;
   imageUrl: string;
-  category: string;
+  leafId: string;
 }) {
   state = {
     ...state,
@@ -2074,7 +2090,7 @@ export function addActivityPost(input: {
         teacherId: state.users.teacher.id,
         caption: input.caption,
         imageUrl: input.imageUrl,
-        category: input.category,
+        leafId: input.leafId,
         likes: 0,
         likedByParent: false,
         createdAt: new Date().toISOString(),

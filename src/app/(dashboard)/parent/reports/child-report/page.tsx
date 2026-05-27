@@ -778,7 +778,9 @@ export default function ChildReportPage() {
                           month: "short",
                         })}
                         {" • "}
-                        <span className="font-medium">{post.category}</span>
+                        <span className="font-medium">
+                          {post.leaf.areaName} · {post.leaf.activityName}
+                        </span>
                       </p>
                     </div>
                   ))}

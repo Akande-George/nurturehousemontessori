@@ -19,6 +19,7 @@ import {
   toggleActivityLike,
   useDemoStore,
 } from "@/lib/mock/demo-store";
+import { CURRICULUM } from "@/lib/curriculum/curriculum";
 import {
   Calendar,
   Bell,
@@ -32,20 +33,6 @@ import {
   BedDouble,
   Filter,
 } from "lucide-react";
-
-const CATEGORY_COLORS: Record<string, string> = {
-  "Practical Life": "bg-emerald-100 text-emerald-700 border-emerald-200",
-  Sensorial: "bg-violet-100 text-violet-700 border-violet-200",
-  Language: "bg-sky-100 text-sky-700 border-sky-200",
-  "Language Arts": "bg-sky-100 text-sky-700 border-sky-200",
-  Mathematics: "bg-amber-100 text-amber-700 border-amber-200",
-  Cultural: "bg-rose-100 text-rose-700 border-rose-200",
-  Art: "bg-pink-100 text-pink-700 border-pink-200",
-  Outdoor: "bg-lime-100 text-lime-700 border-lime-200",
-  Music: "bg-orange-100 text-orange-700 border-orange-200",
-  "Circle Time": "bg-teal-100 text-teal-700 border-teal-200",
-  General: "bg-slate-100 text-slate-600 border-slate-200",
-};
 
 function formatDateLabel(iso: string) {
   const d = new Date(iso);
@@ -123,7 +110,7 @@ export default function ParentDashboardPage() {
     if (activeChildId !== "__all__" && activeChildId)
       posts = posts.filter((p) => p.studentId === activeChildId);
     if (feedFilter !== "All")
-      posts = posts.filter((p) => p.category === feedFilter);
+      posts = posts.filter((p) => p.leaf.areaName === feedFilter);
     if (dateFilter !== "all")
       posts = posts.filter(
         (p) => new Date(p.createdAt).toDateString() === dateFilter,
@@ -147,10 +134,11 @@ export default function ParentDashboardPage() {
     [snapshot, activeChildId],
   );
 
-  const categories = useMemo(
-    () => ["All", ...Array.from(new Set(allFeedPosts.map((p) => p.category)))],
-    [allFeedPosts],
-  );
+  // Filter chips: "All" plus every curriculum area that appears in the feed.
+  const feedAreas = useMemo(() => {
+    const present = new Set(allFeedPosts.map((p) => p.leaf.areaName));
+    return CURRICULUM.filter((a) => present.has(a.name));
+  }, [allFeedPosts]);
 
   const timelineGroups = useMemo(
     () => groupByDate(filteredPosts),
@@ -616,20 +604,29 @@ export default function ParentDashboardPage() {
             Activity Timeline
           </h2>
           <div className="flex flex-col gap-2">
-            {/* Category filter */}
+            {/* Area filter */}
             <div className="flex gap-2 overflow-x-auto pb-1">
-              {categories.map((cat) => (
+              <button
+                onClick={() => setFeedFilter("All")}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
+                  feedFilter === "All"
+                    ? "bg-montessori-primary/10 text-montessori-primary border-montessori-primary/20"
+                    : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                }`}
+              >
+                All
+              </button>
+              {feedAreas.map((a) => (
                 <button
-                  key={cat}
-                  onClick={() => setFeedFilter(cat)}
+                  key={a.id}
+                  onClick={() => setFeedFilter(a.name)}
                   className={`px-3 py-1 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
-                    feedFilter === cat
-                      ? (CATEGORY_COLORS[cat] ??
-                        "bg-montessori-primary/10 text-montessori-primary border-montessori-primary/20")
+                    feedFilter === a.name
+                      ? `${a.tone.soft} ${a.tone.text} ${a.tone.border}`
                       : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
                   }`}
                 >
-                  {cat}
+                  {a.name}
                 </button>
               ))}
             </div>
@@ -718,15 +715,15 @@ export default function ParentDashboardPage() {
                           </div>
                           <Badge
                             variant="outline"
-                            className={`text-xs font-medium shrink-0 ${CATEGORY_COLORS[post.category] ?? CATEGORY_COLORS.General}`}
+                            className={`text-xs font-medium shrink-0 ${post.leaf.areaTone.soft} ${post.leaf.areaTone.text} ${post.leaf.areaTone.border}`}
                           >
-                            {post.category}
+                            {post.leaf.areaName} · {post.leaf.activityName}
                           </Badge>
                         </div>
                         <div className="relative w-full aspect-video bg-slate-100">
                           <Image
                             src={post.imageUrl}
-                            alt={`${child?.name ?? "Child"} — ${post.category}`}
+                            alt={`${child?.name ?? "Child"} — ${post.leaf.activityName}`}
                             fill
                             className="object-cover"
                             sizes="(max-width: 768px) 100vw, 800px"

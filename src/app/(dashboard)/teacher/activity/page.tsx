@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   addActivityPost,
@@ -22,33 +31,8 @@ import {
   getActivityPostsForStudent,
   useDemoStore,
 } from "@/lib/mock/demo-store";
+import { CURRICULUM } from "@/lib/curriculum/curriculum";
 import { Camera, Heart, ImageIcon, Plus, Search } from "lucide-react";
-
-const CATEGORIES = [
-  "Practical Life",
-  "Sensorial",
-  "Language",
-  "Mathematics",
-  "Cultural",
-  "Art",
-  "Outdoor",
-  "Music",
-  "Circle Time",
-  "General",
-];
-
-const CATEGORY_COLORS: Record<string, string> = {
-  "Practical Life": "bg-emerald-100 text-emerald-700 border-emerald-200",
-  Sensorial: "bg-violet-100 text-violet-700 border-violet-200",
-  Language: "bg-sky-100 text-sky-700 border-sky-200",
-  Mathematics: "bg-amber-100 text-amber-700 border-amber-200",
-  Cultural: "bg-rose-100 text-rose-700 border-rose-200",
-  Art: "bg-pink-100 text-pink-700 border-pink-200",
-  Outdoor: "bg-lime-100 text-lime-700 border-lime-200",
-  Music: "bg-orange-100 text-orange-700 border-orange-200",
-  "Circle Time": "bg-teal-100 text-teal-700 border-teal-200",
-  General: "bg-slate-100 text-slate-600 border-slate-200",
-};
 
 const IMAGE_SEEDS = [
   "classroom1",
@@ -73,9 +57,42 @@ export default function TeacherActivityPage() {
   const [search, setSearch] = useState("");
   const [isPostOpen, setIsPostOpen] = useState(false);
   const [caption, setCaption] = useState("");
-  const [category, setCategory] = useState("General");
-  const [postCategoryFilter, setPostCategoryFilter] = useState("All");
+  const [areaFilter, setAreaFilter] = useState<string>("All");
   const [imageSeed, setImageSeed] = useState(IMAGE_SEEDS[0]);
+
+  // Curriculum-anchored leaf picker for the New Post dialog
+  const [areaId, setAreaId] = useState(CURRICULUM[0].id);
+  const area = CURRICULUM.find((a) => a.id === areaId) ?? CURRICULUM[0];
+  const flatActivities = useMemo(
+    () =>
+      area.subcategories.flatMap((sub) =>
+        sub.activities.map((act) => ({ sub, act })),
+      ),
+    [area],
+  );
+  const [activityId, setActivityId] = useState(flatActivities[0]?.act.id ?? "");
+  const currentActivity =
+    flatActivities.find((entry) => entry.act.id === activityId) ??
+    flatActivities[0];
+  const activityVariations = currentActivity?.act.variations ?? [];
+  const hasVariations = activityVariations.length > 0;
+  const [variationId, setVariationId] = useState<string>("");
+
+  const handleAreaChange = (value: string) => {
+    setAreaId(value);
+    const nextArea = CURRICULUM.find((a) => a.id === value) ?? CURRICULUM[0];
+    const firstAct = nextArea.subcategories.flatMap((s) => s.activities)[0];
+    setActivityId(firstAct?.id ?? "");
+    setVariationId("");
+  };
+  const handleActivityChange = (value: string) => {
+    setActivityId(value);
+    setVariationId("");
+  };
+
+  const leafId = hasVariations
+    ? variationId || activityVariations[0].id
+    : activityId;
 
   const filteredStudents = snapshot.students.filter((s) =>
     s.name.toLowerCase().includes(search.toLowerCase()),
@@ -88,24 +105,28 @@ export default function TeacherActivityPage() {
     ? getActivityPostsForStudent(selectedStudentId)
     : [];
   const filteredPosts =
-    postCategoryFilter === "All"
+    areaFilter === "All"
       ? posts
-      : posts.filter((p) => p.category === postCategoryFilter);
+      : posts.filter((p) => p.leaf.areaName === areaFilter);
 
   const handlePost = () => {
-    if (!caption.trim() || !selectedStudentId) return;
+    if (!caption.trim() || !selectedStudentId || !leafId) return;
     addActivityPost({
       studentId: selectedStudentId,
       caption: caption.trim(),
       imageUrl: `https://picsum.photos/seed/${imageSeed}/600/400`,
-      category,
+      leafId,
     });
     toast({
       title: "Activity posted",
       description: `${selectedStudent?.name}'s activity feed has been updated and is visible to their parent.`,
     });
     setCaption("");
-    setCategory("General");
+    setAreaId(CURRICULUM[0].id);
+    setActivityId(
+      CURRICULUM[0].subcategories.flatMap((s) => s.activities)[0]?.id ?? "",
+    );
+    setVariationId("");
     setImageSeed(IMAGE_SEEDS[Math.floor(Math.random() * IMAGE_SEEDS.length)]);
     setIsPostOpen(false);
   };
@@ -227,20 +248,27 @@ export default function TeacherActivityPage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {["All", ...CATEGORIES].map((cat) => (
+                <button
+                  onClick={() => setAreaFilter("All")}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                    areaFilter === "All"
+                      ? "bg-slate-100 text-slate-700 border-slate-300"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                  }`}
+                >
+                  All
+                </button>
+                {CURRICULUM.map((a) => (
                   <button
-                    key={cat}
-                    onClick={() => setPostCategoryFilter(cat)}
+                    key={a.id}
+                    onClick={() => setAreaFilter(a.name)}
                     className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
-                      postCategoryFilter === cat
-                        ? cat === "All"
-                          ? "bg-slate-100 text-slate-700 border-slate-300"
-                          : (CATEGORY_COLORS[cat] ??
-                            "bg-slate-100 text-slate-700 border-slate-300")
+                      areaFilter === a.name
+                        ? `${a.tone.soft} ${a.tone.text} ${a.tone.border}`
                         : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
                     }`}
                   >
-                    {cat}
+                    {a.name}
                   </button>
                 ))}
               </div>
@@ -252,7 +280,7 @@ export default function TeacherActivityPage() {
                     <p className="text-sm text-slate-500">
                       {posts.length === 0
                         ? `No activity posts yet for ${selectedStudent.name}.`
-                        : `No ${postCategoryFilter} posts yet for ${selectedStudent.name}.`}
+                        : `No ${areaFilter} posts yet for ${selectedStudent.name}.`}
                     </p>
                     <Button
                       onClick={() => setIsPostOpen(true)}
@@ -271,21 +299,27 @@ export default function TeacherActivityPage() {
                     <div className="relative w-full aspect-video bg-slate-100">
                       <Image
                         src={post.imageUrl}
-                        alt={`${selectedStudent.name} — ${post.category}`}
+                        alt={`${selectedStudent.name} — ${post.leaf.activityName}`}
                         fill
                         className="object-cover"
                         sizes="(max-width: 768px) 100vw, 60vw"
                       />
                     </div>
                     <CardContent className="p-5 space-y-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <Badge
                           variant="outline"
-                          className={`text-xs font-medium ${CATEGORY_COLORS[post.category] ?? CATEGORY_COLORS.General}`}
+                          className={`text-xs font-medium ${post.leaf.areaTone.soft} ${post.leaf.areaTone.text} ${post.leaf.areaTone.border}`}
                         >
-                          {post.category}
+                          {post.leaf.areaName} · {post.leaf.activityName}
+                          {post.leaf.leafName !== post.leaf.activityName && (
+                            <span className="opacity-60">
+                              {" · "}
+                              {post.leaf.leafName}
+                            </span>
+                          )}
                         </Badge>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-400 shrink-0">
                           {formatDateTime(post.createdAt)}
                         </span>
                       </div>
@@ -318,7 +352,7 @@ export default function TeacherActivityPage() {
 
       {/* New post dialog */}
       <Dialog open={isPostOpen} onOpenChange={setIsPostOpen}>
-        <DialogContent className="sm:max-w-[540px]">
+        <DialogContent className="sm:max-w-[540px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Post to {selectedStudent?.name}&apos;s Activity Feed
@@ -367,28 +401,83 @@ export default function TeacherActivityPage() {
               </p>
             </div>
 
-            {/* Category */}
-            <div>
-              <label className="text-sm font-medium text-slate-700 block mb-2">
-                Category
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setCategory(cat)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
-                      category === cat
-                        ? (CATEGORY_COLORS[cat] ??
-                          "bg-slate-100 text-slate-700 border-slate-200")
-                        : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
+            {/* Curriculum picker */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-2">
+                  Area
+                </label>
+                <Select value={areaId} onValueChange={handleAreaChange}>
+                  <SelectTrigger className="bg-white border-slate-200">
+                    <SelectValue placeholder="Select area" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRICULUM.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-2">
+                  Activity
+                </label>
+                <Select
+                  value={activityId}
+                  onValueChange={handleActivityChange}
+                >
+                  <SelectTrigger className="bg-white border-slate-200">
+                    <SelectValue placeholder="Select activity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {area.subcategories.map((sub) => (
+                      <SelectGroup key={sub.id}>
+                        <SelectLabel className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+                          {sub.name}
+                        </SelectLabel>
+                        {sub.activities.map((act) => (
+                          <SelectItem key={act.id} value={act.id}>
+                            {act.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-2">
+                  Variation
+                </label>
+                <Select
+                  value={
+                    hasVariations ? (variationId || activityVariations[0].id) : ""
+                  }
+                  onValueChange={setVariationId}
+                  disabled={!hasVariations}
+                >
+                  <SelectTrigger className="bg-white border-slate-200">
+                    <SelectValue
+                      placeholder={hasVariations ? "Select variation" : "—"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activityVariations.map((v) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        {v.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+            {currentActivity?.act.description && (
+              <p className="text-xs text-slate-500 italic">
+                {currentActivity.act.description}
+              </p>
+            )}
 
             {/* Caption */}
             <div>
@@ -410,7 +499,7 @@ export default function TeacherActivityPage() {
             </Button>
             <Button
               onClick={handlePost}
-              disabled={!caption.trim()}
+              disabled={!caption.trim() || !leafId}
               className="bg-montessori-primary text-white hover:bg-montessori-primary/90 gap-2"
             >
               <Camera className="w-4 h-4" /> Post to Feed
