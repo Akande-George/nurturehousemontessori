@@ -1919,6 +1919,7 @@ export function createNotice(input: { title: string; content: string }) {
         audience: "all-parents",
         createdAt: new Date().toISOString(),
         createdBy: admin.id,
+        readBy: [],
       },
       ...state.notices,
     ],

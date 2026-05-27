@@ -49,7 +49,7 @@ export default function AcademicProgressPage() {
   const obsByArea = useMemo(() => {
     const map: Record<string, typeof observations> = {};
     for (const obs of observations) {
-      const key = obs.area ?? "General";
+      const key = obs.tag ?? "General";
       if (!map[key]) map[key] = [];
       map[key].push(obs);
     }
@@ -269,11 +269,11 @@ export default function AcademicProgressPage() {
                                   ·
                                 </span>
                                 <div>
-                                  <span>{obs.note}</span>
+                                  <span>{obs.content}</span>
                                   <span className="ml-2 text-xs text-slate-400">
                                     —{" "}
                                     {new Date(
-                                      obs.observedAt,
+                                      obs.createdAt,
                                     ).toLocaleDateString("en-NG", {
                                       day: "numeric",
                                       month: "short",
