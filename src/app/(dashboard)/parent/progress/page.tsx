@@ -45,11 +45,11 @@ export default function AcademicProgressPage() {
     ? getStudentObservations(selectedChild.id)
     : [];
 
-  // Group observations by area tag
+  // Group observations by curriculum area name
   const obsByArea = useMemo(() => {
     const map: Record<string, typeof observations> = {};
     for (const obs of observations) {
-      const key = obs.tag ?? "General";
+      const key = obs.leaf.areaName;
       if (!map[key]) map[key] = [];
       map[key].push(obs);
     }
@@ -269,9 +269,18 @@ export default function AcademicProgressPage() {
                                   ·
                                 </span>
                                 <div>
-                                  <span>{obs.content}</span>
+                                  <span className="font-medium text-slate-900">
+                                    {obs.leaf.activityName}
+                                    {obs.leaf.leafName !==
+                                      obs.leaf.activityName && (
+                                      <span className="text-slate-500 font-normal">
+                                        {" · "}
+                                        {obs.leaf.leafName}
+                                      </span>
+                                    )}
+                                  </span>{" "}
+                                  <span>— {obs.content}</span>
                                   <span className="ml-2 text-xs text-slate-400">
-                                    —{" "}
                                     {new Date(
                                       obs.createdAt,
                                     ).toLocaleDateString("en-NG", {

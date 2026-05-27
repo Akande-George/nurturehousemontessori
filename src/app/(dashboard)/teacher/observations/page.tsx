@@ -17,19 +17,6 @@ import {
 } from "@/lib/mock/demo-store";
 import { BookOpen, Clock, GraduationCap, Search } from "lucide-react";
 
-const TAG_COLORS: Record<string, string> = {
-  Sensorial: "bg-violet-100 text-violet-700 border-violet-200",
-  "Practical Life": "bg-emerald-100 text-emerald-700 border-emerald-200",
-  Language: "bg-sky-100 text-sky-700 border-sky-200",
-  "Language Arts": "bg-sky-100 text-sky-700 border-sky-200",
-  Mathematics: "bg-amber-100 text-amber-700 border-amber-200",
-  Geography: "bg-teal-100 text-teal-700 border-teal-200",
-  Art: "bg-pink-100 text-pink-700 border-pink-200",
-  Music: "bg-orange-100 text-orange-700 border-orange-200",
-  Outdoor: "bg-lime-100 text-lime-700 border-lime-200",
-  Social: "bg-rose-100 text-rose-700 border-rose-200",
-  Research: "bg-indigo-100 text-indigo-700 border-indigo-200",
-};
 
 export default function TeacherObservationsIndexPage() {
   const snapshot = useDemoStore();
@@ -146,9 +133,9 @@ export default function TeacherObservationsIndexPage() {
                           <div className="flex items-center justify-between gap-2">
                             <Badge
                               variant="outline"
-                              className={`text-[11px] py-0 ${TAG_COLORS[latest.tag] ?? "bg-slate-100 text-slate-600 border-slate-200"}`}
+                              className={`text-[11px] py-0 ${latest.leaf.areaTone.soft} ${latest.leaf.areaTone.text} ${latest.leaf.areaTone.border}`}
                             >
-                              {latest.tag}
+                              {latest.leaf.areaName} · {latest.leaf.activityName}
                             </Badge>
                             <span className="text-[10px] text-slate-400">
                               {new Date(latest.createdAt).toLocaleDateString(
@@ -205,9 +192,15 @@ export default function TeacherObservationsIndexPage() {
                         </Link>
                         <Badge
                           variant="outline"
-                          className={`text-xs py-0 ${TAG_COLORS[obs.tag] ?? "bg-slate-100 text-slate-600 border-slate-200"}`}
+                          className={`text-xs py-0 ${obs.leaf.areaTone.soft} ${obs.leaf.areaTone.text} ${obs.leaf.areaTone.border}`}
                         >
-                          {obs.tag}
+                          {obs.leaf.areaName} · {obs.leaf.activityName}
+                          {obs.leaf.leafName !== obs.leaf.activityName && (
+                            <span className="opacity-60">
+                              {" · "}
+                              {obs.leaf.leafName}
+                            </span>
+                          )}
                         </Badge>
                         <span className="text-xs text-slate-400 flex items-center gap-1 ml-auto">
                           <Clock className="w-3 h-3" />{" "}

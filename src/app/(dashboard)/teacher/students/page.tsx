@@ -306,8 +306,11 @@ export default function TeacherStudentsPage() {
                         className="rounded-xl border border-slate-100 p-4"
                       >
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <Badge variant="outline" className="bg-white text-xs">
-                            {obs.tag}
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${obs.leaf.areaTone.soft} ${obs.leaf.areaTone.text} ${obs.leaf.areaTone.border}`}
+                          >
+                            {obs.leaf.areaName} · {obs.leaf.activityName}
                           </Badge>
                           <span className="text-xs text-slate-400">
                             {new Date(obs.createdAt).toLocaleDateString(

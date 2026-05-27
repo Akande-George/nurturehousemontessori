@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -23,37 +25,8 @@ import {
   getTeacherStudents,
   useDemoStore,
 } from "@/lib/mock/demo-store";
+import { CURRICULUM } from "@/lib/curriculum/curriculum";
 import { useToast } from "@/hooks/use-toast";
-
-const PRESET_TAGS = [
-  "Practical Life",
-  "Sensorial",
-  "Language",
-  "Mathematics",
-  "Cultural",
-  "Art",
-  "Music",
-  "Outdoor",
-  "Social",
-  "Geography",
-  "Research",
-  "General",
-];
-
-const TAG_COLORS: Record<string, string> = {
-  Sensorial: "bg-violet-100 text-violet-700 border-violet-200",
-  "Practical Life": "bg-emerald-100 text-emerald-700 border-emerald-200",
-  Language: "bg-sky-100 text-sky-700 border-sky-200",
-  Mathematics: "bg-amber-100 text-amber-700 border-amber-200",
-  Geography: "bg-teal-100 text-teal-700 border-teal-200",
-  Art: "bg-pink-100 text-pink-700 border-pink-200",
-  Music: "bg-orange-100 text-orange-700 border-orange-200",
-  Outdoor: "bg-lime-100 text-lime-700 border-lime-200",
-  Social: "bg-rose-100 text-rose-700 border-rose-200",
-  Research: "bg-indigo-100 text-indigo-700 border-indigo-200",
-  Cultural: "bg-red-100 text-red-700 border-red-200",
-  General: "bg-slate-100 text-slate-600 border-slate-200",
-};
 
 export default function StudentObservationPage({}: {}) {
   const { toast } = useToast();
@@ -84,7 +57,41 @@ export default function StudentObservationPage({}: {}) {
 
   const observations = student ? getStudentObservations(student.id) : [];
 
-  const [tag, setTag] = useState("Sensorial");
+  // Curriculum-anchored leaf picker — cascading area → activity → variation.
+  const [areaId, setAreaId] = useState(CURRICULUM[0].id);
+  const area = CURRICULUM.find((a) => a.id === areaId) ?? CURRICULUM[0];
+  const flatActivities = useMemo(
+    () =>
+      area.subcategories.flatMap((sub) =>
+        sub.activities.map((act) => ({ sub, act })),
+      ),
+    [area],
+  );
+  const [activityId, setActivityId] = useState(flatActivities[0]?.act.id ?? "");
+  const currentActivity =
+    flatActivities.find((entry) => entry.act.id === activityId) ??
+    flatActivities[0];
+  const activityVariations = currentActivity?.act.variations ?? [];
+  const hasVariations = activityVariations.length > 0;
+  const [variationId, setVariationId] = useState<string>("");
+
+  // Reset child selections when area/activity changes
+  const handleAreaChange = (value: string) => {
+    setAreaId(value);
+    const nextArea = CURRICULUM.find((a) => a.id === value) ?? CURRICULUM[0];
+    const firstAct = nextArea.subcategories.flatMap((s) => s.activities)[0];
+    setActivityId(firstAct?.id ?? "");
+    setVariationId("");
+  };
+  const handleActivityChange = (value: string) => {
+    setActivityId(value);
+    setVariationId("");
+  };
+
+  const leafId = hasVariations
+    ? variationId || activityVariations[0].id
+    : activityId;
+
   const [content, setContent] = useState("");
 
   if (!student) {
@@ -109,7 +116,18 @@ export default function StudentObservationPage({}: {}) {
       });
       return;
     }
-    createObservation({ studentId: student.id, tag, content: content.trim() });
+    if (!leafId) {
+      toast({
+        title: "Select a curriculum activity",
+        description: "Choose an area and activity before saving.",
+      });
+      return;
+    }
+    createObservation({
+      studentId: student.id,
+      leafId,
+      content: content.trim(),
+    });
     setContent("");
     toast({
       title: "Observation saved",
@@ -170,27 +188,80 @@ export default function StudentObservationPage({}: {}) {
           <CardTitle>Log New Observation</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-slate-700 block mb-2">
-              Tag / Area
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_TAGS.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTag(t)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
-                    tag === t
-                      ? (TAG_COLORS[t] ??
-                        "bg-slate-100 text-slate-700 border-slate-300")
-                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-sm font-medium text-slate-700 block mb-2">
+                Area
+              </label>
+              <Select value={areaId} onValueChange={handleAreaChange}>
+                <SelectTrigger className="bg-white border-slate-200">
+                  <SelectValue placeholder="Select area" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRICULUM.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700 block mb-2">
+                Activity
+              </label>
+              <Select
+                value={activityId}
+                onValueChange={handleActivityChange}
+              >
+                <SelectTrigger className="bg-white border-slate-200">
+                  <SelectValue placeholder="Select activity" />
+                </SelectTrigger>
+                <SelectContent>
+                  {area.subcategories.map((sub) => (
+                    <SelectGroup key={sub.id}>
+                      <SelectLabel className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+                        {sub.name}
+                      </SelectLabel>
+                      {sub.activities.map((act) => (
+                        <SelectItem key={act.id} value={act.id}>
+                          {act.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700 block mb-2">
+                Variation
+              </label>
+              <Select
+                value={hasVariations ? (variationId || activityVariations[0].id) : ""}
+                onValueChange={setVariationId}
+                disabled={!hasVariations}
+              >
+                <SelectTrigger className="bg-white border-slate-200">
+                  <SelectValue
+                    placeholder={hasVariations ? "Select variation" : "—"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {activityVariations.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
+          {currentActivity?.act.description && (
+            <p className="text-xs text-slate-500 italic">
+              {currentActivity.act.description}
+            </p>
+          )}
           <div>
             <label className="text-sm font-medium text-slate-700 block mb-2">
               Observation
@@ -205,7 +276,7 @@ export default function StudentObservationPage({}: {}) {
           <div className="flex justify-end">
             <Button
               onClick={handleSubmit}
-              disabled={!content.trim()}
+              disabled={!content.trim() || !leafId}
               className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
             >
               Save Observation
@@ -234,13 +305,24 @@ export default function StudentObservationPage({}: {}) {
                     <div className="w-6 h-6 rounded-full bg-white border-2 border-montessori-primary/30 shrink-0 mt-1 z-10" />
                     <div className="flex-1 rounded-xl border border-slate-100 p-4 bg-white shadow-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${TAG_COLORS[obs.tag] ?? "bg-slate-100 text-slate-600 border-slate-200"}`}
-                        >
-                          {obs.tag}
-                        </Badge>
-                        <p className="text-xs text-slate-400">
+                        <div className="flex flex-wrap items-center gap-2 min-w-0">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${obs.leaf.areaTone.soft} ${obs.leaf.areaTone.text} ${obs.leaf.areaTone.border}`}
+                          >
+                            {obs.leaf.areaName}
+                          </Badge>
+                          <span className="text-sm font-medium text-slate-800 truncate">
+                            {obs.leaf.activityName}
+                            {obs.leaf.leafName !== obs.leaf.activityName && (
+                              <span className="text-slate-500 font-normal">
+                                {" · "}
+                                {obs.leaf.leafName}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 shrink-0">
                           {new Date(obs.createdAt).toLocaleDateString("en-NG", {
                             weekday: "short",
                             day: "numeric",

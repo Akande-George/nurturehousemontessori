@@ -130,7 +130,12 @@ export default function TeacherDashboardPage() {
                       {student?.name.split(' ').map((n) => n[0]).join('') ?? '?'}
                     </div>
                     <span className="text-sm font-medium text-slate-800">{student?.name}</span>
-                    <Badge variant="outline" className="text-xs bg-white">{obs.tag}</Badge>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${obs.leaf.areaTone.soft} ${obs.leaf.areaTone.text} ${obs.leaf.areaTone.border}`}
+                    >
+                      {obs.leaf.areaName} · {obs.leaf.activityName}
+                    </Badge>
                   </div>
                   <p className="text-xs text-slate-400 shrink-0">{formatDateTime(obs.createdAt)}</p>
                 </div>

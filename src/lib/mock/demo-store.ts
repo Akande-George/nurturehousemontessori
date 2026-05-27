@@ -111,9 +111,11 @@ export type DemoObservation = {
   studentId: string;
   teacherId: string;
   content: string;
-  tag: string;
+  leafId: string;
   createdAt: string;
 };
+
+export type ObservationWithLeaf = DemoObservation & { leaf: Leaf };
 
 export type DemoInvoice = {
   id: string;
@@ -1002,7 +1004,7 @@ let state: DemoState = {
       id: "obs-1",
       studentId: "zoe",
       teacherId: "user-teacher",
-      tag: "Sensorial",
+      leafId: "sens-pt-build",
       content:
         "Zoe worked with the Pink Tower for 15 minutes and corrected two cube placements independently. She showed clear satisfaction when the tower was complete.",
       createdAt: "2026-05-05T10:20:00.000Z",
@@ -1011,16 +1013,16 @@ let state: DemoState = {
       id: "obs-2",
       studentId: "zoe",
       teacherId: "user-teacher",
-      tag: "Practical Life",
+      leafId: "pl-pouring-water",
       content:
-        "Zoe chose the water transfer work three times this week. Her hand steadiness has noticeably improved — she now pours with both hands and rarely spills. She rolled up her mat without prompting at the end.",
+        "Zoe chose water pouring three times this week. Her hand steadiness has noticeably improved — she now pours with both hands and rarely spills. She wiped the tray and replaced the work to the shelf without prompting.",
       createdAt: "2026-05-06T09:45:00.000Z",
     },
     {
       id: "obs-3",
       studentId: "zoe",
       teacherId: "user-teacher",
-      tag: "Language",
+      leafId: "lang-ve-cards-matching",
       content:
         "During picture-book time, Zoe pointed to the duck and said its name unprompted. She is building a vocabulary of about 8 animal names and responds well to naming games.",
       createdAt: "2026-05-04T11:00:00.000Z",
@@ -1029,7 +1031,7 @@ let state: DemoState = {
       id: "obs-4",
       studentId: "leo",
       teacherId: "user-teacher",
-      tag: "Practical Life",
+      leafId: "pl-spooning",
       content:
         "Leo completed the spoon-transfer exercise with dry lentils today — minimal spill. Concentration span was about 8 minutes, up from 4 minutes last month. He replaced the work to the shelf independently.",
       createdAt: "2026-05-06T09:55:00.000Z",
@@ -1038,99 +1040,99 @@ let state: DemoState = {
       id: "obs-5",
       studentId: "leo",
       teacherId: "user-teacher",
-      tag: "Music",
+      leafId: "sens-sc-6",
       content:
-        "Leo discovered the chime bars today and experimented with speed and force. He appeared to understand that hitting harder made a louder sound. Repeated his self-made 'song' five times.",
+        "Leo matched all six sound cylinders by pairs in one work cycle today. He noticed the softest pair before the loudest — interesting auditory discrimination. He repeated the work twice for the joy of it.",
       createdAt: "2026-05-02T11:20:00.000Z",
     },
     {
       id: "obs-6",
       studentId: "sarah",
       teacherId: "user-teacher",
-      tag: "Art",
+      leafId: "cult-painting-watercolors",
       content:
-        "Sarah mixed red and yellow finger paints and announced 'I made orange!'. This was the first intentional colour-mixing moment observed. She then named all three primary colours when asked.",
+        "Sarah mixed red and yellow at the easel and announced 'I made orange!'. This was the first intentional colour-mixing moment observed. She then named all three primary colours when asked.",
       createdAt: "2026-05-06T13:15:00.000Z",
     },
     {
       id: "obs-7",
       studentId: "sarah",
       teacherId: "user-teacher",
-      tag: "Outdoor",
+      leafId: "pl-dressing-zipping",
       content:
-        "Sarah navigated the climbing frame independently and helped a younger child by holding the rung steady. She is developing empathy and body confidence in outdoor environments.",
+        "Sarah zipped the dressing frame independently for the first time and then helped a younger child line up the zipper teeth. She is developing fine motor control and a quiet pride in helping others.",
       createdAt: "2026-05-04T14:30:00.000Z",
     },
     {
       id: "obs-8",
       studentId: "emma",
       teacherId: "user-teacher",
-      tag: "Mathematics",
+      leafId: "math-nr-find",
       content:
-        "Emma mastered number rods 1–10 and self-corrected twice without teacher intervention. She then combined rods to make ten — an uninstructed extension activity. Ready for introduction to the short bead chain.",
+        "Emma mastered the number rods 1–10 and self-corrected twice without teacher intervention. She then combined rods to make ten — an uninstructed extension activity. Ready for introduction to the short bead chain.",
       createdAt: "2026-05-06T10:30:00.000Z",
     },
     {
       id: "obs-9",
       studentId: "emma",
       teacherId: "user-teacher",
-      tag: "Sensorial",
+      leafId: "sens-c2-all",
       content:
-        "Emma returned to the colour tablet box twice in one work cycle. On her second attempt, she arranged the matching pairs into a full gradient from lightest to darkest — a spontaneous extension that shows deep understanding of the material.",
+        "Emma returned to the colour tablet box twice in one work cycle. On her second attempt, she arranged all eleven pairs into a full gradient from lightest to darkest — a spontaneous extension that shows deep understanding of the material.",
       createdAt: "2026-05-05T11:15:00.000Z",
     },
     {
       id: "obs-10",
       studentId: "noah",
       teacherId: "user-teacher",
-      tag: "Sensorial",
+      leafId: "sens-bs-build",
       content:
-        "Noah completed the Pink Tower build perfectly and then placed it beside the Brown Stair, observing that the smallest cube matches the thinnest prism. He verbalised this connection unprompted — a strong analytical observation.",
+        "Noah completed the Brown Stair build perfectly and then placed it alongside the Pink Tower, observing that the thinnest prism matches the smallest cube. He verbalised this connection unprompted — a strong analytical observation.",
       createdAt: "2026-05-06T10:40:00.000Z",
     },
     {
       id: "obs-11",
       studentId: "noah",
       teacherId: "user-teacher",
-      tag: "Social",
+      leafId: "lang-sp-s",
       content:
-        "During outdoor play, Noah organised a construction game and assigned roles to three peers. He showed conflict resolution when two children wanted the same block — he suggested they trade. Leadership qualities are emerging naturally.",
+        "Noah traced the sandpaper 'S' three times today, then turned to a younger peer and said 'sssss' while pointing to the snake in the picture book. Spontaneous teaching — leadership qualities emerging through the work.",
       createdAt: "2026-05-04T14:30:00.000Z",
     },
     {
       id: "obs-12",
       studentId: "aisha",
       teacherId: "user-teacher",
-      tag: "Language Arts",
+      leafId: "lang-ma-write",
       content:
-        "Aisha's desert animals research section is well structured — topic sentence, two supporting facts, and a closing thought. She used a reference card to verify a fact before writing it down. This shows intellectual rigour beyond her age group average.",
+        "Aisha composed three sentences about desert animals with the movable alphabet — topic word, two supporting words, and a closing word. She referred to her picture card to verify a spelling before placing the letters. Intellectual rigour beyond her age group average.",
       createdAt: "2026-05-06T11:50:00.000Z",
     },
     {
       id: "obs-13",
       studentId: "aisha",
       teacherId: "user-teacher",
-      tag: "Geography",
+      leafId: "cult-cm-label",
       content:
-        "Aisha named 12 African countries on the puzzle map and recalled capitals for 5 of them without the reference card. She set herself the goal of learning all 54 capitals by end of term.",
+        "Aisha named all seven continents on the puzzle map and pointed out the two she'd like to visit. She set herself the goal of learning one country from each continent by end of term.",
       createdAt: "2026-05-03T10:00:00.000Z",
     },
     {
       id: "obs-14",
       studentId: "james",
       teacherId: "user-teacher",
-      tag: "Research",
+      leafId: "math-hundred-board",
       content:
-        "James selected Marie Curie for his biography project and filled his research organiser with three verified facts after reading two reference cards. He asked thoughtful questions about radioactivity that led to a brief spontaneous science discussion.",
+        "James sequenced the Hundred Board from 1 to 100 in a single work cycle today. He noticed the diagonal pattern of repeating digits and asked why nine is followed by ten — a thoughtful question that led to a brief discussion of place value.",
       createdAt: "2026-05-06T10:00:00.000Z",
     },
     {
       id: "obs-15",
       studentId: "james",
       teacherId: "user-teacher",
-      tag: "Art",
+      leafId: "cult-painting-watercolors",
       content:
-        "James discovered wet-on-wet watercolour technique and created a sunset gradient by accident. His response — 'I want to do that again' — is the quintessential Montessori moment of intrinsic motivation.",
+        "James discovered the wet-on-wet watercolour technique at the easel and created a sunset gradient by accident. His response — 'I want to do that again' — is the quintessential Montessori moment of intrinsic motivation.",
       createdAt: "2026-05-01T13:45:00.000Z",
     },
   ],
@@ -1799,20 +1801,29 @@ export function getStudentInvoices(studentId: string) {
     .sort((a, b) => (a.issuedAt < b.issuedAt ? 1 : -1));
 }
 
-export function getStudentObservations(studentId: string) {
+function withLeaf(obs: DemoObservation): ObservationWithLeaf | null {
+  const leaf = getLeafById(obs.leafId);
+  if (!leaf) return null;
+  return { ...obs, leaf };
+}
+
+export function getStudentObservations(studentId: string): ObservationWithLeaf[] {
   return state.observations
     .filter((observation) => observation.studentId === studentId)
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .map(withLeaf)
+    .filter((o): o is ObservationWithLeaf => o !== null);
 }
 
 export function getTeacherStudents(teacherId: string) {
   return state.students.filter((s) => s.teacherId === teacherId);
 }
 
-export function getAllObservations() {
-  return [...state.observations].sort((a, b) =>
-    a.createdAt < b.createdAt ? 1 : -1,
-  );
+export function getAllObservations(): ObservationWithLeaf[] {
+  return [...state.observations]
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .map(withLeaf)
+    .filter((o): o is ObservationWithLeaf => o !== null);
 }
 
 export function getDailyReports(status?: DemoDailyReportStatus) {
@@ -1929,7 +1940,7 @@ export function createNotice(input: { title: string; content: string }) {
 
 export function createObservation(input: {
   studentId: string;
-  tag: string;
+  leafId: string;
   content: string;
 }) {
   const teacher = state.users.teacher;
@@ -1940,7 +1951,7 @@ export function createObservation(input: {
         id: nextId("obs"),
         studentId: input.studentId,
         teacherId: teacher.id,
-        tag: input.tag,
+        leafId: input.leafId,
         content: input.content,
         createdAt: new Date().toISOString(),
       },
@@ -2220,7 +2231,7 @@ function seedCurriculumProgress(): DemoCurriculumProgress[] {
         { leafId: "pl-pouring-rice", daysAgo: [120, 90, 30] }, // mastered
         { leafId: "pl-pouring-water", daysAgo: [60, 15] }, // practicing
         { leafId: "pl-spooning", daysAgo: [80, 40, 10] }, // mastered
-        { leafId: "pl-handwashing", daysAgo: [100, 50, 5] }, // mastered
+        { leafId: "pl-handwashing-complete", daysAgo: [100, 50, 5] }, // mastered
         { leafId: "pl-rolling-rug", daysAgo: [25] }, // introduced
         { leafId: "sens-pt-build", daysAgo: [70, 35] }, // practicing
         { leafId: "sens-pt-measure", daysAgo: [20] }, // introduced
@@ -2244,10 +2255,10 @@ function seedCurriculumProgress(): DemoCurriculumProgress[] {
         { leafId: "math-nr-align", daysAgo: [90, 50, 18] },
         { leafId: "math-nr-names", daysAgo: [70, 30] },
         { leafId: "math-sp-14", daysAgo: [60, 25] },
-        { leafId: "math-spindle", daysAgo: [22] },
-        { leafId: "cult-continent-map", daysAgo: [50, 18] },
-        { leafId: "cult-cutting", daysAgo: [110, 60, 25] },
-        { leafId: "cult-painting", daysAgo: [80] },
+        { leafId: "math-spindle-counting", daysAgo: [22] },
+        { leafId: "cult-cm-color", daysAgo: [50, 18] },
+        { leafId: "cult-cutting-paper", daysAgo: [110, 60, 25] },
+        { leafId: "cult-painting-watercolors", daysAgo: [80] },
       ],
     },
     {
@@ -2255,7 +2266,7 @@ function seedCurriculumProgress(): DemoCurriculumProgress[] {
       entries: [
         { leafId: "pl-pouring-rice", daysAgo: [60, 30] },
         { leafId: "pl-spooning", daysAgo: [45, 18, 4] },
-        { leafId: "pl-handwashing", daysAgo: [70, 35, 10] },
+        { leafId: "pl-handwashing-complete", daysAgo: [70, 35, 10] },
         { leafId: "sens-touch-boards", daysAgo: [30] },
       ],
     },
@@ -2273,9 +2284,9 @@ function seedCurriculumProgress(): DemoCurriculumProgress[] {
         { leafId: "lang-sg-end", daysAgo: [40, 12] },
         { leafId: "lang-sp-a", daysAgo: [90, 45, 15] },
         { leafId: "math-nr-align", daysAgo: [85, 40, 12] },
-        { leafId: "math-spindle", daysAgo: [55, 20] },
+        { leafId: "math-spindle-counting", daysAgo: [55, 20] },
         { leafId: "math-cards-counters", daysAgo: [28] },
-        { leafId: "cult-painting", daysAgo: [70, 30] },
+        { leafId: "cult-painting-watercolors", daysAgo: [70, 30] },
       ],
     },
     {
@@ -2287,26 +2298,26 @@ function seedCurriculumProgress(): DemoCurriculumProgress[] {
         { leafId: "lang-sp-t", daysAgo: [70, 30] },
         { leafId: "lang-sp-p", daysAgo: [40, 12] },
         { leafId: "lang-ma-box", daysAgo: [50, 20] },
-        { leafId: "lang-metal-insets", daysAgo: [60, 25] },
+        { leafId: "lang-mi-outline", daysAgo: [60, 25] },
         { leafId: "math-nr-align", daysAgo: [100, 55, 18] },
         { leafId: "math-nr-names", daysAgo: [85, 38, 12] },
         { leafId: "math-sp-14", daysAgo: [70, 28] },
         { leafId: "math-sp-59", daysAgo: [22] },
         { leafId: "math-teen-board", daysAgo: [35, 8] },
-        { leafId: "cult-continent-map", daysAgo: [60, 22] },
-        { leafId: "cult-north-america", daysAgo: [25] },
+        { leafId: "cult-cm-color", daysAgo: [60, 22] },
+        { leafId: "cult-na-color", daysAgo: [25] },
       ],
     },
     {
       studentId: "james",
       entries: [
         { leafId: "lang-puzzle-words", daysAgo: [120, 70, 25] },
-        { leafId: "lang-phonetic-box", daysAgo: [100, 50, 18] },
+        { leafId: "lang-pb-3part", daysAgo: [100, 50, 18] },
         { leafId: "math-teen-board", daysAgo: [110, 60, 22] },
         { leafId: "math-hundred-board", daysAgo: [80, 40, 12] },
         { leafId: "math-gb-names", daysAgo: [70, 35, 10] },
         { leafId: "math-gb-bank", daysAgo: [55, 22] },
-        { leafId: "cult-north-america", daysAgo: [90, 45, 15] },
+        { leafId: "cult-na-color", daysAgo: [90, 45, 15] },
         { leafId: "cult-lw-forms", daysAgo: [60, 25] },
         { leafId: "cult-lw-cards", daysAgo: [30] },
       ],
