@@ -32,7 +32,7 @@ export function SchoolForm() {
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [created, setCreated] = useState<{ email: string; tempPassword: string } | null>(null);
+  const [created, setCreated] = useState<{ name: string; email: string } | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,8 +48,8 @@ export function SchoolForm() {
         adminEmail: adminEmail.trim(),
         phone,
       });
-      if (res.ok && res.tempPassword) {
-        setCreated({ email: adminEmail.trim(), tempPassword: res.tempPassword });
+      if (res.ok) {
+        setCreated({ name: name.trim(), email: adminEmail.trim() });
         toast({ title: `${name.trim()} created` });
       } else {
         toast({ title: res.error ?? "Failed to create school", variant: "destructive" });
@@ -61,18 +61,24 @@ export function SchoolForm() {
     return (
       <div className="max-w-xl mx-auto space-y-4 text-center">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
-          <p className="font-medium text-emerald-800 mb-2">School created 🎉</p>
+          <p className="font-medium text-emerald-800 mb-2">School created</p>
           <p className="text-sm text-emerald-700">
-            Share these temporary sign-in details with the school admin. They can
-            change the password after signing in.
+            <strong>{created.name}</strong> is active. Its admin can sign in at any
+            time by requesting a one-time code with their email —{" "}
+            <span className="font-mono">{created.email}</span>. No password to share.
           </p>
-          <div className="mt-4 rounded-lg bg-white border border-emerald-200 p-4 text-left text-sm font-mono">
-            <p>Email: {created.email}</p>
-            <p>Temporary password: {created.tempPassword}</p>
-          </div>
         </div>
         <div className="flex justify-center gap-3">
-          <Button variant="outline" onClick={() => setCreated(null)}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setCreated(null);
+              setName("");
+              setAdminName("");
+              setAdminEmail("");
+              setPhone("");
+            }}
+          >
             Add another
           </Button>
           <Button

@@ -1,23 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Mail, Lock, KeyRound } from "lucide-react";
+import { Mail, KeyRound, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  signInWithPassword,
-  requestOtp,
-  verifyOtp,
-} from "@/lib/actions/auth";
-
-type Mode = "password" | "otp";
+import { requestOtp, verifyOtp } from "@/lib/actions/auth";
 
 export function LoginForm() {
-  const [mode, setMode] = useState<Mode>("password");
   const [otpSent, setOtpSent] = useState(false);
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -28,11 +20,6 @@ export function LoginForm() {
     setError(null);
     setInfo(null);
     startTransition(async () => {
-      if (mode === "password") {
-        const res = await signInWithPassword(email, password);
-        if (res?.error) setError(res.error);
-        return;
-      }
       if (!otpSent) {
         const res = await requestOtp(email);
         if (res?.error) setError(res.error);
@@ -44,6 +31,16 @@ export function LoginForm() {
       }
       const res = await verifyOtp(email, code.trim());
       if (res?.error) setError(res.error);
+    });
+  };
+
+  const resend = () => {
+    setError(null);
+    setCode("");
+    startTransition(async () => {
+      const res = await requestOtp(email);
+      if (res?.error) setError(res.error);
+      else setInfo(`We sent a new code to ${email}.`);
     });
   };
 
@@ -60,35 +57,15 @@ export function LoginForm() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={mode === "otp" && otpSent}
-            className="pl-11 py-6 rounded-xl border-slate-200 focus-visible:ring-montessori-primary placeholder:text-slate-400"
+            disabled={otpSent}
+            className="pl-11 py-6 rounded-xl border-slate-200 focus-visible:ring-montessori-primary placeholder:text-slate-400 disabled:opacity-70"
             placeholder="name@example.com"
           />
           <Mail className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
         </div>
       </div>
 
-      {mode === "password" && (
-        <div className="space-y-2">
-          <Label htmlFor="password" className="text-slate-700">
-            Password
-          </Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="pl-11 py-6 rounded-xl border-slate-200 focus-visible:ring-montessori-primary placeholder:text-slate-400"
-              placeholder="••••••••"
-            />
-            <Lock className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-          </div>
-        </div>
-      )}
-
-      {mode === "otp" && otpSent && (
+      {otpSent && (
         <div className="space-y-2">
           <Label htmlFor="code" className="text-slate-700">
             6-digit code
@@ -97,6 +74,7 @@ export function LoginForm() {
             <Input
               id="code"
               inputMode="numeric"
+              autoFocus
               required
               value={code}
               onChange={(e) => setCode(e.target.value)}
@@ -118,29 +96,39 @@ export function LoginForm() {
       >
         {pending
           ? "Please wait…"
-          : mode === "password"
-            ? "Sign In"
-            : otpSent
-              ? "Verify & Sign In"
-              : "Email me a code"}
+          : otpSent
+            ? "Verify & Sign In"
+            : "Email me a sign-in code"}
       </Button>
 
-      <div className="text-center">
-        <button
-          type="button"
-          onClick={() => {
-            setMode(mode === "password" ? "otp" : "password");
-            setOtpSent(false);
-            setError(null);
-            setInfo(null);
-          }}
-          className="text-sm text-montessori-primary hover:underline font-medium"
-        >
-          {mode === "password"
-            ? "Sign in with an email code instead"
-            : "Use a password instead"}
-        </button>
-      </div>
+      {otpSent ? (
+        <div className="flex items-center justify-between text-sm">
+          <button
+            type="button"
+            onClick={() => {
+              setOtpSent(false);
+              setCode("");
+              setError(null);
+              setInfo(null);
+            }}
+            className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-800"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Use a different email
+          </button>
+          <button
+            type="button"
+            onClick={resend}
+            disabled={pending}
+            className="text-montessori-primary hover:underline font-medium disabled:opacity-60"
+          >
+            Resend code
+          </button>
+        </div>
+      ) : (
+        <p className="text-center text-xs text-slate-400">
+          No password needed — we&apos;ll email you a one-time code.
+        </p>
+      )}
     </form>
   );
 }

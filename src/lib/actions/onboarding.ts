@@ -1,8 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/supabase/server";
 import { createAdminClient } from "@/supabase/admin";
 import { requireRole } from "@/lib/auth/context";
 import { DEFAULT_THEME, type SchoolType } from "@/lib/db/types";
@@ -48,15 +46,14 @@ async function provisionSchool(input: {
   type: SchoolType;
   adminName: string;
   adminEmail: string;
-  password: string;
   phone?: string;
   status?: "active" | "pending";
 }): Promise<{ schoolId: string } | { error: string }> {
   const admin = createAdminClient();
 
+  // Passwordless: the admin signs in with an email one-time code.
   const { data: userRes, error: userErr } = await admin.auth.admin.createUser({
     email: input.adminEmail,
-    password: input.password,
     email_confirm: true,
     user_metadata: { full_name: input.adminName },
   });
@@ -100,41 +97,28 @@ export async function registerSchool(input: {
   type: SchoolType;
   adminName: string;
   adminEmail: string;
-  password: string;
   phone?: string;
-}): Promise<{ error?: string }> {
+}): Promise<{ ok: boolean; error?: string }> {
   // Self-registered schools start PENDING and wait for platform-admin approval.
   const res = await provisionSchool({ ...input, status: "pending" });
-  if ("error" in res) return { error: res.error };
-  const supabase = await createClient();
-  if (supabase) {
-    await supabase.auth.signInWithPassword({
-      email: input.adminEmail,
-      password: input.password,
-    });
-  }
-  // They land on the dashboard, where the pending gate greets them until approved.
-  redirect("/dashboard");
+  if ("error" in res) return { ok: false, error: res.error };
+  // No auto sign-in (passwordless): the owner is told to check their email and
+  // sign in with a code once approved.
+  return { ok: true };
 }
 
-// Super-admin "Add School": provision with a generated temporary password that
-// is returned so the super admin can hand it to the school. (Real invite emails
-// come once Resend SMTP is configured.)
+// Super-admin "Add School": provision an active school + its owner-admin. The
+// admin signs in with an email one-time code — no password to hand over.
 export async function createSchoolBySuperAdmin(input: {
   schoolName: string;
   type: SchoolType;
   adminName: string;
   adminEmail: string;
   phone?: string;
-}): Promise<{ ok: boolean; tempPassword?: string; error?: string }> {
+}): Promise<{ ok: boolean; error?: string }> {
   await requireRole("super_admin");
-  const tempPassword = `Sch-${Math.random().toString(36).slice(2, 10)}!`;
-  const res = await provisionSchool({
-    ...input,
-    password: tempPassword,
-    status: "active",
-  });
+  const res = await provisionSchool({ ...input, status: "active" });
   if ("error" in res) return { ok: false, error: res.error };
   revalidatePath("/super-admin/schools");
-  return { ok: true, tempPassword };
+  return { ok: true };
 }

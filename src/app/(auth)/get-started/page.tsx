@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { GraduationCap, School, ArrowRight } from "lucide-react";
+import { GraduationCap, School, ArrowRight, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,8 +33,8 @@ export default function GetStartedPage() {
   const [name, setName] = useState("");
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const [pending, start] = useTransition();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -46,26 +46,45 @@ export default function GetStartedPage() {
       });
       return;
     }
-    if (password.length < 6) {
-      toast({
-        title: "Password must be at least 6 characters",
-        variant: "destructive",
-      });
-      return;
-    }
     start(async () => {
       const res = await registerSchool({
         schoolName: name.trim(),
         type,
         adminName: adminName.trim(),
         adminEmail: adminEmail.trim(),
-        password,
         phone,
       });
-      // On success the action redirects; only errors return here.
       if (res?.error) toast({ title: res.error, variant: "destructive" });
+      else setSubmitted(true);
     });
   };
+
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-8">
+        <div className="w-full max-w-md text-center animate-pop-in">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 pulse-ring">
+            <MailCheck className="h-7 w-7" />
+          </div>
+          <h1 className="text-2xl font-serif text-slate-900 mb-3">
+            Registration received
+          </h1>
+          <p className="text-slate-600 leading-relaxed mb-8">
+            Thanks for registering <strong>{name.trim()}</strong>. Your school is
+            now waiting for approval from the platform team. We&apos;ll email{" "}
+            <strong>{adminEmail.trim()}</strong> as soon as it&apos;s activated —
+            then you can sign in with a one-time code.
+          </p>
+          <Button
+            asChild
+            className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+          >
+            <Link href="/login">Go to sign in</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-8">
@@ -144,21 +163,14 @@ export default function GetStartedPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Create a Password *</Label>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 6 characters"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Phone</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-              </div>
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
+            <p className="text-xs text-slate-400">
+              No password required — you&apos;ll sign in with a one-time code sent
+              to your email.
+            </p>
           </div>
 
           <div className="flex items-center justify-between">
