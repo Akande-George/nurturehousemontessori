@@ -10,13 +10,16 @@ module.exports = {
   	extend: {
   		colors: {
   			montessori: {
-  				primary: '#0c5c4c', // Nurture Dark Green
-  				secondary: '#58a038', // Leaf Green
-  				accent: '#fcd303', // Sun Yellow
-  				earth: '#1e201d', // House Dark
-  				sky: '#e6f3ef', // Soft Primary Tint
-  				bg: '#f8f9fa',
-  				card: '#ffffff'
+  				// Per-school themeable colors — driven by CSS variables (RGB channel
+  				// triplets) set by SchoolThemeProvider. The `<alpha-value>` pattern
+  				// keeps Tailwind opacity modifiers (e.g. bg-montessori-primary/8) working.
+  				primary: 'rgb(var(--montessori-primary) / <alpha-value>)',
+  				secondary: 'rgb(var(--montessori-secondary) / <alpha-value>)',
+  				accent: 'rgb(var(--montessori-accent) / <alpha-value>)',
+  				earth: 'rgb(var(--montessori-earth) / <alpha-value>)',
+  				sky: 'rgb(var(--montessori-sky) / <alpha-value>)',
+  				bg: 'rgb(var(--montessori-bg) / <alpha-value>)',
+  				card: 'rgb(var(--montessori-card) / <alpha-value>)'
   			},
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',

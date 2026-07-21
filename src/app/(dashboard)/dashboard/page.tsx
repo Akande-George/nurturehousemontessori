@@ -1,309 +1,52 @@
-"use client";
-
-import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireRole } from "@/lib/auth/context";
+import { createClient } from "@/supabase/server";
+import { getSchoolStats } from "@/lib/db/schools";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import {
-  createNotice,
-  getParentNotices,
-  getTotalParentCount,
-  useDemoStore,
-} from "@/lib/mock/demo-store";
-import { AlertTriangle, Eye, HeartPulse, Pill, Users } from "lucide-react";
+  getSchoolNotices,
+  getSchoolInvoices,
+} from "@/lib/db/operations";
+import { getSchoolStudents } from "@/lib/db/students";
+import { DashboardClient, type MedicalStudent } from "./DashboardClient";
 
-export default function DashboardPage() {
-  const [isNoticeOpen, setIsNoticeOpen] = useState(false);
-  const [noticeTitle, setNoticeTitle] = useState("");
-  const [noticeBody, setNoticeBody] = useState("");
-  const { toast } = useToast();
-  const store = useDemoStore();
+export default async function DashboardPage() {
+  const { school } = await requireRole("admin");
+  const supabase = await createClient();
+  if (!supabase || !school) return null;
 
-  const metrics = useMemo(() => {
-    const pendingInvoices = store.invoices.filter(
-      (invoice) => invoice.status === "unpaid",
-    );
-    return [
-      { label: "Enrolled Students", value: store.students.length.toString() },
-      { label: "Active Staff", value: "18" },
-      { label: "Pending Apps", value: "12" },
-      {
-        label: "Outstanding Invoices",
-        value: pendingInvoices.length.toString(),
-      },
-    ];
-  }, [store]);
+  const [stats, notices, invoices, students] = await Promise.all([
+    getSchoolStats(supabase, school.id),
+    getSchoolNotices(supabase, school.id),
+    getSchoolInvoices(supabase, school.id),
+    getSchoolStudents(supabase, school.id),
+  ]);
 
-  const notices = getParentNotices().slice(0, 4);
-  const totalParents = getTotalParentCount();
+  const outstanding = invoices.filter((i) => i.status === "unpaid").length;
 
-  const handlePostNotice = () => {
-    if (!noticeTitle.trim() || !noticeBody.trim()) {
-      toast({
-        title: "Missing fields",
-        description: "Please provide a title and message before publishing.",
-      });
-      return;
-    }
-
-    createNotice({
-      title: noticeTitle.trim(),
-      content: noticeBody.trim(),
-    });
-
-    setNoticeTitle("");
-    setNoticeBody("");
-    setIsNoticeOpen(false);
-    toast({
-      title: "Notice posted",
-      description:
-        "Parents can now see this in the notice board and activity feed.",
-    });
-  };
+  const medicalStudents: MedicalStudent[] = students
+    .filter(
+      (s) =>
+        s.allergies.length > 0 || (s.medical_notes ?? "").trim().length > 0,
+    )
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      classroom: s.classroom ?? "",
+      avatar_color: s.avatar_color,
+      allergies: s.allergies,
+      medical_notes: s.medical_notes,
+    }));
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-serif text-slate-900">Admin Overview</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Role-separated operations cockpit with cross-role demo data.
-          </p>
-        </div>
-        <Button
-          onClick={() => setIsNoticeOpen(true)}
-          className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
-        >
-          Post to Notice Board
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {metrics.map((metric) => (
-          <Card key={metric.label} className="border-slate-100 shadow-sm">
-            <CardContent className="p-5">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                {metric.label}
-              </p>
-              <p className="text-3xl font-serif text-slate-900 mt-2">
-                {metric.value}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Medical Watchlist — school-wide */}
-      {(() => {
-        const flagged = store.students.filter(
-          (s) =>
-            s.medications.length > 0 ||
-            s.allergies.length > 0 ||
-            (s.medicalNotes ?? "").trim().length > 0,
-        );
-        if (flagged.length === 0) return null;
-        return (
-          <Card className="border-2 border-rose-200 shadow-sm bg-rose-50/40">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-rose-900">
-                  <HeartPulse className="w-4 h-4 text-rose-600" />
-                  Medical Watchlist
-                  <Badge
-                    variant="outline"
-                    className="bg-white text-rose-700 border-rose-200 ml-1"
-                  >
-                    {flagged.length} of {store.students.length}
-                  </Badge>
-                </CardTitle>
-                <p className="text-xs text-rose-700/80 font-medium">
-                  Required reading for staff and front-office
-                </p>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {flagged.map((student) => (
-                  <div
-                    key={student.id}
-                    className="rounded-xl bg-white border border-rose-100 p-3.5"
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div
-                        className={`w-9 h-9 rounded-full ${student.avatarColor} text-white flex items-center justify-center text-xs font-bold shrink-0`}
-                      >
-                        {student.name.split(" ").map((n) => n[0]).join("")}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 truncate">
-                          {student.name}
-                        </p>
-                        <p className="text-xs text-slate-500 truncate">
-                          {student.classroom}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="space-y-1 text-xs">
-                      {student.allergies.length > 0 && (
-                        <p className="flex items-start gap-1.5 text-amber-800">
-                          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
-                          <span>
-                            <span className="font-semibold">Allergies: </span>
-                            {student.allergies.join(", ")}
-                          </span>
-                        </p>
-                      )}
-                      {student.medications.length > 0 && (
-                        <p className="flex items-start gap-1.5 text-rose-800">
-                          <Pill className="w-3.5 h-3.5 mt-0.5 shrink-0 text-rose-600" />
-                          <span>
-                            <span className="font-semibold">
-                              Medication{student.medications.length === 1 ? "" : "s"}:{" "}
-                            </span>
-                            {student.medications
-                              .map(
-                                (m) =>
-                                  `${m.name} ${m.dosage} · ${m.time}`,
-                              )
-                              .join(" / ")}
-                          </span>
-                        </p>
-                      )}
-                      {(student.medicalNotes ?? "").trim().length > 0 && (
-                        <p className="text-slate-700">
-                          <span className="font-semibold text-slate-900">
-                            Notes:{" "}
-                          </span>
-                          {student.medicalNotes}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-slate-100 shadow-sm">
-          <CardHeader>
-            <CardTitle>Cross-role storyline status</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-slate-700">
-            <div className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
-              <span>Invoice issued for Zoe Wong</span>
-              <Badge variant="outline" className="bg-white">
-                Billing
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
-              <span>Teacher observation shared</span>
-              <Badge variant="outline" className="bg-white">
-                Classroom
-              </Badge>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
-              <span>Parent notices synced</span>
-              <Badge variant="outline" className="bg-white">
-                Family
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-100 shadow-sm">
-          <CardHeader>
-            <CardTitle>Recent notices</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {notices.map((notice) => {
-              const readCount = notice.readBy.length;
-              const seenAll = readCount >= totalParents;
-              return (
-                <div
-                  key={notice.id}
-                  className="rounded-lg border border-slate-100 p-3"
-                >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="font-medium text-slate-900">{notice.title}</p>
-                    <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 border-none">
-                      All parents
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-slate-600 mb-2 line-clamp-2">
-                    {notice.content}
-                  </p>
-                  <div className="flex items-center gap-1.5">
-                    <Eye className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-xs text-slate-500 flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      {readCount} of {totalParents} parent
-                      {totalParents !== 1 ? "s" : ""} seen
-                    </span>
-                    {seenAll && (
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] h-4 py-0 border-emerald-200 text-emerald-700 bg-emerald-50 ml-1"
-                      >
-                        All seen
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Dialog open={isNoticeOpen} onOpenChange={setIsNoticeOpen}>
-        <DialogContent className="sm:max-w-[520px]">
-          <DialogHeader>
-            <DialogTitle>Create school notice</DialogTitle>
-            <DialogDescription>
-              This publishes to all parents and appears instantly in the parent
-              portal.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Input
-              value={noticeTitle}
-              onChange={(event) => setNoticeTitle(event.target.value)}
-              placeholder="Title"
-            />
-            <Textarea
-              value={noticeBody}
-              onChange={(event) => setNoticeBody(event.target.value)}
-              placeholder="Message"
-              className="min-h-28"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsNoticeOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handlePostNotice}
-              className="bg-montessori-primary text-white"
-            >
-              Publish Notice
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+    <DashboardClient
+      stats={{
+        studentCount: Number(stats.student_count),
+        staffCount: Number(stats.staff_count),
+        classCount: Number(stats.class_count),
+        outstanding,
+      }}
+      totalStudents={students.length}
+      notices={notices.slice(0, 4)}
+      medicalStudents={medicalStudents}
+    />
   );
 }

@@ -1,12 +1,9 @@
 import Link from "next/link";
-import { Mail, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { LoginForm } from "./LoginForm";
 
 export const metadata = {
-  title: "Sign In | Nurture House Montessori",
-  description: "Access your Nurture House Montessori parent or teacher portal.",
+  title: "Sign In | SchoolHub",
+  description: "Sign in to your school portal.",
 };
 
 export default function LoginPage() {
@@ -24,12 +21,11 @@ export default function LoginPage() {
             M
           </div>
           <h1 className="text-4xl font-serif mb-6 leading-tight">
-            Nurturing independence, connection, and growth.
+            One platform for every kind of school.
           </h1>
           <p className="text-white/80 text-lg leading-relaxed">
-            Welcome back to Nurture House Montessori. Access daily logs,
-            milestone tracking, and seamless communication with your school
-            community.
+            Sign in to access your school portal — admissions, academics,
+            reports, billing, and parent engagement, all in one place.
           </p>
         </div>
       </div>
@@ -44,97 +40,30 @@ export default function LoginPage() {
             <h2 className="text-3xl font-serif text-slate-900 mb-2">
               Welcome Back
             </h2>
-            <p className="text-slate-500">
-              Sign in to your account to continue
-            </p>
+            <p className="text-slate-500">Sign in to your account to continue</p>
           </div>
 
-          <form className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-700">
-                Email Address
-              </Label>
-              <div className="relative">
-                <Input
-                  id="email"
-                  type="email"
-                  required
-                  className="pl-11 py-6 rounded-xl border-slate-200 focus-visible:ring-montessori-primary placeholder:text-slate-400"
-                  placeholder="name@example.com"
-                />
-                <Mail className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
+          <LoginForm />
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-slate-700">
-                  Password
-                </Label>
-                <Link
-                  href="#"
-                  className="text-xs text-montessori-primary hover:underline font-medium"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  className="pl-11 py-6 rounded-xl border-slate-200 focus-visible:ring-montessori-primary placeholder:text-slate-400"
-                  placeholder="••••••••"
-                />
-                <Lock className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
-            <Button
-              asChild
-              className="w-full py-6 mt-6 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 transition-all hover-lift shadow-md"
-            >
-              <Link href="/demo?role=parent">Continue as Parent</Link>
-            </Button>
-          </form>
-
-          <div className="mt-6 space-y-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Demo role switch
+          <div className="mt-8 pt-8 border-t border-slate-100 text-center text-sm text-slate-500 space-y-2">
+            <p>
+              Run a school?{" "}
+              <Link
+                href="/get-started"
+                className="text-montessori-primary hover:underline font-medium"
+              >
+                Register your school
+              </Link>
             </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <Button
-                asChild
-                variant="outline"
-                className="border-slate-200 bg-white"
+            <p>
+              Applying for a place?{" "}
+              <Link
+                href="/enrollment"
+                className="text-montessori-primary hover:underline font-medium"
               >
-                <Link href="/demo?role=admin">Admin</Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="border-slate-200 bg-white"
-              >
-                <Link href="/demo?role=teacher">Teacher</Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="border-slate-200 bg-white"
-              >
-                <Link href="/demo?role=parent">Parent</Link>
-              </Button>
-            </div>
-          </div>
-
-          <div className="mt-8 pt-8 border-t border-slate-100 text-center text-sm text-slate-500">
-            Don't have an account?{" "}
-            <Link
-              href="/enrollment"
-              className="text-montessori-primary hover:underline font-medium"
-            >
-              Apply for Enrollment
-            </Link>
+                Apply for Enrollment
+              </Link>
+            </p>
           </div>
         </div>
       </div>

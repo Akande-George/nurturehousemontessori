@@ -1,12 +1,16 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState, type ComponentType } from "react";
 import {
+  Award,
   Bell,
+  BookOpen,
+  Building2,
   Calendar,
+  CalendarClock,
+  ClipboardList,
   CreditCard,
   FileText,
   FolderOpen,
@@ -17,13 +21,22 @@ import {
   LogOut,
   Megaphone,
   Menu,
+  PlusCircle,
   Search,
   Settings,
+  TrendingUp,
   Users,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getRoleUser, type Role } from "@/lib/mock/demo-store";
+import { signOut } from "@/lib/actions/auth";
+import type { Role, SchoolType } from "@/lib/db/types";
+
+// Platform-level branding used for the super admin (not tied to any school).
+const PLATFORM = { name: "SchoolHub Platform", logoUrl: "/logo2.png" };
+
+export type ShellUser = { name: string; email: string; initial: string };
+export type ShellSchool = { name: string; type: SchoolType } | null;
 
 type NavItem = {
   href: string;
@@ -36,7 +49,11 @@ type NavSection = {
   items: NavItem[];
 };
 
-const adminNav: NavSection[] = [
+// ---------------------------------------------------------------------------
+// Montessori navs (the original single-school experience)
+// ---------------------------------------------------------------------------
+
+const montessoriAdminNav: NavSection[] = [
   {
     label: "Workspace",
     items: [
@@ -83,12 +100,17 @@ const adminNav: NavSection[] = [
         label: "After School Care",
         icon: Heart,
       },
+      {
+        href: "/dashboard/resources",
+        label: "Resource Library",
+        icon: FolderOpen,
+      },
       { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ],
   },
 ];
 
-const teacherNav: NavSection[] = [
+const montessoriTeacherNav: NavSection[] = [
   {
     label: "Today",
     items: [
@@ -103,13 +125,18 @@ const teacherNav: NavSection[] = [
       { href: "/teacher/activity", label: "Activity Feed", icon: Heart },
       { href: "/teacher/observations", label: "Observations", icon: FileText },
       { href: "/teacher/curriculum", label: "Curriculum", icon: GraduationCap },
+      {
+        href: "/teacher/reports/child-report",
+        label: "Child Report",
+        icon: FileText,
+      },
       { href: "/teacher/log", label: "Bulk Logging", icon: FileText },
       { href: "/teacher/gallery", label: "Media Gallery", icon: ImageIcon },
     ],
   },
 ];
 
-const parentNav: NavSection[] = [
+const montessoriParentNav: NavSection[] = [
   {
     label: "Home",
     items: [
@@ -127,11 +154,6 @@ const parentNav: NavSection[] = [
   {
     label: "My Children",
     items: [
-      {
-        href: "/parent/reports/child-report",
-        label: "Child Report",
-        icon: FileText,
-      },
       { href: "/parent/reports", label: "Daily Reports", icon: FileText },
       { href: "/parent/progress", label: "Academic Progress", icon: Calendar },
       {
@@ -153,8 +175,184 @@ const parentNav: NavSection[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Regular (conventional) school navs
+// ---------------------------------------------------------------------------
+
+const regularAdminNav: NavSection[] = [
+  {
+    label: "Workspace",
+    items: [
+      { href: "/dashboard", label: "Overview", icon: Home },
+      { href: "/dashboard/students", label: "Students", icon: Users },
+      { href: "/dashboard/calendar", label: "Calendar", icon: Calendar },
+    ],
+  },
+  {
+    label: "Academics",
+    items: [
+      { href: "/dashboard/classes", label: "Classes", icon: GraduationCap },
+      { href: "/dashboard/subjects", label: "Subjects", icon: BookOpen },
+      { href: "/dashboard/timetable", label: "Timetable", icon: CalendarClock },
+      { href: "/dashboard/results", label: "Report Cards", icon: Award },
+      { href: "/dashboard/promotion", label: "Promotion", icon: TrendingUp },
+    ],
+  },
+  {
+    label: "Admissions",
+    items: [
+      { href: "/dashboard/enrollment", label: "Applications", icon: FileText },
+      {
+        href: "/dashboard/letters",
+        label: "Acceptance Letters",
+        icon: FileText,
+      },
+      { href: "/dashboard/kits", label: "Kit Lists", icon: FileText },
+      { href: "/dashboard/invites", label: "Portal Invites", icon: FileText },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      {
+        href: "/dashboard/attendance",
+        label: "Attendance",
+        icon: ClipboardList,
+      },
+      { href: "/dashboard/accounting", label: "Billing", icon: CreditCard },
+      {
+        href: "/dashboard/resources",
+        label: "Resource Library",
+        icon: FolderOpen,
+      },
+      { href: "/dashboard/settings", label: "Settings", icon: Settings },
+    ],
+  },
+];
+
+const regularTeacherNav: NavSection[] = [
+  {
+    label: "Today",
+    items: [
+      { href: "/teacher", label: "My Classes", icon: Home },
+      {
+        href: "/teacher/attendance",
+        label: "Class Register",
+        icon: ClipboardList,
+      },
+    ],
+  },
+  {
+    label: "Teaching",
+    items: [
+      { href: "/teacher/gradebook", label: "Gradebook", icon: BookOpen },
+      { href: "/teacher/report-cards", label: "Report Cards", icon: Award },
+      { href: "/teacher/timetable", label: "Timetable", icon: CalendarClock },
+      { href: "/teacher/homework", label: "Homework", icon: FileText },
+      { href: "/teacher/students", label: "Students", icon: Users },
+    ],
+  },
+];
+
+const regularParentNav: NavSection[] = [
+  {
+    label: "Home",
+    items: [
+      { href: "/parent/notices", label: "Notice Board", icon: Megaphone },
+      { href: "/parent/calendar", label: "Calendar", icon: Calendar },
+      {
+        href: "/parent/attendance",
+        label: "Attendance",
+        icon: ClipboardList,
+      },
+    ],
+  },
+  {
+    label: "Academics",
+    items: [
+      { href: "/parent/results", label: "Report Cards", icon: Award },
+      { href: "/parent/grades", label: "Subject Grades", icon: GraduationCap },
+      { href: "/parent/timetable", label: "Timetable", icon: CalendarClock },
+      { href: "/parent/homework", label: "Homework", icon: FileText },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      {
+        href: "/parent/invoices",
+        label: "Invoices & Receipts",
+        icon: CreditCard,
+      },
+    ],
+  },
+];
+
+const superAdminNav: NavSection[] = [
+  {
+    label: "Platform",
+    items: [
+      { href: "/super-admin", label: "Overview", icon: Home },
+      { href: "/super-admin/schools", label: "Schools", icon: Building2 },
+      {
+        href: "/super-admin/schools/new",
+        label: "Add School",
+        icon: PlusCircle,
+      },
+    ],
+  },
+];
+
+const NAV_TABLE: Record<
+  "admin" | "teacher" | "parent",
+  Record<SchoolType, NavSection[]>
+> = {
+  admin: { montessori: montessoriAdminNav, regular: regularAdminNav },
+  teacher: { montessori: montessoriTeacherNav, regular: regularTeacherNav },
+  parent: { montessori: montessoriParentNav, regular: regularParentNav },
+};
+
+function navFor(role: Role, type: SchoolType): NavSection[] {
+  if (role === "super_admin") return superAdminNav;
+  return NAV_TABLE[role][type];
+}
+
+function homeFor(role: Role, type: SchoolType): string {
+  if (role === "super_admin") return "/super-admin";
+  if (role === "teacher") return "/teacher";
+  if (role === "parent") return type === "regular" ? "/parent/results" : "/parent";
+  return "/dashboard";
+}
+
+function BrandMark({
+  name,
+  compact = false,
+}: {
+  name: string;
+  compact?: boolean;
+}) {
+  const initial = name.trim()[0]?.toUpperCase() ?? "S";
+  return (
+    <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-montessori-primary font-serif text-lg text-white shadow-sm">
+        {initial}
+      </div>
+      {!compact && (
+        <span className="truncate font-serif text-[15px] leading-tight text-slate-900">
+          {name}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function isItemActive(href: string, pathname: string) {
-  if (href === "/dashboard" || href === "/teacher" || href === "/parent") {
+  if (
+    href === "/dashboard" ||
+    href === "/teacher" ||
+    href === "/parent" ||
+    href === "/super-admin"
+  ) {
     return pathname === href;
   }
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -216,55 +414,45 @@ function SidebarNav({
 
 export function RoleShell({
   role,
+  user,
+  school,
   children,
 }: {
   role: Role;
+  user: ShellUser;
+  school: ShellSchool;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const user = getRoleUser(role);
+  const schoolType: SchoolType = school?.type ?? "montessori";
 
-  const sections = useMemo(() => {
-    if (role === "admin") return adminNav;
-    if (role === "teacher") return teacherNav;
-    return parentNav;
-  }, [role]);
+  const isSuper = role === "super_admin";
+  const brandName = isSuper ? PLATFORM.name : school?.name ?? PLATFORM.name;
+  const homeHref = homeFor(role, schoolType);
 
-  const showSearch = role !== "parent";
+  const sections = useMemo(
+    () => navFor(role, schoolType),
+    [role, schoolType],
+  );
+
+  const showSearch = role === "admin" || role === "teacher";
+  // Mobile bottom bar (parent only) mirrors the resolved parent nav's first section.
+  const bottomBarItems = sections[0]?.items.slice(0, 3) ?? [];
 
   return (
     <div className="font-tight flex min-h-screen bg-slate-50 pb-16 md:pb-0">
       <aside className="sticky top-0 hidden h-screen w-64 flex-col border-r border-slate-100 bg-white md:flex">
         <div className="flex h-20 items-center border-b border-slate-100 px-6">
           <Link
-            href={
-              role === "admin"
-                ? "/dashboard"
-                : role === "teacher"
-                  ? "/teacher"
-                  : "/parent"
-            }
-            className="flex items-center gap-2 transition-opacity hover:opacity-80"
+            href={homeHref}
+            className="transition-opacity hover:opacity-80"
           >
-            <Image
-              src="/logo2.png"
-              alt="Nurture House Montessori"
-              width={72}
-              height={72}
-              priority
-            />
+            <BrandMark name={brandName} />
           </Link>
         </div>
         <SidebarNav pathname={pathname} sections={sections} />
         <div className="border-t border-slate-100 p-3">
-          <Link
-            href="/login"
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-          >
-            <Settings className="h-[18px] w-[18px]" strokeWidth={1.75} />
-            <span className="text-sm font-medium">Switch role (demo)</span>
-          </Link>
           <div className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-montessori-primary text-sm font-medium text-white shadow-sm">
               {user.initial}
@@ -275,13 +463,15 @@ export function RoleShell({
               </p>
               <p className="truncate text-xs text-slate-500">{user.email}</p>
             </div>
-            <Link
-              href="/login"
-              aria-label="Log out"
-              className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-            >
-              <LogOut className="h-4 w-4" />
-            </Link>
+            <form action={signOut}>
+              <button
+                type="submit"
+                aria-label="Log out"
+                className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </form>
           </div>
         </div>
       </aside>
@@ -295,12 +485,7 @@ export function RoleShell({
           />
           <aside className="relative flex w-72 max-w-[80vw] flex-col border-r border-slate-100 bg-white animate-in slide-in-from-left duration-200">
             <div className="flex h-20 items-center justify-between border-b border-slate-100 px-6">
-              <Image
-                src="/logo2.png"
-                alt="Nurture House Montessori"
-                width={64}
-                height={64}
-              />
+              <BrandMark name={brandName} />
               <button
                 aria-label="Close menu"
                 onClick={() => setMobileOpen(false)}
@@ -315,14 +500,6 @@ export function RoleShell({
               onNavigate={() => setMobileOpen(false)}
             />
             <div className="border-t border-slate-100 p-3">
-              <Link
-                href="/login"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-              >
-                <Settings className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                <span className="text-sm font-medium">Switch role (demo)</span>
-              </Link>
               <div className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-montessori-primary text-sm font-medium text-white shadow-sm">
                   {user.initial}
@@ -335,14 +512,15 @@ export function RoleShell({
                     {user.email}
                   </p>
                 </div>
-                <Link
-                  href="/login"
-                  onClick={() => setMobileOpen(false)}
-                  aria-label="Log out"
-                  className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Link>
+                <form action={signOut}>
+                  <button
+                    type="submit"
+                    aria-label="Log out"
+                    className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </form>
               </div>
             </div>
           </aside>
@@ -359,12 +537,7 @@ export function RoleShell({
             >
               <Menu className="h-5 w-5" />
             </button>
-            <Image
-              src="/logo2.png"
-              alt="Nurture House Montessori"
-              width={48}
-              height={48}
-            />
+            <BrandMark name={brandName} compact />
           </div>
 
           {showSearch ? (
@@ -383,7 +556,7 @@ export function RoleShell({
             </div>
           ) : (
             <div className="hidden md:block text-sm font-medium text-slate-500">
-              Nurture House Montessori
+              {brandName}
             </div>
           )}
 
@@ -407,7 +580,7 @@ export function RoleShell({
         {role === "parent" && (
           <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden">
             <div className="mx-auto grid max-w-md grid-cols-3">
-              {parentNav[0].items.map((item) => {
+              {bottomBarItems.map((item) => {
                 const active = isItemActive(item.href, pathname);
                 const Icon = item.icon;
                 return (

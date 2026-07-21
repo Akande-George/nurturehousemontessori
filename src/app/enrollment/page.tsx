@@ -1,13 +1,21 @@
 import EnrollmentForm from "@/components/enrollment/EnrollmentForm";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { createAdminClient } from "@/supabase/admin";
 
 export const metadata = {
   title: "Enrollment | Nurture House Montessori",
   description: "Apply for admission to our progressive Montessori program.",
 };
 
-export default function EnrollmentPage() {
+export default async function EnrollmentPage() {
+  const admin = createAdminClient();
+  const { data: schools } = await admin
+    .from("schools")
+    .select("id,name,type")
+    .eq("status", "active")
+    .order("name");
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Minimal Header */}
@@ -51,7 +59,7 @@ export default function EnrollmentPage() {
           </p>
         </div>
 
-        <EnrollmentForm />
+        <EnrollmentForm schools={schools ?? []} />
 
         <div className="mt-12 text-center text-sm text-slate-500">
           <p>

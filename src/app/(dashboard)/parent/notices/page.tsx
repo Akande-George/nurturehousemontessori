@@ -1,44 +1,35 @@
-"use client";
-
-import { useEffect } from "react";
+import { requireRole } from "@/lib/auth/context";
+import { createClient } from "@/supabase/server";
+import { getSchoolNotices } from "@/lib/db/operations";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  getParentNotices,
-  getRoleUser,
-  markNoticeRead,
-  useDemoStore,
-} from "@/lib/mock/demo-store";
 import { Bell } from "lucide-react";
+import { NoticesReadMarker } from "./NoticesReadMarker";
 
-export default function NoticeBoardPage() {
-  useDemoStore();
-  const parent = getRoleUser("parent");
-  const notices = getParentNotices();
-
-  // Mark all notices as read when parent opens this page
-  useEffect(() => {
-    notices.forEach((notice) => {
-      if (!notice.readBy.includes(parent.id)) {
-        markNoticeRead(notice.id, parent.id);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+export default async function NoticeBoardPage() {
+  const { school } = await requireRole("parent");
+  const supabase = await createClient();
+  const notices = school ? await getSchoolNotices(supabase!, school.id) : [];
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+      <NoticesReadMarker noticeIds={notices.map((n) => n.id)} />
+
       <div>
-        <h1 className="text-2xl font-serif text-slate-900">Notice Board</h1>
+        <h1 className="text-2xl font-serif text-slate-900">Announcements</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Announcements from Nurture House Montessori, newest first.
+          Announcements from {school?.name ?? "your school"}, newest first.
         </p>
       </div>
 
-      <div className="space-y-4">
-        {notices.map((notice, i) => {
-          const alreadyRead = notice.readBy.includes(parent.id);
-          return (
+      {notices.length === 0 ? (
+        <Card className="border-dashed border-slate-200 shadow-none">
+          <CardContent className="py-16 text-center text-sm text-slate-500">
+            No announcements have been posted yet.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {notices.map((notice, i) => (
             <Card
               key={notice.id}
               className={`border-slate-100 shadow-sm ${i === 0 ? "border-l-4 border-l-montessori-primary" : ""}`}
@@ -54,16 +45,11 @@ export default function NoticeBoardPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-slate-900">
-                          {notice.title}
-                        </p>
-                        {!alreadyRead && (
-                          <span className="inline-block w-2 h-2 rounded-full bg-montessori-primary" />
-                        )}
-                      </div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {notice.title}
+                      </p>
                       <span className="text-xs text-slate-400">
-                        {new Date(notice.createdAt).toLocaleDateString(
+                        {new Date(notice.created_at).toLocaleDateString(
                           "en-NG",
                           {
                             day: "numeric",
@@ -76,21 +62,13 @@ export default function NoticeBoardPage() {
                     <p className="text-sm text-slate-700 leading-relaxed">
                       {notice.content}
                     </p>
-                    {alreadyRead && (
-                      <Badge
-                        variant="outline"
-                        className="mt-3 text-[10px] h-5 border-emerald-200 text-emerald-700 bg-emerald-50"
-                      >
-                        Read
-                      </Badge>
-                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

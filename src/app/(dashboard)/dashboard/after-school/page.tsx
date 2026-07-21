@@ -1,43 +1,40 @@
-"use client";
-
-import { useMemo } from "react";
+import { requireRole } from "@/lib/auth/context";
+import { createClient } from "@/supabase/server";
+import { getSchoolStudents } from "@/lib/db/students";
+import { getAfterSchoolEnrollments } from "@/lib/db/operations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  getFrequentLatePickupStudents,
-  getAfterSchoolEnrollments,
-  isAfterSchoolEnrolled,
-  useDemoStore,
-  getDemoSnapshot,
-} from "@/lib/mock/demo-store";
-import { Clock, Star, Users } from "lucide-react";
+import { Star, Users } from "lucide-react";
 
-export default function AdminAfterSchoolPage() {
-  useDemoStore();
+export default async function AdminAfterSchoolPage() {
+  const { school } = await requireRole("admin");
+  const supabase = await createClient();
+  if (!supabase || !school) return null;
 
-  const enrollments = getAfterSchoolEnrollments();
-  const latePickupStudents = getFrequentLatePickupStudents();
-  const state = getDemoSnapshot();
+  const [students, enrollments] = await Promise.all([
+    getSchoolStudents(supabase, school.id),
+    getAfterSchoolEnrollments(supabase, school.id),
+  ]);
 
-  const enrolledStudents = useMemo(
-    () => state.students.filter((s) => isAfterSchoolEnrolled(s.id)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enrollments, state.students],
-  );
-
+  const enrolledIds = new Set(enrollments.map((e) => e.student_id));
+  const enrolledStudents = students.filter((s) => enrolledIds.has(s.id));
+  const latePickupStudents = students.filter((s) => s.frequent_late_pickup);
   const unenrolledLatePickup = latePickupStudents.filter(
-    (s) => !isAfterSchoolEnrolled(s.id),
+    (s) => !enrolledIds.has(s.id),
   );
+
+  const initials = (name: string) =>
+    name
+      .split(" ")
+      .map((n) => n[0])
+      .join("");
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div>
-        <h1 className="text-2xl font-serif text-slate-900">
-          After School Care
-        </h1>
+        <h1 className="text-2xl font-serif text-slate-900">After School Care</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Manage enrolled students and flag parents who may benefit from the
-          programme.
+          Enrolled students and families who may benefit from the programme.
         </p>
       </div>
 
@@ -90,51 +87,27 @@ export default function AdminAfterSchoolPage() {
             </p>
           ) : (
             <div className="space-y-2">
-              {enrolledStudents.map((student) => {
-                const enrollment = enrollments.find(
-                  (e) => e.studentId === student.id,
-                );
-                return (
+              {enrolledStudents.map((student) => (
+                <div
+                  key={student.id}
+                  className="flex items-center gap-3 rounded-lg border border-slate-100 p-3"
+                >
                   <div
-                    key={student.id}
-                    className="flex items-center gap-3 rounded-lg border border-slate-100 p-3"
+                    className={`w-9 h-9 rounded-full ${student.avatar_color} text-white flex items-center justify-center font-bold text-xs shrink-0`}
                   >
-                    <div
-                      className={`w-9 h-9 rounded-full ${student.avatarColor} text-white flex items-center justify-center font-bold text-xs shrink-0`}
-                    >
-                      {student.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900">
-                        {student.name}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {student.classroom} · {student.ageGroup}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <Badge className="bg-emerald-50 border-emerald-200 border text-emerald-700 hover:bg-emerald-50">
-                        Enrolled
-                      </Badge>
-                      {enrollment && (
-                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-0.5 justify-end">
-                          <Clock className="w-2.5 h-2.5" />
-                          {new Date(enrollment.enrolledAt).toLocaleDateString(
-                            "en-NG",
-                            {
-                              day: "numeric",
-                              month: "short",
-                            },
-                          )}
-                        </p>
-                      )}
-                    </div>
+                    {initials(student.name)}
                   </div>
-                );
-              })}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-900">{student.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {student.classroom ?? ""}
+                    </p>
+                  </div>
+                  <Badge className="bg-emerald-50 border-emerald-200 border text-emerald-700 hover:bg-emerald-50">
+                    Enrolled
+                  </Badge>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
@@ -152,7 +125,7 @@ export default function AdminAfterSchoolPage() {
           <CardContent>
             <p className="text-sm text-slate-600 mb-4">
               These families are frequently picking up their children after
-              school hours but haven't enrolled in the After School Care
+              school hours but haven&apos;t enrolled in the After School Care
               programme. Consider reaching out.
             </p>
             <div className="space-y-2">
@@ -162,17 +135,14 @@ export default function AdminAfterSchoolPage() {
                   className="flex items-center gap-3 rounded-lg border border-amber-100 bg-amber-50/40 p-3"
                 >
                   <div
-                    className={`w-9 h-9 rounded-full ${student.avatarColor} text-white flex items-center justify-center font-bold text-xs shrink-0`}
+                    className={`w-9 h-9 rounded-full ${student.avatar_color} text-white flex items-center justify-center font-bold text-xs shrink-0`}
                   >
-                    {student.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
+                    {initials(student.name)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-900">{student.name}</p>
                     <p className="text-xs text-slate-500">
-                      {student.classroom} · Parent: {student.parentName}
+                      {student.classroom ?? ""}
                     </p>
                   </div>
                   <Badge

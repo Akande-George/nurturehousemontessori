@@ -1,11 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { submitApplication } from "@/lib/actions/enrollment";
+
+export type EnrollmentSchoolOption = {
+  id: string;
+  name: string;
+  type: string;
+};
 
 const PROGRAM_OPTIONS = [
   "Infant Community (Nurture Bloomers) - 6 months to 18 months",
@@ -39,29 +47,102 @@ function calculateAge(dob: string) {
   return `${years} years ${months} months`;
 }
 
-export default function EnrollmentForm() {
+export default function EnrollmentForm({
+  schools = [],
+}: {
+  schools?: EnrollmentSchoolOption[];
+}) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [schoolId, setSchoolId] = useState(
+    schools.length === 1 ? schools[0].id : "",
+  );
   const [dob, setDob] = useState("");
   const [age, setAge] = useState("");
   const [applicationDate, setApplicationDate] = useState(getTodayDate());
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError(null);
+
+    const form = e.currentTarget;
+    const val = (id: string) =>
+      (
+        form.querySelector(`#${id}`) as
+          | HTMLInputElement
+          | HTMLSelectElement
+          | HTMLTextAreaElement
+          | null
+      )?.value ?? "";
+
+    if (!schoolId) {
+      setError("Please select a school.");
+      return;
+    }
 
     setIsSubmitting(true);
+    const res = await submitApplication({
+      schoolId,
+      childName: val("childName"),
+      parentName: val("parentName"),
+      parentEmail: val("email"),
+      parentPhone: val("phone") || undefined,
+      details: {
+        relationship: val("relationship"),
+        occupation: val("occupation"),
+        preferredCommunication: val("preferredCommunication"),
+        whatsapp: val("whatsapp"),
+        gender: val("gender"),
+        dateOfBirth: dob,
+        age,
+        nationality: val("nationality"),
+        preferredStartDate: val("preferredStartDate"),
+        address: val("address"),
+        program: val("program"),
+        firstSchoolExperience: val("firstSchool"),
+        partnerSupport: val("partnerSupport"),
+        tourDate: val("tourDate"),
+        applicationDate,
+        interestReason: val("interestReason"),
+        referralSource: val("referralSource"),
+        additionalInfo: val("additionalInfo"),
+      },
+    });
+    setIsSubmitting(false);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      alert(
-        "Waitlist form submitted successfully. Our admissions team will contact you soon.",
-      );
-    }, 1500);
+    if (res.ok) {
+      setSubmitted(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      setError(res.error ?? "Something went wrong. Please try again.");
+    }
   };
 
   const handleDobChange = (value: string) => {
     setDob(value);
     setAge(calculateAge(value));
   };
+
+  if (submitted) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border-slate-100 overflow-hidden">
+        <div className="p-10 sm:p-14 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+          <h2 className="font-serif text-2xl text-slate-900 mb-3">
+            Application received
+          </h2>
+          <p className="text-slate-600 max-w-md mx-auto leading-relaxed">
+            Thank you for applying. Our admissions team has received your
+            application and will be in touch soon. A confirmation has been sent
+            to your email.
+          </p>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border-slate-100 overflow-hidden">
@@ -76,6 +157,37 @@ export default function EnrollmentForm() {
 
       <form onSubmit={handleSubmit} className="p-8">
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <section className="space-y-5">
+            <div>
+              <h3 className="text-lg font-medium text-slate-900 mb-1">School</h3>
+              <p className="text-sm text-slate-500">
+                Choose the school you would like to apply to.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="school" className="text-slate-700">
+                School
+              </Label>
+              <select
+                id="school"
+                required
+                value={schoolId}
+                onChange={(e) => setSchoolId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-montessori-primary"
+              >
+                <option value="" disabled>
+                  {schools.length ? "Select a school" : "No schools available"}
+                </option>
+                {schools.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </section>
+
           <section className="space-y-5">
             <div>
               <h3 className="text-lg font-medium text-slate-900 mb-1">
@@ -425,7 +537,12 @@ export default function EnrollmentForm() {
           </section>
         </div>
 
-        <div className="mt-8 flex items-center justify-end pt-6 border-t border-slate-100">
+        <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-4 pt-6 border-t border-slate-100">
+          {error && (
+            <p className="text-sm text-rose-600 sm:mr-auto" role="alert">
+              {error}
+            </p>
+          )}
           <Button
             type="submit"
             disabled={isSubmitting}

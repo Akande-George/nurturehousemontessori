@@ -20,9 +20,9 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Nurture House Montessori | Digital Management",
+  title: "SchoolHub | Multi-School Management Platform",
   description:
-    "Comprehensive monitoring and management platform for progressive Montessori institutions.",
+    "One platform to run Montessori and conventional schools — admissions, academics, reports, and parent engagement.",
 };
 
 export default function RootLayout({

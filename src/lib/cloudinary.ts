@@ -1,26 +1,35 @@
+import "server-only";
 import { v2 as cloudinary } from 'cloudinary';
 
-// Configure Cloudinary
+// Configure Cloudinary (server-only — uses the API secret for signed uploads).
 cloudinary.config({
-  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  cloud_name:
+    process.env.CLOUDINARY_CLOUD_NAME ||
+    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+export const isCloudinaryConfigured = Boolean(
+  (process.env.CLOUDINARY_CLOUD_NAME ||
+    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME) &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET,
+);
+
 /**
- * Utility to upload a file base64 string or buffer to Cloudinary
+ * Upload a base64 data URL (or remote URL) to Cloudinary via a signed request.
+ * Returns the secure_url. Signed uploads need no upload_preset.
  */
-export async function uploadImage(fileStr: string, folder: string = "montessori_app") {
-  try {
-    const uploadResponse = await cloudinary.uploader.upload(fileStr, {
-      upload_preset: "ml_default", // You might need to configure an upload preset in Cloudinary
-      folder: folder,
-    });
-    return uploadResponse.secure_url;
-  } catch (error) {
-    console.error("Cloudinary upload error:", error);
-    throw new Error("Image upload failed");
-  }
+export async function uploadImage(
+  fileStr: string,
+  folder: string = "montessori_app",
+): Promise<string> {
+  const uploadResponse = await cloudinary.uploader.upload(fileStr, {
+    folder,
+    resource_type: "image",
+  });
+  return uploadResponse.secure_url;
 }
 
 /**

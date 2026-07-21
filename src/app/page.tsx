@@ -42,7 +42,7 @@ export default function Home() {
                 asChild
                 className="bg-montessori-primary hover:bg-montessori-primary/90 text-white rounded-full hover-lift shadow-sm"
               >
-                <Link href="/enrollment">Enroll Now</Link>
+                <Link href="/get-started">Register your school</Link>
               </Button>
             </div>
           </div>
@@ -61,21 +61,21 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 border border-montessori-primary/10 text-montessori-primary text-sm font-medium mb-8 shadow-sm backdrop-blur-sm">
             <span className="w-2 h-2 rounded-full bg-montessori-accent animate-pulse" />
-            Nurturing independence, one child at a time
+            One platform for every kind of school
           </div>
 
           <h1 className="text-5xl md:text-7xl font-serif text-slate-900 mb-8 tracking-tight leading-tight max-w-4xl mx-auto">
-            Empowering{" "}
+            Run your school,{" "}
             <span className="text-montessori-primary italic">
-              child-centered
-            </span>{" "}
-            education through connection.
+              beautifully
+            </span>
+            .
           </h1>
 
           <p className="mt-6 text-xl text-slate-600 max-w-2xl mx-auto mb-12 leading-relaxed">
-            A comprehensive, centralized platform for progressive Montessori
-            institutions to streamline operations, enhance teacher workflows,
-            and build lasting trust with families.
+            Whether you run a Montessori or a conventional school, manage
+            admissions, academics, report cards, billing, and parent engagement
+            — all from one branded portal.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -84,8 +84,8 @@ export default function Home() {
               size="lg"
               className="w-full sm:w-auto px-8 py-6 bg-montessori-primary hover:bg-montessori-primary/90 text-white rounded-full text-lg font-medium transition-all hover-lift shadow-md"
             >
-              <Link href="/enrollment">
-                Start Application
+              <Link href="/get-started">
+                Register your school
                 <svg
                   width="20"
                   height="20"
@@ -108,7 +108,7 @@ export default function Home() {
               size="lg"
               className="w-full sm:w-auto px-8 py-6 bg-white text-slate-700 hover:text-montessori-primary border-slate-200 rounded-full text-lg font-medium transition-all hover-lift shadow-sm"
             >
-              <Link href="/login">Parent Portal Access</Link>
+              <Link href="/login">Sign In</Link>
             </Button>
           </div>
         </div>
@@ -136,11 +136,11 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-xl font-serif font-medium text-slate-900 mb-3">
-                Daily Activity Feed
+                Montessori or Regular
               </h3>
               <p className="text-slate-600 leading-relaxed">
-                Stay connected with your child's day through photos, milestones,
-                and daily logs directly on your device.
+                Choose your model at signup. Montessori schools get observations
+                and progress; regular schools get gradebooks and report cards.
               </p>
             </Card>
 
@@ -161,11 +161,11 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-xl font-serif font-medium text-slate-900 mb-3">
-                Montessori Progress
+                Academics & Report Cards
               </h3>
               <p className="text-slate-600 leading-relaxed">
-                Detailed tracking of individual growth, highlighting specific
-                Montessori materials and developmental milestones.
+                Continuous assessment, exams, termly report cards with class
+                positions, timetables, and homework — done for you.
               </p>
             </Card>
 
@@ -188,11 +188,11 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-xl font-serif font-medium text-slate-900 mb-3">
-                Streamlined Enrollment
+                Your Brand, Your Portal
               </h3>
               <p className="text-slate-600 leading-relaxed">
-                Hassle-free digital pipelines for waitlists, acceptance letters,
-                and parent portal activation.
+                Every school gets its own name, logo, and colors — plus
+                admissions, billing, and a parent portal out of the box.
               </p>
             </Card>
           </div>
