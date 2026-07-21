@@ -2,6 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/supabase/server";
+import { createAdminClient } from "@/supabase/admin";
+import { sendOtpCode } from "@/lib/email/notifications";
 import { homeForRole } from "@/lib/auth/routes";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -43,13 +45,39 @@ export async function signInWithPassword(
 }
 
 export async function requestOtp(email: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  if (!supabase) return { error: "Auth is not configured." };
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: false },
+  const cleaned = email.trim().toLowerCase();
+  if (!cleaned) return { error: "Enter your email address." };
+
+  // Generate the OTP ourselves (admin API) and deliver it via Resend, so
+  // sign-in never depends on Supabase's built-in email/SMTP. This always sends
+  // a 6-digit code, never a magic link.
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return { error: "Auth is not configured." };
+  }
+
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email: cleaned,
   });
-  if (error) return { error: error.message };
+  if (error) {
+    if (/not found|no user|does not exist/i.test(error.message)) {
+      return {
+        error: "No account found for that email. Ask your school for an invite.",
+      };
+    }
+    return { error: error.message };
+  }
+
+  const code = data.properties?.email_otp;
+  if (!code) return { error: "Could not generate a sign-in code. Please try again." };
+
+  const sent = await sendOtpCode(cleaned, code);
+  if (!sent.ok) {
+    return { error: "We couldn't send your code right now. Please try again shortly." };
+  }
   return {};
 }
 
@@ -59,11 +87,23 @@ export async function verifyOtp(
 ): Promise<ActionResult> {
   const supabase = await createClient();
   if (!supabase) return { error: "Auth is not configured." };
-  const { error } = await supabase.auth.verifyOtp({
-    email,
-    token,
+  const cleaned = email.trim().toLowerCase();
+  const code = token.trim();
+
+  // The code is generated via generateLink({ type: "magiclink" }); depending on
+  // the GoTrue version it verifies as either "email" or "magiclink" — try both.
+  let { error } = await supabase.auth.verifyOtp({
+    email: cleaned,
+    token: code,
     type: "email",
   });
+  if (error) {
+    ({ error } = await supabase.auth.verifyOtp({
+      email: cleaned,
+      token: code,
+      type: "magiclink",
+    }));
+  }
   if (error) return { error: error.message };
   redirect(await resolveHome(supabase));
 }

@@ -20,7 +20,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "SchoolHub | Multi-School Management Platform",
+  title: "Nurturehouse School Hub | Multi-School Management Platform",
   description:
     "One platform to run Montessori and conventional schools — admissions, academics, reports, and parent engagement.",
 };

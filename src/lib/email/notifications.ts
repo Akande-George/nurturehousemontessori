@@ -11,10 +11,46 @@ function shell(schoolName: string, body: string): string {
       <div style="background:#0c5c4c;color:#ffffff;padding:20px 28px;font-size:18px;font-weight:600">${schoolName}</div>
       <div style="padding:28px;color:#1e293b;font-size:15px;line-height:1.6">${body}</div>
       <div style="padding:16px 28px;color:#94a3b8;font-size:12px;border-top:1px solid #eef0f2">
-        Sent via SchoolHub · <a href="${APP_URL}/login" style="color:#0c5c4c">Open your portal</a>
+        Sent via Nurturehouse School Hub · <a href="${APP_URL}/login" style="color:#0c5c4c">Open your portal</a>
       </div>
     </div>
   </div>`;
+}
+
+// One-time sign-in code (we generate the OTP ourselves and deliver it via
+// Resend, so login never depends on Supabase's built-in email/SMTP).
+export function sendOtpCode(recipient: string, code: string) {
+  return sendHtmlEmail({
+    to: recipient,
+    subject: `Your sign-in code: ${code}`,
+    html: shell(
+      "Nurturehouse School Hub",
+      `<h2 style="margin:0 0 12px;font-size:18px">Your sign-in code</h2>
+       <p style="margin:0 0 16px;color:#64748b">Enter this code to finish signing in. It expires in a few minutes.</p>
+       <div style="font-size:34px;font-weight:700;letter-spacing:8px;color:#0c5c4c;background:#f1f5f9;border-radius:12px;padding:18px 0;text-align:center">${code}</div>
+       <p style="margin:16px 0 0;color:#94a3b8;font-size:13px">If you didn't request this, you can safely ignore this email.</p>`,
+    ),
+  });
+}
+
+// Parent portal invitation — sent when an admin grants a family portal access.
+export function sendParentPortalInvite(
+  recipient: string,
+  schoolName: string,
+  loginUrl: string,
+) {
+  return sendHtmlEmail({
+    to: recipient,
+    subject: `You're invited to the ${schoolName} parent portal`,
+    html: shell(
+      schoolName,
+      `<h2 style="margin:0 0 12px;font-size:18px">Welcome to the parent portal</h2>
+       <p style="margin:0 0 16px">${schoolName} has set up portal access for your family. You can view daily updates, reports, notices, and invoices in one place.</p>
+       <p style="margin:0 0 16px;color:#64748b">To sign in, go to the portal and enter your email — we'll send you a one-time code. Use this same email address:</p>
+       <p style="margin:0 0 20px;font-weight:600">${recipient}</p>
+       <a href="${loginUrl}" style="display:inline-block;background:#0c5c4c;color:#fff;text-decoration:none;padding:10px 18px;border-radius:10px">Open the parent portal</a>`,
+    ),
+  });
 }
 
 export function sendNoticeFanout(

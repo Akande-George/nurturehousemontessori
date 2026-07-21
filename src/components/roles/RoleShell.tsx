@@ -33,7 +33,7 @@ import { signOut } from "@/lib/actions/auth";
 import type { Role, SchoolType } from "@/lib/db/types";
 
 // Platform-level branding used for the super admin (not tied to any school).
-const PLATFORM = { name: "SchoolHub Platform", logoUrl: "/logo2.png" };
+const PLATFORM = { name: "Nurturehouse School Hub", logoUrl: "/logo2.png" };
 
 export type ShellUser = { name: string; email: string; initial: string };
 export type ShellSchool = { name: string; type: SchoolType } | null;
@@ -397,7 +397,7 @@ function SidebarNav({
                       />
                     )}
                     <Icon
-                      className="h-[18px] w-[18px] shrink-0"
+                      className="h-[18px] w-[18px] shrink-0 transition-transform duration-200 ease-out group-hover:scale-110"
                       strokeWidth={active ? 2.25 : 1.75}
                     />
                     <span className="truncate">{item.label}</span>

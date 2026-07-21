@@ -15,6 +15,13 @@ import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
 import { getAllSchools, getPlatformStats } from "@/lib/db/schools";
 import { readTheme } from "@/lib/db/types";
+import { PendingApprovals } from "./PendingApprovals";
+
+const STATUS_BADGE: Record<string, string> = {
+  active: "bg-emerald-100 text-emerald-700 border-none capitalize",
+  pending: "bg-amber-100 text-amber-700 border-none capitalize",
+  suspended: "bg-rose-100 text-rose-700 border-none capitalize",
+};
 
 export default async function SuperAdminSchoolsPage() {
   await requireRole("super_admin");
@@ -24,6 +31,16 @@ export default async function SuperAdminSchoolsPage() {
     getPlatformStats(supabase!),
   ]);
   const statFor = (id: string) => stats.find((s) => s.school_id === id);
+  const pending = schools
+    .filter((s) => s.status === "pending")
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      slug: s.slug,
+      type: s.type,
+      contactEmail: s.contact_email,
+      primary: readTheme(s.theme).primary,
+    }));
 
   return (
     <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -44,6 +61,8 @@ export default async function SuperAdminSchoolsPage() {
           </Link>
         </Button>
       </div>
+
+      <PendingApprovals schools={pending} />
 
       <Card className="border-slate-100 shadow-sm">
         <CardContent className="p-0">
@@ -95,11 +114,7 @@ export default async function SuperAdminSchoolsPage() {
                     <TableCell>
                       <Badge
                         variant="secondary"
-                        className={
-                          school.status === "active"
-                            ? "bg-emerald-100 text-emerald-700 border-none capitalize"
-                            : "bg-amber-100 text-amber-700 border-none capitalize"
-                        }
+                        className={STATUS_BADGE[school.status] ?? STATUS_BADGE.pending}
                       >
                         {school.status}
                       </Badge>
@@ -109,7 +124,7 @@ export default async function SuperAdminSchoolsPage() {
                         asChild
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1.5"
+                        className="icon-nudge h-8 gap-1.5"
                       >
                         <Link href={`/super-admin/schools/${school.id}`}>
                           View details <ArrowRight className="w-3.5 h-3.5" />

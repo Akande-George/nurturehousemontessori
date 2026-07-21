@@ -80,7 +80,7 @@
 /* Custom micro-animations */
 @layer utilities {
   .hover-lift {
-    @apply transition-transform duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg;
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg;
   }
   .glass-effect {
     @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-sm;
@@ -89,5 +89,112 @@
   .dot-grid {
     background-image: radial-gradient(rgb(15 23 42 / 0.05) 1px, transparent 1px);
     background-size: 18px 18px;
+  }
+
+  /* Tactile press feedback — pairs well with buttons and clickable rows. */
+  .press {
+    @apply transition-transform duration-150 ease-out active:scale-[0.97];
+  }
+
+  /* Interactive card: lifts, deepens shadow, and warms its border on hover. */
+  .card-interactive {
+    @apply transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-md
+      hover:border-montessori-primary/30 cursor-pointer;
+  }
+
+  /* Nudge a trailing icon on hover (e.g. arrows in "View more" affordances). */
+  .icon-nudge svg {
+    @apply transition-transform duration-200 ease-out;
+  }
+  .icon-nudge:hover svg {
+    @apply translate-x-0.5;
+  }
+
+  /* Animated underline that grows from the left on hover. */
+  .link-underline {
+    @apply relative;
+  }
+  .link-underline::after {
+    content: "";
+    @apply absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0
+      bg-current transition-transform duration-300 ease-out;
+  }
+  .link-underline:hover::after {
+    @apply scale-x-100;
+  }
+
+  .animate-pop-in {
+    animation: pop-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+  /* Soft pulsing halo for "waiting"/attention states. */
+  .pulse-ring {
+    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+  .shimmer {
+    background: linear-gradient(
+      100deg,
+      rgb(226 232 240 / 0.6) 30%,
+      rgb(241 245 249 / 0.9) 50%,
+      rgb(226 232 240 / 0.6) 70%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgb(var(--montessori-primary) / 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgb(var(--montessori-primary) / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--montessori-primary) / 0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Respect users who prefer reduced motion — kill transforms and long animations. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

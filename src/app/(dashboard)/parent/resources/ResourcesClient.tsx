@@ -125,7 +125,7 @@ export function ResourcesClient({ resources }: { resources: Resource[] }) {
               </CardContent>
             );
             const cardClass =
-              "border-slate-100 shadow-sm hover:border-montessori-primary/40 transition-colors group h-full flex flex-col";
+              "border-slate-100 shadow-sm hover:border-montessori-primary/40 hover:-translate-y-1 hover:shadow-md group h-full flex flex-col";
             return r.url ? (
               <a key={r.id} href={r.url} target="_blank" rel="noreferrer" className="block">
                 <Card className={`${cardClass} cursor-pointer`}>{inner}</Card>

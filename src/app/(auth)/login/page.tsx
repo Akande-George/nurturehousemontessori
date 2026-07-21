@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LoginForm } from "./LoginForm";
 
 export const metadata = {
-  title: "Sign In | SchoolHub",
+  title: "Sign In | Nurturehouse School Hub",
   description: "Sign in to your school portal.",
 };
 

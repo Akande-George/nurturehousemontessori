@@ -103,7 +103,8 @@ export async function registerSchool(input: {
   password: string;
   phone?: string;
 }): Promise<{ error?: string }> {
-  const res = await provisionSchool({ ...input, status: "active" });
+  // Self-registered schools start PENDING and wait for platform-admin approval.
+  const res = await provisionSchool({ ...input, status: "pending" });
   if ("error" in res) return { error: res.error };
   const supabase = await createClient();
   if (supabase) {
@@ -112,6 +113,7 @@ export async function registerSchool(input: {
       password: input.password,
     });
   }
+  // They land on the dashboard, where the pending gate greets them until approved.
   redirect("/dashboard");
 }
 

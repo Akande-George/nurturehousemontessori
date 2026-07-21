@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, GraduationCap, Users, PlusCircle } from "lucide-react";
+import { Building2, GraduationCap, Users, PlusCircle, Clock, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,13 +18,13 @@ export default async function SuperAdminOverviewPage() {
   const statFor = (id: string) => stats.find((s) => s.school_id === id);
   const totalStudents = stats.reduce((n, s) => n + Number(s.student_count), 0);
   const totalStaff = stats.reduce((n, s) => n + Number(s.staff_count), 0);
-  const activeCount = schools.filter((s) => s.status === "active").length;
+  const pendingCount = schools.filter((s) => s.status === "pending").length;
 
   const tiles = [
     { label: "Schools", value: schools.length, icon: Building2 },
     { label: "Total Students", value: totalStudents, icon: Users },
     { label: "Total Staff", value: totalStaff, icon: GraduationCap },
-    { label: "Active", value: activeCount, icon: Building2 },
+    { label: "Pending Approval", value: pendingCount, icon: Clock },
   ];
 
   return (
@@ -48,11 +48,33 @@ export default async function SuperAdminOverviewPage() {
         </Button>
       </div>
 
+      {pendingCount > 0 && (
+        <Link
+          href="/super-admin/schools"
+          className="icon-nudge mb-6 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 transition-colors hover:bg-amber-100/60 animate-pop-in"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+              <Clock className="h-4 w-4" />
+            </span>
+            <p className="text-sm text-amber-900">
+              <span className="font-semibold">
+                {pendingCount} school{pendingCount === 1 ? "" : "s"}
+              </span>{" "}
+              waiting for approval
+            </p>
+          </div>
+          <span className="flex items-center gap-1 text-sm font-medium text-amber-700">
+            Review <ArrowRight className="h-3.5 w-3.5" />
+          </span>
+        </Link>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {tiles.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.label} className="border-slate-100 shadow-sm">
+            <Card key={stat.label} className="border-slate-100 shadow-sm hover-lift">
               <CardContent className="p-5">
                 <div className="flex items-center gap-2 text-slate-400 mb-3">
                   <Icon className="w-4 h-4" />
@@ -124,7 +146,9 @@ export default async function SuperAdminOverviewPage() {
                       className={
                         school.status === "active"
                           ? "bg-emerald-100 text-emerald-700 border-none capitalize"
-                          : "bg-amber-100 text-amber-700 border-none capitalize"
+                          : school.status === "suspended"
+                            ? "bg-rose-100 text-rose-700 border-none capitalize"
+                            : "bg-amber-100 text-amber-700 border-none capitalize"
                       }
                     >
                       {school.status}

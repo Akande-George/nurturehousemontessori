@@ -48,7 +48,7 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-5">
+    <form onSubmit={submit} className="space-y-5 animate-pop-in">
       <div className="space-y-2">
         <Label htmlFor="email" className="text-slate-700">
           Email Address
