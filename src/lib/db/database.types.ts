@@ -1272,6 +1272,7 @@ export type Database = {
           academic_year: string | null
           areas: Json
           areas_for_growth: string[]
+          character_ratings: Json
           id: string
           recommendations: Json
           school_id: string
@@ -1286,6 +1287,7 @@ export type Database = {
           academic_year?: string | null
           areas?: Json
           areas_for_growth?: string[]
+          character_ratings?: Json
           id?: string
           recommendations?: Json
           school_id: string
@@ -1300,6 +1302,7 @@ export type Database = {
           academic_year?: string | null
           areas?: Json
           areas_for_growth?: string[]
+          character_ratings?: Json
           id?: string
           recommendations?: Json
           school_id?: string

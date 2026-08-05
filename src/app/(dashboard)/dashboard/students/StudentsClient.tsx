@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Search, Plus, AlertTriangle } from "lucide-react";
+import { Search, Plus, AlertTriangle, UserPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,23 +15,90 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { SchoolClass, Student } from "@/lib/db/types";
+import { createStudent } from "@/lib/actions/students";
+import type { SchoolClass, SchoolType, Student } from "@/lib/db/types";
+
+type AgeGroup = "infant_0_2" | "primary_3_6" | "lower_7_9";
+const AGE_GROUPS: { value: AgeGroup; label: string }[] = [
+  { value: "infant_0_2", label: "Infant (0–2)" },
+  { value: "primary_3_6", label: "Primary (3–6)" },
+  { value: "lower_7_9", label: "Lower Elementary (7–9)" },
+];
 
 export function StudentsClient({
   students,
   classes,
   classNames,
+  schoolType,
 }: {
   students: Student[];
   classes: SchoolClass[];
   classNames: Record<string, string>;
+  schoolType: SchoolType;
 }) {
   const { toast } = useToast();
+  const isRegular = schoolType === "regular";
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [logType, setLogType] = useState("Observation");
   const [activeClass, setActiveClass] = useState("All");
   const [query, setQuery] = useState("");
+
+  // ---- Add Student ----
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [sName, setSName] = useState("");
+  const [sAge, setSAge] = useState<AgeGroup | "">("");
+  const [sClassId, setSClassId] = useState("");
+  const [sClassroom, setSClassroom] = useState("");
+  const [sParentEmail, setSParentEmail] = useState("");
+  const [sParentName, setSParentName] = useState("");
+
+  const resetAdd = () => {
+    setSName("");
+    setSAge("");
+    setSClassId("");
+    setSClassroom("");
+    setSParentEmail("");
+    setSParentName("");
+  };
+
+  const handleAddStudent = () => {
+    if (!sName.trim()) return;
+    const payload = {
+      name: sName.trim(),
+      ageGroup: sAge || undefined,
+      classId: isRegular ? sClassId || undefined : undefined,
+      classroom: !isRegular ? sClassroom.trim() || undefined : undefined,
+      parentEmail: sParentEmail.trim() || undefined,
+      parentName: sParentName.trim() || undefined,
+    };
+    startTransition(async () => {
+      const res = await createStudent(payload);
+      if (!res.ok) {
+        toast({ title: "Could not add student", description: res.error, variant: "destructive" });
+        return;
+      }
+      resetAdd();
+      setIsAddOpen(false);
+      toast({
+        title: res.warning ? "Student added — with a warning" : "Student added",
+        description:
+          res.warning ??
+          (payload.parentEmail
+            ? `${payload.name} added and a portal invite was sent to ${payload.parentEmail}.`
+            : `${payload.name} was added to your school.`),
+        variant: res.warning ? "destructive" : undefined,
+      });
+    });
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -69,11 +136,19 @@ export function StudentsClient({
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           </div>
           <Button
+            variant="outline"
             onClick={() => setIsLogOpen(true)}
-            className="bg-montessori-primary text-white hover:bg-montessori-primary/90 shadow-sm gap-2"
+            className="gap-2"
           >
             <Plus className="w-4 h-4" />
             Log Activity
+          </Button>
+          <Button
+            onClick={() => setIsAddOpen(true)}
+            className="bg-montessori-primary text-white hover:bg-montessori-primary/90 shadow-sm gap-2"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add Student
           </Button>
         </div>
       </div>
@@ -275,6 +350,138 @@ export function StudentsClient({
               className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
             >
               Save Record
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Student */}
+      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Add a student</DialogTitle>
+            <DialogDescription>
+              Create a student record. Add a parent email to send them a portal
+              invite at the same time.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="s-name" className="text-sm font-medium text-slate-700">
+                Student name *
+              </label>
+              <Input
+                id="s-name"
+                value={sName}
+                onChange={(e) => setSName(e.target.value)}
+                placeholder="e.g. Zoe Wong"
+                className="border-slate-200"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Age group</label>
+                <Select value={sAge} onValueChange={(v) => setSAge(v as AgeGroup)}>
+                  <SelectTrigger className="border-slate-200">
+                    <SelectValue placeholder="Select age group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AGE_GROUPS.map((a) => (
+                      <SelectItem key={a.value} value={a.value}>
+                        {a.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {isRegular ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Class</label>
+                  <Select value={sClassId} onValueChange={setSClassId}>
+                    <SelectTrigger className="border-slate-200">
+                      <SelectValue placeholder="Select a class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {classes.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">
+                          No classes yet
+                        </div>
+                      ) : (
+                        classes.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label htmlFor="s-classroom" className="text-sm font-medium text-slate-700">
+                    Classroom
+                  </label>
+                  <Input
+                    id="s-classroom"
+                    value={sClassroom}
+                    onChange={(e) => setSClassroom(e.target.value)}
+                    placeholder="e.g. Toddler B"
+                    className="border-slate-200"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100">
+              <p className="text-xs font-medium uppercase tracking-wider text-slate-400 mt-3 mb-3">
+                Parent portal (optional)
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="s-pemail" className="text-sm font-medium text-slate-700">
+                    Parent email
+                  </label>
+                  <Input
+                    id="s-pemail"
+                    type="email"
+                    value={sParentEmail}
+                    onChange={(e) => setSParentEmail(e.target.value)}
+                    placeholder="parent@example.com"
+                    className="border-slate-200"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="s-pname" className="text-sm font-medium text-slate-700">
+                    Parent name
+                  </label>
+                  <Input
+                    id="s-pname"
+                    value={sParentName}
+                    onChange={(e) => setSParentName(e.target.value)}
+                    placeholder="e.g. Amanda Wong"
+                    className="border-slate-200"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                If provided, the parent gets an account linked to this child and an
+                email invite to sign in.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddStudent}
+              disabled={pending || !sName.trim()}
+              className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+            >
+              {pending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Add student
             </Button>
           </DialogFooter>
         </DialogContent>

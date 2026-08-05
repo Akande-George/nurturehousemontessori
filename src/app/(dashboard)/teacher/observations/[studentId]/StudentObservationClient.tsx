@@ -17,8 +17,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CURRICULUM } from "@/lib/curriculum/curriculum";
+import { CURRICULUM, generalLeafId } from "@/lib/curriculum/curriculum";
 import { createObservation } from "@/lib/actions/montessori";
+
+const GENERAL = "__general__";
 import { useToast } from "@/hooks/use-toast";
 import type { Student } from "@/lib/db/types";
 import type { ObservationWithLeaf } from "@/lib/db/montessori";
@@ -42,18 +44,20 @@ export function StudentObservationClient({
     () => area.subcategories.flatMap((sub) => sub.activities.map((act) => ({ sub, act }))),
     [area],
   );
-  const [activityId, setActivityId] = useState(flatActivities[0]?.act.id ?? "");
-  const currentActivity =
-    flatActivities.find((entry) => entry.act.id === activityId) ?? flatActivities[0];
+  // Default to a general observation for the area; the teacher can narrow to a
+  // specific activity if they want.
+  const [activityId, setActivityId] = useState<string>(GENERAL);
+  const isGeneral = activityId === GENERAL;
+  const currentActivity = isGeneral
+    ? undefined
+    : flatActivities.find((entry) => entry.act.id === activityId);
   const activityVariations = currentActivity?.act.variations ?? [];
   const hasVariations = activityVariations.length > 0;
   const [variationId, setVariationId] = useState<string>("");
 
   const handleAreaChange = (value: string) => {
     setAreaId(value);
-    const nextArea = CURRICULUM.find((a) => a.id === value) ?? CURRICULUM[0];
-    const firstAct = nextArea.subcategories.flatMap((s) => s.activities)[0];
-    setActivityId(firstAct?.id ?? "");
+    setActivityId(GENERAL);
     setVariationId("");
   };
   const handleActivityChange = (value: string) => {
@@ -61,7 +65,11 @@ export function StudentObservationClient({
     setVariationId("");
   };
 
-  const leafId = hasVariations ? variationId || activityVariations[0].id : activityId;
+  const leafId = isGeneral
+    ? generalLeafId(areaId)
+    : hasVariations
+      ? variationId || activityVariations[0].id
+      : activityId;
   const [content, setContent] = useState("");
 
   const handleSubmit = () => {
@@ -149,6 +157,7 @@ export function StudentObservationClient({
                   <SelectValue placeholder="Select activity" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={GENERAL}>General (whole area)</SelectItem>
                   {area.subcategories.map((sub) => (
                     <SelectGroup key={sub.id}>
                       <SelectLabel className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">

@@ -1620,7 +1620,35 @@ export function getLeafIndex(): Map<string, Leaf> {
   return index;
 }
 
+// A "general" observation isn't tied to a specific activity/leaf — it captures a
+// whole-area note. Encoded as `general:<areaId>` so it still carries an Area.
+export const GENERAL_LEAF_PREFIX = "general:";
+
+export function generalLeafId(areaId: string): string {
+  return `${GENERAL_LEAF_PREFIX}${areaId}`;
+}
+
+export function isGeneralLeafId(leafId: string): boolean {
+  return leafId.startsWith(GENERAL_LEAF_PREFIX);
+}
+
 export function getLeafById(leafId: string): Leaf | undefined {
+  if (isGeneralLeafId(leafId)) {
+    const area = getAreaById(leafId.slice(GENERAL_LEAF_PREFIX.length));
+    if (!area) return undefined;
+    return {
+      leafId,
+      leafName: "General",
+      activityId: leafId,
+      activityName: "General",
+      subcategoryId: "",
+      subcategoryName: "",
+      areaId: area.id,
+      areaName: area.name,
+      areaColor: area.color,
+      areaTone: area.tone,
+    };
+  }
   return getLeafIndex().get(leafId);
 }
 

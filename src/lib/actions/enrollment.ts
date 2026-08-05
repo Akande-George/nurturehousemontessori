@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/supabase/admin";
 import { createClient } from "@/supabase/server";
 import { requireRole } from "@/lib/auth/context";
+import { linkParentToStudent } from "@/lib/server/link-parent";
 import {
   sendApplicationReceived,
   sendNewApplicationAlert,
@@ -76,20 +77,37 @@ export async function acceptApplication(applicationId: string): Promise<Result> 
     .maybeSingle();
   if (!app) return { ok: false, error: "Application not found" };
 
-  const { error: stuErr } = await supabase.from("students").insert({
-    school_id: school.id,
-    name: app.child_name,
-  });
-  if (stuErr) return { ok: false, error: stuErr.message };
+  const { data: student, error: stuErr } = await supabase
+    .from("students")
+    .insert({
+      school_id: school.id,
+      name: app.child_name,
+    })
+    .select("id")
+    .single();
+  if (stuErr || !student) {
+    return { ok: false, error: stuErr?.message ?? "Could not create the student." };
+  }
 
   await supabase
     .from("enrollment_applications")
     .update({ status: "accepted" })
     .eq("id", applicationId);
 
+  // Acceptance letter + create/link the parent's portal account and invite them.
   await sendApplicationAccepted(app.parent_email, school.name, {
     childName: app.child_name,
   });
+  if (app.parent_email) {
+    await linkParentToStudent({
+      schoolId: school.id,
+      schoolName: school.name,
+      studentId: student.id,
+      email: app.parent_email,
+      name: app.parent_name ?? undefined,
+    });
+  }
+
   revalidatePath("/dashboard/enrollment");
   revalidatePath("/dashboard/students");
   return { ok: true };

@@ -15,6 +15,48 @@ async function ctxClient() {
   return { ctx, supabase };
 }
 
+// Create or update a student's termly report (one row per student). Staff-only;
+// RLS enforces the school boundary.
+export async function upsertTermlyReport(input: {
+  studentId: string;
+  term: string;
+  academicYear: string;
+  teacherName?: string;
+  summary?: string;
+  strengths: string[];
+  areasForGrowth: string[];
+  characterRatings: Record<string, number>;
+}): Promise<Result> {
+  const { ctx, supabase } = await ctxClient();
+  if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
+  if (ctx.role !== "admin" && ctx.role !== "teacher") {
+    return { ok: false, error: "Not authorized" };
+  }
+
+  const payload = {
+    school_id: ctx.school.id,
+    student_id: input.studentId,
+    term: input.term,
+    academic_year: input.academicYear,
+    teacher_name: input.teacherName ?? ctx.user.full_name ?? null,
+    teacher_comments: input.summary ?? null,
+    strengths: input.strengths,
+    areas_for_growth: input.areasForGrowth,
+    character_ratings: JSON.parse(JSON.stringify(input.characterRatings ?? {})),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from("progress")
+    .upsert(payload, { onConflict: "student_id" });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/teacher/reports/termly");
+  revalidatePath("/parent/termly-report");
+  revalidatePath("/parent/progress");
+  return { ok: true };
+}
+
 export async function createObservation(input: {
   studentId: string;
   leafId: string;

@@ -130,6 +130,11 @@ const montessoriTeacherNav: NavSection[] = [
         label: "Child Report",
         icon: FileText,
       },
+      {
+        href: "/teacher/reports/termly",
+        label: "Termly Report",
+        icon: Award,
+      },
       { href: "/teacher/log", label: "Bulk Logging", icon: FileText },
       { href: "/teacher/gallery", label: "Media Gallery", icon: ImageIcon },
     ],
@@ -155,6 +160,7 @@ const montessoriParentNav: NavSection[] = [
     label: "My Children",
     items: [
       { href: "/parent/reports", label: "Daily Reports", icon: FileText },
+      { href: "/parent/termly-report", label: "Termly Report", icon: Award },
       { href: "/parent/progress", label: "Academic Progress", icon: Calendar },
       {
         href: "/parent/invoices",

@@ -18,6 +18,11 @@ export default async function StudentsPage() {
   for (const c of classes) classNames[c.id] = c.name;
 
   return (
-    <StudentsClient students={students} classes={classes} classNames={classNames} />
+    <StudentsClient
+      students={students}
+      classes={classes}
+      classNames={classNames}
+      schoolType={school.type}
+    />
   );
 }
