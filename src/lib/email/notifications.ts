@@ -53,6 +53,27 @@ export function sendParentPortalInvite(
   });
 }
 
+// Staff invitation — sent when an admin grants a teacher/admin portal access.
+export function sendStaffInvite(
+  recipient: string,
+  schoolName: string,
+  roleLabel: string,
+  loginUrl: string,
+) {
+  return sendHtmlEmail({
+    to: recipient,
+    subject: `You've been added as ${roleLabel} at ${schoolName}`,
+    html: shell(
+      schoolName,
+      `<h2 style="margin:0 0 12px;font-size:18px">Welcome to the team</h2>
+       <p style="margin:0 0 16px">${schoolName} has given you <strong>${roleLabel}</strong> access to the school portal.</p>
+       <p style="margin:0 0 16px;color:#64748b">To sign in, go to the portal and enter your email — we'll send you a one-time code. Use this address:</p>
+       <p style="margin:0 0 20px;font-weight:600">${recipient}</p>
+       <a href="${loginUrl}" style="display:inline-block;background:#0c5c4c;color:#fff;text-decoration:none;padding:10px 18px;border-radius:10px">Open the staff portal</a>`,
+    ),
+  });
+}
+
 export function sendNoticeFanout(
   recipients: string[],
   schoolName: string,
