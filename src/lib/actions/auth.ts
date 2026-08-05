@@ -65,6 +65,19 @@ export async function requestOtp(email: string): Promise<ActionResult> {
 
   const sent = await sendOtpCode(cleaned, code);
   if (!sent.ok) {
+    // Email delivery failed. Until a Resend sending domain is verified, the
+    // default `onboarding@resend.dev` sender can only reach the Resend account
+    // owner — so any other user's code can't be delivered. In non-production we
+    // log the code to the server console so testing isn't blocked; in
+    // production we surface the error rather than leak codes to logs.
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(
+        `\n[otp:dev-fallback] Email could not be sent (${sent.error ?? "unknown"}).\n` +
+          `  Sign-in code for ${cleaned}: ${code}\n` +
+          `  Verify a Resend domain + set EMAIL_FROM to deliver these by email.\n`,
+      );
+      return {};
+    }
     return { error: "We couldn't send your code right now. Please try again shortly." };
   }
   return {};
