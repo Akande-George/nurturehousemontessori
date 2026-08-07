@@ -1,9 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, HeartPulse, Phone, Pill, ShieldAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Clock, HeartPulse, Phone, Pill, ShieldAlert, Pencil, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { updateChildParameters } from "@/lib/actions/students";
 import type { Student } from "@/lib/db/types";
 import type { Medication } from "@/lib/db/students";
 
@@ -52,6 +65,48 @@ export function ParametersClient({
   const emergency = child ? readEmergencyContact(child.emergency_contact) : null;
   const medications = child ? medicationsByChild[child.id] ?? [] : [];
 
+  const { toast } = useToast();
+  const [pending, start] = useTransition();
+  const [editOpen, setEditOpen] = useState(false);
+  const [allergyText, setAllergyText] = useState("");
+  const [notes, setNotes] = useState("");
+  const [ecName, setEcName] = useState("");
+  const [ecPhone, setEcPhone] = useState("");
+  const [ecRel, setEcRel] = useState("");
+
+  const openEdit = () => {
+    if (!child) return;
+    const ec = readEmergencyContact(child.emergency_contact);
+    setAllergyText(child.allergies.join(", "));
+    setNotes(child.medical_notes ?? "");
+    setEcName(ec?.name ?? "");
+    setEcPhone(ec?.phone ?? "");
+    setEcRel(ec?.relationship ?? "");
+    setEditOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!child) return;
+    const parsedAllergies = allergyText
+      .split(/[,\n]/)
+      .map((a) => a.trim())
+      .filter(Boolean);
+    start(async () => {
+      const res = await updateChildParameters({
+        studentId: child.id,
+        allergies: parsedAllergies,
+        medicalNotes: notes,
+        emergencyContact: { name: ecName, phone: ecPhone, relationship: ecRel },
+      });
+      if (res.ok) {
+        setEditOpen(false);
+        toast({ title: "Details updated", description: `${child.name.split(" ")[0]}'s parameters were saved.` });
+      } else {
+        toast({ title: res.error ?? "Failed to save", variant: "destructive" });
+      }
+    });
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div>
@@ -99,6 +154,14 @@ export function ParametersClient({
                 <CardTitle className="text-base">{child.name}</CardTitle>
                 <p className="text-xs text-slate-500">{child.classroom ?? ""}</p>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openEdit}
+                className="ml-auto gap-2"
+              >
+                <Pencil className="w-3.5 h-3.5" /> Edit
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -202,6 +265,84 @@ export function ParametersClient({
           </CardContent>
         </Card>
       )}
+
+      {/* Edit parameters (parent-owned: allergies, notes, emergency contact) */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Edit {child?.name.split(" ")[0]}&apos;s parameters</DialogTitle>
+            <DialogDescription>
+              Keep allergies, medical notes, and your emergency contact up to date.
+              Your child&apos;s teachers can see these.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="p-allergies" className="text-sm font-medium text-slate-700">
+                Allergies
+              </label>
+              <Input
+                id="p-allergies"
+                value={allergyText}
+                onChange={(e) => setAllergyText(e.target.value)}
+                placeholder="e.g. Peanuts, Dairy"
+                className="border-slate-200"
+              />
+              <p className="text-xs text-slate-400">Separate multiple with commas.</p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="p-notes" className="text-sm font-medium text-slate-700">
+                Medical notes
+              </label>
+              <Textarea
+                id="p-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any conditions or care instructions the school should know…"
+                className="min-h-24 border-slate-200"
+              />
+            </div>
+            <div className="pt-2 border-t border-slate-100">
+              <p className="text-xs font-medium uppercase tracking-wider text-slate-400 mt-3 mb-3">
+                Emergency contact
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="p-ec-name" className="text-sm font-medium text-slate-700">
+                    Name
+                  </label>
+                  <Input id="p-ec-name" value={ecName} onChange={(e) => setEcName(e.target.value)} className="border-slate-200" />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="p-ec-rel" className="text-sm font-medium text-slate-700">
+                    Relationship
+                  </label>
+                  <Input id="p-ec-rel" value={ecRel} onChange={(e) => setEcRel(e.target.value)} placeholder="e.g. Mother" className="border-slate-200" />
+                </div>
+              </div>
+              <div className="space-y-2 mt-4">
+                <label htmlFor="p-ec-phone" className="text-sm font-medium text-slate-700">
+                  Phone
+                </label>
+                <Input id="p-ec-phone" value={ecPhone} onChange={(e) => setEcPhone(e.target.value)} placeholder="+234 …" className="border-slate-200" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={pending}
+              className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+            >
+              {pending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

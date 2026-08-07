@@ -2,10 +2,59 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/supabase/server";
+import { createAdminClient } from "@/supabase/admin";
 import { getActiveContext, requireRole } from "@/lib/auth/context";
 import { linkParentToStudent } from "@/lib/server/link-parent";
 
 type Result = { ok: boolean; error?: string };
+
+type ParamsInput = {
+  studentId: string;
+  allergies: string[];
+  medicalNotes?: string;
+  emergencyContact: { name?: string; phone?: string; relationship?: string };
+};
+
+function normalizeEmergency(ec: ParamsInput["emergencyContact"]) {
+  return ec.name?.trim() || ec.phone?.trim() || ec.relationship?.trim()
+    ? {
+        name: ec.name?.trim() || "",
+        phone: ec.phone?.trim() || "",
+        relationship: ec.relationship?.trim() || "",
+      }
+    : null;
+}
+
+// Parent edits their OWN child's parameters. Parents are read-only on `students`
+// under RLS, so we verify parentage then write with the service-role client —
+// scoped to the three safe fields only (never class, name, etc.).
+export async function updateChildParameters(input: ParamsInput): Promise<Result> {
+  const ctx = await getActiveContext();
+  if (!ctx || ctx.role !== "parent") return { ok: false, error: "Not authorized" };
+
+  const admin = createAdminClient();
+  const { data: link } = await admin
+    .from("student_parents")
+    .select("id")
+    .eq("student_id", input.studentId)
+    .eq("parent_id", ctx.user.id)
+    .maybeSingle();
+  if (!link) return { ok: false, error: "This isn't one of your children." };
+
+  const { error } = await admin
+    .from("students")
+    .update({
+      allergies: input.allergies,
+      medical_notes: input.medicalNotes?.trim() || null,
+      emergency_contact: normalizeEmergency(input.emergencyContact),
+    })
+    .eq("id", input.studentId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/parent/parameters");
+  revalidatePath(`/dashboard/students/${input.studentId}`);
+  return { ok: true };
+}
 type AgeGroup = "infant_0_2" | "primary_3_6" | "lower_7_9";
 
 // Add a student directly (the admin-typed path, alongside enrolment acceptance).
@@ -61,6 +110,47 @@ export async function createStudent(input: {
   }
 
   revalidatePath("/dashboard/students");
+  return { ok: true };
+}
+
+// Edit a child's parameters (allergies, medical notes, emergency contact).
+// Staff-managed — RLS allows admin/teacher writes; parents read only.
+export async function updateStudentParameters(input: {
+  studentId: string;
+  allergies: string[];
+  medicalNotes?: string;
+  emergencyContact: { name?: string; phone?: string; relationship?: string };
+}): Promise<Result> {
+  const ctx = await getActiveContext();
+  const supabase = await createClient();
+  if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
+  if (ctx.role !== "admin" && ctx.role !== "teacher") {
+    return { ok: false, error: "Not authorized" };
+  }
+
+  const ec = input.emergencyContact;
+  const emergency =
+    ec.name?.trim() || ec.phone?.trim() || ec.relationship?.trim()
+      ? {
+          name: ec.name?.trim() || "",
+          phone: ec.phone?.trim() || "",
+          relationship: ec.relationship?.trim() || "",
+        }
+      : null;
+
+  const { error } = await supabase
+    .from("students")
+    .update({
+      allergies: input.allergies,
+      medical_notes: input.medicalNotes?.trim() || null,
+      emergency_contact: emergency,
+    })
+    .eq("id", input.studentId)
+    .eq("school_id", ctx.school.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/dashboard/students/${input.studentId}`);
+  revalidatePath("/parent/parameters");
   return { ok: true };
 }
 

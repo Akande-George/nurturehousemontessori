@@ -20,6 +20,7 @@ import { createClient } from "@/supabase/server";
 import { getStudentById, getStudentMedications } from "@/lib/db/students";
 import { getClassById } from "@/lib/db/classes";
 import { MedicationsCard } from "./MedicationsCard";
+import { EditParametersButton } from "./EditParametersButton";
 
 type EmergencyContact = {
   name?: string;
@@ -106,6 +107,15 @@ export default async function StudentProfilePage({
             {cls?.name ?? student.classroom ?? "Unassigned"}
             {student.age_group ? ` · ${student.age_group}` : ""}
           </p>
+        </div>
+        <div className="ml-auto">
+          <EditParametersButton
+            studentId={student.id}
+            studentName={student.name}
+            allergies={student.allergies}
+            medicalNotes={student.medical_notes}
+            emergency={emergency}
+          />
         </div>
       </div>
 
