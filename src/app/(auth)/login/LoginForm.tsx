@@ -68,7 +68,7 @@ export function LoginForm() {
       {otpSent && (
         <div className="space-y-2">
           <Label htmlFor="code" className="text-slate-700">
-            6-digit code
+            8-digit code
           </Label>
           <div className="relative">
             <Input
@@ -79,7 +79,7 @@ export function LoginForm() {
               value={code}
               onChange={(e) => setCode(e.target.value)}
               className="pl-11 py-6 rounded-xl border-slate-200 tracking-[0.4em] font-mono focus-visible:ring-montessori-primary"
-              placeholder="000000"
+              placeholder="00000000"
             />
             <KeyRound className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
           </div>

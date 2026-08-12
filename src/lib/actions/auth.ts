@@ -29,7 +29,8 @@ async function resolveHome(supabase: SupabaseClient): Promise<string> {
     .limit(1)
     .maybeSingle();
   if (!m) return "/login";
-  const schoolType = (m.school as { type?: "montessori" | "regular" } | null)?.type ?? null;
+  const schoolType =
+    (m.school as { type?: "montessori" | "regular" } | null)?.type ?? null;
   return homeForRole(m.role, schoolType);
 }
 
@@ -39,7 +40,7 @@ export async function requestOtp(email: string): Promise<ActionResult> {
 
   // Generate the OTP ourselves (admin API) and deliver it via Resend, so
   // sign-in never depends on Supabase's built-in email/SMTP. This always sends
-  // a 6-digit code, never a magic link.
+  // a 8-digit code, never a magic link.
   let admin;
   try {
     admin = createAdminClient();
@@ -54,14 +55,16 @@ export async function requestOtp(email: string): Promise<ActionResult> {
   if (error) {
     if (/not found|no user|does not exist/i.test(error.message)) {
       return {
-        error: "No account found for that email. Ask your school for an invite.",
+        error:
+          "No account found for that email. Ask your school for an invite.",
       };
     }
     return { error: error.message };
   }
 
   const code = data.properties?.email_otp;
-  if (!code) return { error: "Could not generate a sign-in code. Please try again." };
+  if (!code)
+    return { error: "Could not generate a sign-in code. Please try again." };
 
   const sent = await sendOtpCode(cleaned, code);
   if (!sent.ok) {
@@ -78,7 +81,9 @@ export async function requestOtp(email: string): Promise<ActionResult> {
       );
       return {};
     }
-    return { error: "We couldn't send your code right now. Please try again shortly." };
+    return {
+      error: "We couldn't send your code right now. Please try again shortly.",
+    };
   }
   return {};
 }
