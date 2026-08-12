@@ -5,6 +5,7 @@ import { createClient } from "@/supabase/server";
 import { getActiveContext } from "@/lib/auth/context";
 import { getStudentParentEmails } from "@/lib/db/people";
 import { sendFeverAlert } from "@/lib/email/notifications";
+import { FEVER_THRESHOLD_C } from "@/lib/montessori/daily";
 import type { CurriculumStatus } from "@/lib/db/types";
 
 type Result = { ok: boolean; error?: string };
@@ -15,47 +16,10 @@ async function ctxClient() {
   return { ctx, supabase };
 }
 
-// Create or update a student's termly report (one row per student). Staff-only;
-// RLS enforces the school boundary.
-export async function upsertTermlyReport(input: {
-  studentId: string;
-  term: string;
-  academicYear: string;
-  teacherName?: string;
-  summary?: string;
-  strengths: string[];
-  areasForGrowth: string[];
-  characterRatings: Record<string, number>;
-}): Promise<Result> {
-  const { ctx, supabase } = await ctxClient();
-  if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
-  if (ctx.role !== "admin" && ctx.role !== "teacher") {
-    return { ok: false, error: "Not authorized" };
-  }
-
-  const payload = {
-    school_id: ctx.school.id,
-    student_id: input.studentId,
-    term: input.term,
-    academic_year: input.academicYear,
-    teacher_name: input.teacherName ?? ctx.user.full_name ?? null,
-    teacher_comments: input.summary ?? null,
-    strengths: input.strengths,
-    areas_for_growth: input.areasForGrowth,
-    character_ratings: JSON.parse(JSON.stringify(input.characterRatings ?? {})),
-    updated_at: new Date().toISOString(),
-  };
-
-  const { error } = await supabase
-    .from("progress")
-    .upsert(payload, { onConflict: "student_id" });
-  if (error) return { ok: false, error: error.message };
-
-  revalidatePath("/teacher/reports/termly");
-  revalidatePath("/parent/termly-report");
-  revalidatePath("/parent/progress");
-  return { ok: true };
-}
+// The termly report was replaced by the progress report — `progress` is now
+// written by publishConferenceReport in src/lib/actions/conference.ts, which
+// mirrors each published report's narrative onto the row that /parent/progress
+// and the teacher child-report still read.
 
 export async function createObservation(input: {
   studentId: string;
@@ -216,10 +180,11 @@ export async function addDailyActivityLogs(input: {
   }));
   const { error } = await supabase.from("daily_activity_logs").insert(rows);
   if (error) return { ok: false, error: error.message };
-  // Fever alert: any temperature reading >= 38°C notifies that child's parents.
+  // Fever alert: shares FEVER_THRESHOLD_C with the daily report's flag so the
+  // "parents notified" badge can never disagree with whether they were.
   if (input.activityType === "temperature") {
     const temp = parseFloat(input.value.replace(/[^0-9.]/g, ""));
-    if (!Number.isNaN(temp) && temp >= 38) {
+    if (!Number.isNaN(temp) && temp >= FEVER_THRESHOLD_C) {
       const { data: students } = await supabase
         .from("students")
         .select("id, name")

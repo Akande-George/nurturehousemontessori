@@ -14,6 +14,8 @@ export type Subcategory = {
   id: string;
   name: string;
   activities: Activity[];
+  /** Optional blurb printed under the heading on the progress report. */
+  description?: string;
 };
 
 export type Area = {

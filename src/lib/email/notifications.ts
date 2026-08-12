@@ -254,6 +254,42 @@ export function sendApplicationAccepted(
   });
 }
 
+export function sendDailyReportPublished(
+  recipients: string[],
+  schoolName: string,
+  info: { studentName: string; date: string },
+) {
+  return sendHtmlEmail({
+    to: recipients,
+    subject: `${schoolName}: ${info.studentName}'s day — ${info.date}`,
+    html: shell(
+      schoolName,
+      `<h2 style="margin:0 0 12px;font-size:18px">${info.studentName}'s daily report is ready</h2>
+       <p style="margin:0 0 4px">${info.date}</p>
+       <p style="margin:0 0 4px;color:#64748b">Meals, rest, the work ${info.studentName} chose today, observations and photographs from the classroom.</p>
+       <a href="${APP_URL}/parent/reports" style="display:inline-block;margin-top:12px;background:#0c5c4c;color:#fff;text-decoration:none;padding:10px 18px;border-radius:10px">View daily report</a>`,
+    ),
+  });
+}
+
+export function sendProgressReportPublished(
+  recipients: string[],
+  schoolName: string,
+  info: { studentName: string; term: string; period: string },
+) {
+  return sendHtmlEmail({
+    to: recipients,
+    subject: `${schoolName}: ${info.studentName}'s ${info.term} progress report`,
+    html: shell(
+      schoolName,
+      `<h2 style="margin:0 0 12px;font-size:18px">${info.studentName}'s progress report is ready</h2>
+       <p style="margin:0 0 4px">${info.term} · ${info.period}</p>
+       <p style="margin:0 0 4px;color:#64748b">It covers attendance, the lessons ${info.studentName} worked on, observations, photographs and your guide's summary. You can read it online or download a PDF.</p>
+       <a href="${APP_URL}/parent/progress-reports" style="display:inline-block;margin-top:12px;background:#0c5c4c;color:#fff;text-decoration:none;padding:10px 18px;border-radius:10px">View progress report</a>`,
+    ),
+  });
+}
+
 export function sendReportCardPublished(
   recipients: string[],
   schoolName: string,

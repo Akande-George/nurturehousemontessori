@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadHtmlAsPdf } from "@/lib/pdf/download-pdf";
 
@@ -29,13 +29,21 @@ export function DownloadPdfButton({
   };
 
   return (
+    // Rendering a long report to canvas can take several seconds, so the
+    // spinner matters more here than on a typical action button.
     <Button
       onClick={handle}
       disabled={busy}
+      aria-busy={busy}
       variant="outline"
       className="gap-2 print:hidden"
     >
-      <Download className="w-4 h-4" /> {busy ? "Preparing…" : label}
+      {busy ? (
+        <Loader2 className="w-4 h-4 animate-spin" />
+      ) : (
+        <Download className="w-4 h-4" />
+      )}
+      {busy ? "Preparing…" : label}
     </Button>
   );
 }

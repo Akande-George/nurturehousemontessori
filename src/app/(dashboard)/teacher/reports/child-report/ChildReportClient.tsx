@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -81,11 +81,15 @@ export function ChildReportClient({
 
   const curriculumStats = getCurriculumStats(progress);
   const recentPractices = getRecentPresentations(progress, getLeafById, 8);
+  const introduced = getLeavesByStatus(progress, "introduced");
   const developing = getLeavesByStatus(progress, "developing");
   const proficient = getMasteredLeaves(progress);
 
-  const developingByArea = useMemo(() => groupByArea(developing), [developing]);
-  const proficientByArea = useMemo(() => groupByArea(proficient), [proficient]);
+  // Plain calls, not useMemo: groupByArea is a single cheap pass, and manually
+  // memoizing it made the React Compiler skip optimizing this whole component.
+  const introducedByArea = groupByArea(introduced);
+  const developingByArea = groupByArea(developing);
+  const proficientByArea = groupByArea(proficient);
 
   const overallTouched =
     curriculumStats.overall.introduced + curriculumStats.overall.developing + curriculumStats.overall.proficient;
@@ -269,6 +273,13 @@ export function ChildReportClient({
                 </div>
               )}
 
+              <LeafGallery
+                title="Introduced"
+                icon={<Sparkles className="w-3.5 h-3.5 text-sky-600" />}
+                emptyText="No activities have been presented yet."
+                byArea={introducedByArea}
+                total={introduced.length}
+              />
               <LeafGallery
                 title="Developing"
                 icon={<TrendingUp className="w-3.5 h-3.5 text-amber-600" />}

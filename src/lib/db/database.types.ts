@@ -689,15 +689,98 @@ export type Database = {
           },
         ]
       }
+      conference_reports: {
+        Row: {
+          academic_year: string
+          author_id: string | null
+          generated_at: string
+          id: string
+          narrative: Json
+          period_end: string
+          period_start: string
+          published_at: string | null
+          school_id: string
+          sections: Json
+          snapshot: Json
+          status: Database["public"]["Enums"]["conference_report_status"]
+          student_id: string
+          term: Database["public"]["Enums"]["term"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          academic_year: string
+          author_id?: string | null
+          generated_at?: string
+          id?: string
+          narrative?: Json
+          period_end: string
+          period_start: string
+          published_at?: string | null
+          school_id: string
+          sections?: Json
+          snapshot?: Json
+          status?: Database["public"]["Enums"]["conference_report_status"]
+          student_id: string
+          term: Database["public"]["Enums"]["term"]
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: string
+          author_id?: string | null
+          generated_at?: string
+          id?: string
+          narrative?: Json
+          period_end?: string
+          period_start?: string
+          published_at?: string | null
+          school_id?: string
+          sections?: Json
+          snapshot?: Json
+          status?: Database["public"]["Enums"]["conference_report_status"]
+          student_id?: string
+          term?: Database["public"]["Enums"]["term"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conference_reports_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conference_reports_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conference_reports_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_reports: {
         Row: {
           age_group: Database["public"]["Enums"]["age_group"]
           content: Json
           general_mood: string | null
+          generated_at: string
           id: string
+          narrative: Json
           report_date: string
           school_id: string
+          sections: Json
           sent_at: string | null
+          snapshot: Json
           status: Database["public"]["Enums"]["daily_report_status"]
           student_id: string
           teacher_id: string | null
@@ -708,10 +791,14 @@ export type Database = {
           age_group: Database["public"]["Enums"]["age_group"]
           content?: Json
           general_mood?: string | null
+          generated_at?: string
           id?: string
+          narrative?: Json
           report_date: string
           school_id: string
+          sections?: Json
           sent_at?: string | null
+          snapshot?: Json
           status?: Database["public"]["Enums"]["daily_report_status"]
           student_id: string
           teacher_id?: string | null
@@ -722,10 +809,14 @@ export type Database = {
           age_group?: Database["public"]["Enums"]["age_group"]
           content?: Json
           general_mood?: string | null
+          generated_at?: string
           id?: string
+          narrative?: Json
           report_date?: string
           school_id?: string
+          sections?: Json
           sent_at?: string | null
+          snapshot?: Json
           status?: Database["public"]["Enums"]["daily_report_status"]
           student_id?: string
           teacher_id?: string | null
@@ -1866,6 +1957,7 @@ export type Database = {
       age_group: "infant_0_2" | "primary_3_6" | "lower_7_9"
       application_status: "submitted" | "accepted" | "rejected"
       attendance_status: "present" | "absent" | "late" | "excused"
+      conference_report_status: "draft" | "published"
       curriculum_status:
         | "not_started"
         | "introduced"

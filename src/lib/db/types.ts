@@ -11,6 +11,7 @@ export type InvoiceStatus = Enums["invoice_status"];
 export type PromotionStatus = Enums["promotion_status"];
 export type AttendanceStatus = Enums["attendance_status"];
 export type CurriculumStatus = Enums["curriculum_status"];
+export type ConferenceReportStatus = Enums["conference_report_status"];
 
 export type Profile = Tables["profiles"]["Row"];
 export type School = Tables["schools"]["Row"];
@@ -27,6 +28,7 @@ export type HomeworkSubmission = Tables["homework_submissions"]["Row"];
 export type Notice = Tables["notices"]["Row"];
 export type Invoice = Tables["invoices"]["Row"];
 export type Attendance = Tables["attendance"]["Row"];
+export type ConferenceReport = Tables["conference_reports"]["Row"];
 
 export const CURRENT_ACADEMIC_YEAR = "2025-2026";
 

@@ -66,6 +66,25 @@ export async function getStudentAttendance(
   return data ?? [];
 }
 
+// Attendance for one child inside a date window (inclusive). Filtered in SQL
+// because attendance grows every school day — the progress report calls this
+// once for the marking period and once for the academic year.
+export async function getStudentAttendanceRange(
+  db: DB,
+  studentId: string,
+  from: string,
+  to: string,
+): Promise<Attendance[]> {
+  const { data } = await db
+    .from("attendance")
+    .select("*")
+    .eq("student_id", studentId)
+    .gte("date", from)
+    .lte("date", to)
+    .order("date", { ascending: true });
+  return data ?? [];
+}
+
 export async function getAttendanceForDate(
   db: DB,
   schoolId: string,

@@ -906,3 +906,235 @@ create policy invitations_all on public.invitations for all
 create policy applications_all on public.enrollment_applications for all
   using (is_school_staff(school_id)) with check (is_school_staff(school_id));
 
+
+-- ===== 20260721000008_resources_kits.sql =====
+-- Phase 2 add-on: persist Resource Library + Kit Lists
+
+create table public.resources (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references public.schools(id) on delete cascade,
+  title text not null,
+  description text,
+  type text not null default 'article',   -- article | video | policy
+  url text,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index resources_school_idx on public.resources (school_id);
+
+create table public.kit_items (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references public.schools(id) on delete cascade,
+  section_key text not null,               -- montessori programme key OR class id
+  name text not null,
+  required boolean not null default true,
+  sort_order int not null default 0,
+  created_at timestamptz not null default now()
+);
+create index kit_items_school_idx on public.kit_items (school_id);
+
+alter table public.resources enable row level security;
+alter table public.kit_items enable row level security;
+
+create policy resources_read on public.resources for select
+  using (is_school_member(school_id));
+create policy resources_write on public.resources for all
+  using (is_school_staff(school_id)) with check (is_school_staff(school_id));
+
+create policy kit_items_read on public.kit_items for select
+  using (is_school_member(school_id));
+create policy kit_items_write on public.kit_items for all
+  using (is_school_staff(school_id)) with check (is_school_staff(school_id));
+
+-- ===== 20260721000009_termly_character.sql =====
+-- Termly report: character-trait ratings (trait -> 1..5), stored on the
+-- existing per-student progress row.
+alter table public.progress
+  add column if not exists character_ratings jsonb not null default '{}'::jsonb;
+
+-- ===== 20260812000001_invoice_upgrade.sql =====
+-- Invoice upgrade: short human-readable invoice numbers (e.g. NHMS/0826/007),
+-- itemised line items + tax, and school bank/payment details for the invoice footer.
+
+alter table public.invoices
+  add column if not exists invoice_no text,
+  add column if not exists line_items jsonb not null default '[]'::jsonb,
+  add column if not exists tax_cents bigint not null default 0;
+
+alter table public.schools
+  add column if not exists bank_name text,
+  add column if not exists bank_account_name text,
+  add column if not exists bank_account_number text;
+
+-- Generates "PREFIX/MMYY/NNN" where PREFIX is the school-name initials (max 4),
+-- MMYY comes from the issue date, and NNN is a per-school monthly sequence.
+create or replace function public.set_invoice_no()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  prefix text;
+  mmyy text;
+  seq int;
+begin
+  if new.invoice_no is not null then
+    return new;
+  end if;
+
+  select left(string_agg(upper(left(w.word, 1)), '' order by w.ord), 4)
+    into prefix
+    from public.schools s
+    cross join lateral unnest(string_to_array(s.name, ' ')) with ordinality as w(word, ord)
+   where s.id = new.school_id
+     and w.word ~ '^[A-Za-z]';
+
+  if prefix is null or prefix = '' then
+    prefix := 'INV';
+  end if;
+
+  mmyy := to_char(coalesce(new.issued_at, now()), 'MMYY');
+
+  select coalesce(max(split_part(i.invoice_no, '/', 3)::int), 0) + 1
+    into seq
+    from public.invoices i
+   where i.school_id = new.school_id
+     and i.invoice_no like prefix || '/' || mmyy || '/%'
+     and split_part(i.invoice_no, '/', 3) ~ '^\d+$';
+
+  new.invoice_no := prefix || '/' || mmyy || '/' || lpad(seq::text, 3, '0');
+  return new;
+end;
+$$;
+
+drop trigger if exists invoices_set_invoice_no on public.invoices;
+create trigger invoices_set_invoice_no
+  before insert on public.invoices
+  for each row execute function public.set_invoice_no();
+
+-- Backfill numbers for invoices issued before this migration.
+with numbered as (
+  select i.id,
+         to_char(i.issued_at, 'MMYY') as mmyy,
+         s.name as school_name,
+         row_number() over (
+           partition by i.school_id, date_trunc('month', i.issued_at)
+           order by i.issued_at, i.id
+         ) as rn
+    from public.invoices i
+    join public.schools s on s.id = i.school_id
+   where i.invoice_no is null
+)
+update public.invoices u
+   set invoice_no = coalesce(
+         (select left(string_agg(upper(left(w.word, 1)), '' order by w.ord), 4)
+            from unnest(string_to_array(n.school_name, ' ')) with ordinality as w(word, ord)
+           where w.word ~ '^[A-Za-z]'),
+         'INV')
+       || '/' || n.mmyy || '/' || lpad(n.rn::text, 3, '0')
+  from numbered n
+ where u.id = n.id;
+
+create unique index if not exists invoices_school_invoice_no_idx
+  on public.invoices (school_id, invoice_no);
+
+-- ===== 20260813000001_conference_reports.sql =====
+-- Montessori Progress Report (Transparent Classroom style conference report).
+--
+-- One immutable, dated report per child per term. The jsonb split is
+-- load-bearing:
+--   snapshot  -- auto-collected facts, written once at generate, never edited
+--   narrative -- everything the teacher types
+--   sections  -- which sections appear on this report
+-- so editing is a pure narrative/sections update and regenerating is a pure
+-- snapshot replace.
+
+create type conference_report_status as enum ('draft', 'published');
+
+create table public.conference_reports (
+  id            uuid primary key default gen_random_uuid(),
+  school_id     uuid not null references public.schools(id)  on delete cascade,
+  student_id    uuid not null references public.students(id) on delete cascade,
+  author_id     uuid references public.profiles(id) on delete set null,
+  title         text not null default 'Progress Report',
+  term          term not null,
+  academic_year text not null,
+  period_start  date not null,
+  period_end    date not null,
+  status        conference_report_status not null default 'draft',
+  sections      jsonb not null default '{}'::jsonb,
+  snapshot      jsonb not null default '{}'::jsonb,
+  narrative     jsonb not null default '{}'::jsonb,
+  generated_at  timestamptz not null default now(),
+  published_at  timestamptz,
+  updated_at    timestamptz not null default now(),
+  constraint conference_reports_period_ck check (period_end >= period_start),
+  unique (student_id, academic_year, term)
+);
+create index conference_reports_student_idx
+  on public.conference_reports (student_id, period_end desc);
+create index conference_reports_school_status_idx
+  on public.conference_reports (school_id, status);
+
+-- Missing FK index: the practices embed and the snapshot builder both walk
+-- curriculum_practices by its parent progress row.
+create index if not exists curriculum_practices_progress_idx
+  on public.curriculum_practices (curriculum_progress_id);
+
+alter table public.conference_reports enable row level security;
+
+-- Two select policies OR together. Parents are gated on status at the row
+-- level, so a draft stays invisible even if its id leaks.
+create policy conference_reports_staff_read on public.conference_reports for select
+  using (is_school_staff(school_id));
+create policy conference_reports_parent_read on public.conference_reports for select
+  using (status = 'published' and is_parent_of(student_id));
+create policy conference_reports_write on public.conference_reports for all
+  using (is_school_staff(school_id)) with check (is_school_staff(school_id));
+
+-- ===== 20260813000002_daily_report_documents.sql =====
+-- Daily report, rebuilt as a full document (same shape as conference_reports).
+--
+-- daily_reports already existed but nothing ever inserted into it — the only
+-- writer was updateDailyReportStatus. The real per-day data lives in
+-- daily_activity_logs, observations, curriculum_practices and activity_posts,
+-- so the report now snapshots those the same way the progress report does:
+--   snapshot  -- auto-collected facts, frozen at generate, never edited
+--   narrative -- everything the teacher types
+--   sections  -- which sections appear on this report
+-- The pre-existing `content` column is left untouched for any legacy rows.
+
+alter table public.daily_reports
+  add column if not exists snapshot jsonb not null default '{}'::jsonb,
+  add column if not exists narrative jsonb not null default '{}'::jsonb,
+  add column if not exists sections jsonb not null default '{}'::jsonb,
+  add column if not exists generated_at timestamptz not null default now();
+
+-- One report per child per day. Defensive: collapse any pre-existing duplicates
+-- (keeping the most recently updated) before adding the constraint.
+delete from public.daily_reports a
+  using public.daily_reports b
+ where a.student_id = b.student_id
+   and a.report_date = b.report_date
+   and (a.updated_at, a.id) < (b.updated_at, b.id);
+
+create unique index if not exists daily_reports_student_date_idx
+  on public.daily_reports (student_id, report_date);
+
+create index if not exists daily_reports_school_status_idx
+  on public.daily_reports (school_id, status);
+
+-- Supports the per-child, per-day care timeline lookup.
+create index if not exists daily_activity_logs_student_date_idx
+  on public.daily_activity_logs (student_id, log_date);
+
+-- Fix: the original policy let parents read DRAFT daily reports. Now that a
+-- draft holds unfinished teacher commentary, gate parents on status = 'sent',
+-- matching how conference_reports gates on 'published'.
+drop policy if exists daily_reports_read on public.daily_reports;
+
+create policy daily_reports_staff_read on public.daily_reports for select
+  using (is_school_staff(school_id));
+create policy daily_reports_parent_read on public.daily_reports for select
+  using (status = 'sent' and is_parent_of(student_id));

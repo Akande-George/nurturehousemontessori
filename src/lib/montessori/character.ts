@@ -1,4 +1,6 @@
-// Character profile for the termly report. Teachers rate each trait 1–5 stars.
+// Character profile on the progress report. Teachers rate each trait 1–5 stars;
+// unrated traits are left off the printed report. Published reports mirror
+// these onto progress.character_ratings (see src/lib/actions/conference.ts).
 export const CHARACTER_TRAITS = [
   "Concentration",
   "Independence",
