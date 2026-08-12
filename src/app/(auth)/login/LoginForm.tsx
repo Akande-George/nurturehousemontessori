@@ -25,7 +25,7 @@ export function LoginForm() {
         if (res?.error) setError(res.error);
         else {
           setOtpSent(true);
-          setInfo(`We sent a 6-digit code to ${email}.`);
+          setInfo(`We sent a 8-digit code to ${email}.`);
         }
         return;
       }
