@@ -46,9 +46,27 @@ export function AccountingClient({
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [studentId, setStudentId] = useState(students[0]?.id ?? "");
-  const [amount, setAmount] = useState("1400");
-  const [description, setDescription] = useState("Tuition");
+  const [items, setItems] = useState<{ description: string; amount: string }[]>(
+    [{ description: "Tuition", amount: "" }],
+  );
+  const [tax, setTax] = useState("");
   const [dueDate, setDueDate] = useState("");
+
+  const updateItem = (
+    index: number,
+    patch: Partial<{ description: string; amount: string }>,
+  ) => {
+    setItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+    );
+  };
+
+  const subtotal = items.reduce((sum, item) => {
+    const value = Number(item.amount);
+    return sum + (Number.isNaN(value) || value <= 0 ? 0 : value);
+  }, 0);
+  const taxAmount = Number(tax) > 0 ? Number(tax) : 0;
+  const grandTotal = subtotal + taxAmount;
 
   const studentName = (id: string) =>
     students.find((s) => s.id === id)?.name ?? "Unknown Student";
@@ -64,18 +82,22 @@ export function AccountingClient({
   }, [invoices]);
 
   const handleCreateInvoice = () => {
-    const parsedAmount = Number(amount);
-    if (
-      !studentId ||
-      Number.isNaN(parsedAmount) ||
-      parsedAmount <= 0 ||
-      !description.trim() ||
-      !dueDate
-    ) {
+    const validItems = items
+      .map((item) => ({
+        description: item.description.trim(),
+        amountCents: Math.round(Number(item.amount) * 100),
+      }))
+      .filter(
+        (item) =>
+          item.description &&
+          !Number.isNaN(item.amountCents) &&
+          item.amountCents > 0,
+      );
+    if (!studentId || validItems.length === 0 || !dueDate) {
       toast({
         title: "Invalid invoice",
         description:
-          "Please provide a valid student, amount, description, and due date.",
+          "Please provide a student, a due date, and at least one item with a description and amount.",
         variant: "destructive",
       });
       return;
@@ -83,12 +105,15 @@ export function AccountingClient({
     start(async () => {
       const res = await createInvoice({
         studentId,
-        description: description.trim(),
-        amountCents: Math.round(parsedAmount * 100),
+        items: validItems,
+        taxCents: Math.round(taxAmount * 100),
         dueDate,
       });
       if (res.ok) {
         setIsCreateOpen(false);
+        setItems([{ description: "Tuition", amount: "" }]);
+        setTax("");
+        setDueDate("");
         toast({ title: "Invoice issued" });
       } else {
         toast({ title: res.error ?? "Failed", variant: "destructive" });
@@ -174,6 +199,11 @@ export function AccountingClient({
                     {studentName(invoice.student_id)}
                   </p>
                   <p className="text-sm text-slate-600 mt-1">
+                    {invoice.invoice_no && (
+                      <span className="font-mono text-xs text-slate-400 mr-2">
+                        {invoice.invoice_no}
+                      </span>
+                    )}
                     {invoice.description}
                   </p>
                 </div>
@@ -235,30 +265,91 @@ export function AccountingClient({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>Description</Label>
-              <Input
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-              />
+            <div className="space-y-2">
+              <Label>Items</Label>
+              <div className="space-y-2">
+                {items.map((item, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      placeholder="Description (e.g. Tuition)"
+                      value={item.description}
+                      onChange={(event) =>
+                        updateItem(index, { description: event.target.value })
+                      }
+                      className="flex-1"
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Amount (₦)"
+                      value={item.amount}
+                      onChange={(event) =>
+                        updateItem(index, { amount: event.target.value })
+                      }
+                      className="w-36"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="px-2 text-slate-400 hover:text-red-600"
+                      disabled={items.length === 1}
+                      onClick={() =>
+                        setItems((prev) => prev.filter((_, i) => i !== index))
+                      }
+                      aria-label="Remove item"
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setItems((prev) => [...prev, { description: "", amount: "" }])
+                }
+              >
+                + Add item
+              </Button>
             </div>
-            <div className="space-y-1">
-              <Label>Amount (₦)</Label>
-              <Input
-                type="number"
-                min="1"
-                step="0.01"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Tax (₦, optional)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0"
+                  value={tax}
+                  onChange={(event) => setTax(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Due date</Label>
+                <Input
+                  type="date"
+                  value={dueDate}
+                  onChange={(event) => setDueDate(event.target.value)}
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>Due date</Label>
-              <Input
-                type="date"
-                value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
-              />
+            <div className="rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 text-sm space-y-1">
+              <div className="flex justify-between text-slate-600">
+                <span>Subtotal</span>
+                <span>{formatCurrency(Math.round(subtotal * 100))}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Tax</span>
+                <span>{formatCurrency(Math.round(taxAmount * 100))}</span>
+              </div>
+              <div className="flex justify-between font-medium text-slate-900">
+                <span>Total</span>
+                <span>{formatCurrency(Math.round(grandTotal * 100))}</span>
+              </div>
             </div>
           </div>
           <DialogFooter>

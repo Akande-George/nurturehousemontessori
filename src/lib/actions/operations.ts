@@ -66,34 +66,52 @@ export async function markNoticeRead(noticeId: string): Promise<Result> {
 export async function createInvoice(input: {
   studentId: string;
   parentId?: string | null;
-  description: string;
-  amountCents: number;
+  items: { description: string; amountCents: number }[];
+  taxCents?: number;
   dueDate: string;
 }): Promise<Result> {
   const { ctx, supabase } = await ctxClient();
   if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
+  const items = input.items
+    .map((item) => ({
+      description: item.description.trim(),
+      amount_cents: Math.round(item.amountCents),
+    }))
+    .filter((item) => item.description && item.amount_cents > 0);
+  if (items.length === 0)
+    return { ok: false, error: "At least one line item is required" };
+  const taxCents = Math.max(0, Math.round(input.taxCents ?? 0));
+  const subtotalCents = items.reduce((sum, item) => sum + item.amount_cents, 0);
+  const totalCents = subtotalCents + taxCents;
+  const description =
+    items.length === 1
+      ? items[0].description
+      : `${items[0].description} + ${items.length - 1} more`;
   const { data: invoice, error } = await supabase
     .from("invoices")
     .insert({
       school_id: ctx.school.id,
       student_id: input.studentId,
       parent_id: input.parentId ?? null,
-      description: input.description,
-      amount_cents: input.amountCents,
+      description,
+      line_items: items,
+      tax_cents: taxCents,
+      amount_cents: totalCents,
       due_date: input.dueDate,
       status: "unpaid",
     })
-    .select("id")
+    .select("id, invoice_no")
     .single();
   if (error || !invoice) return { ok: false, error: error?.message ?? "Failed" };
   const emails = await getStudentParentEmails(supabase, input.studentId);
   await Promise.all(
     emails.map((email) =>
       sendInvoiceIssued(email, ctx.school!.name, {
-        description: input.description,
-        amount: formatNaira(input.amountCents),
+        description,
+        amount: formatNaira(totalCents),
         dueDate: input.dueDate,
         invoiceId: invoice.id,
+        invoiceNo: invoice.invoice_no,
       }),
     ),
   );

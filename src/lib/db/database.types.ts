@@ -977,36 +977,45 @@ export type Database = {
           description: string
           due_date: string | null
           id: string
+          invoice_no: string | null
           issued_at: string
+          line_items: Json
           paid_at: string | null
           parent_id: string | null
           school_id: string
           status: Database["public"]["Enums"]["invoice_status"]
           student_id: string
+          tax_cents: number
         }
         Insert: {
           amount_cents?: number
           description: string
           due_date?: string | null
           id?: string
+          invoice_no?: string | null
           issued_at?: string
+          line_items?: Json
           paid_at?: string | null
           parent_id?: string | null
           school_id: string
           status?: Database["public"]["Enums"]["invoice_status"]
           student_id: string
+          tax_cents?: number
         }
         Update: {
           amount_cents?: number
           description?: string
           due_date?: string | null
           id?: string
+          invoice_no?: string | null
           issued_at?: string
+          line_items?: Json
           paid_at?: string | null
           parent_id?: string | null
           school_id?: string
           status?: Database["public"]["Enums"]["invoice_status"]
           student_id?: string
+          tax_cents?: number
         }
         Relationships: [
           {
@@ -1460,6 +1469,9 @@ export type Database = {
       schools: {
         Row: {
           address: string | null
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
           contact_email: string | null
           created_at: string
           id: string
@@ -1474,6 +1486,9 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           contact_email?: string | null
           created_at?: string
           id?: string
@@ -1488,6 +1503,9 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           contact_email?: string | null
           created_at?: string
           id?: string

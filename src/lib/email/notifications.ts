@@ -94,14 +94,21 @@ export function sendNoticeFanout(
 export function sendInvoiceIssued(
   recipient: string,
   schoolName: string,
-  invoice: { description: string; amount: string; dueDate: string; invoiceId: string },
+  invoice: {
+    description: string;
+    amount: string;
+    dueDate: string;
+    invoiceId: string;
+    invoiceNo?: string | null;
+  },
 ) {
+  const label = invoice.invoiceNo ? `Invoice ${invoice.invoiceNo}` : "New invoice";
   return sendHtmlEmail({
     to: recipient,
-    subject: `${schoolName}: New invoice — ${invoice.description}`,
+    subject: `${schoolName}: ${label} — ${invoice.description}`,
     html: shell(
       schoolName,
-      `<h2 style="margin:0 0 12px;font-size:18px">New invoice</h2>
+      `<h2 style="margin:0 0 12px;font-size:18px">${label}</h2>
        <p style="margin:0 0 4px">${invoice.description}</p>
        <p style="margin:0 0 4px;font-size:22px;font-weight:700">${invoice.amount}</p>
        <p style="margin:0 0 16px;color:#64748b">Due ${invoice.dueDate}</p>

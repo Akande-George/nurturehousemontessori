@@ -51,6 +51,22 @@ export async function getClassParentEmails(
   return Array.from(new Set(emails));
 }
 
+// Parent profiles (name + email) linked to a student — for invoice "Bill To".
+export async function getStudentParentProfiles(
+  db: DB,
+  studentId: string,
+): Promise<{ id: string; full_name: string; email: string }[]> {
+  const { data } = await db
+    .from("student_parents")
+    .select("parent:profiles(id, full_name, email)")
+    .eq("student_id", studentId);
+  return (data ?? [])
+    .map((r) => r.parent as { id: string; full_name: string; email: string } | null)
+    .filter((p): p is { id: string; full_name: string; email: string } =>
+      Boolean(p),
+    );
+}
+
 // Staff (admin/teacher) emails for a school.
 export async function getSchoolStaffEmails(
   db: DB,

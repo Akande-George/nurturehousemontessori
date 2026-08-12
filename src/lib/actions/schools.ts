@@ -17,6 +17,9 @@ export async function updateSchoolBranding(
     contact_email?: string;
     phone?: string;
     address?: string;
+    bank_name?: string | null;
+    bank_account_name?: string | null;
+    bank_account_number?: string | null;
     theme?: SchoolTheme;
   },
 ): Promise<Result> {

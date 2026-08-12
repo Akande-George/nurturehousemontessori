@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileText, Filter } from "lucide-react";
@@ -196,6 +197,11 @@ export function ParentInvoicesClient({
                             </Badge>
                           </div>
                           <p className="text-xs text-slate-500 mt-1">
+                            {invoice.invoice_no && (
+                              <span className="font-mono">
+                                {invoice.invoice_no} ·{" "}
+                              </span>
+                            )}
                             Issued:{" "}
                             {new Date(invoice.issued_at).toLocaleDateString(
                               "en-NG",
@@ -215,6 +221,12 @@ export function ParentInvoicesClient({
                         <p className="text-lg font-serif text-slate-900">
                           {formatCurrency(invoice.amount_cents)}
                         </p>
+                        <Link
+                          href={`/invoice/${invoice.id}`}
+                          className="text-xs font-medium text-montessori-primary hover:underline"
+                        >
+                          View {invoice.status === "paid" ? "receipt" : "invoice"}
+                        </Link>
                       </div>
                     </div>
                   </CardContent>

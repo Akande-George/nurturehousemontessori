@@ -109,6 +109,13 @@ export function SettingsClient({
   const [contactEmail, setContactEmail] = useState(school.contact_email ?? "");
   const [phone, setPhone] = useState(school.phone ?? "");
   const [address, setAddress] = useState(school.address ?? "");
+  const [bankName, setBankName] = useState(school.bank_name ?? "");
+  const [bankAccountName, setBankAccountName] = useState(
+    school.bank_account_name ?? "",
+  );
+  const [bankAccountNumber, setBankAccountNumber] = useState(
+    school.bank_account_number ?? "",
+  );
   const [primary, setPrimary] = useState(tripletToHex(theme.primary));
   const [secondary, setSecondary] = useState(tripletToHex(theme.secondary));
   const [accent, setAccent] = useState(tripletToHex(theme.accent));
@@ -120,6 +127,9 @@ export function SettingsClient({
         contact_email: contactEmail,
         phone,
         address,
+        bank_name: bankName.trim() || null,
+        bank_account_name: bankAccountName.trim() || null,
+        bank_account_number: bankAccountNumber.trim() || null,
         theme: {
           primary: hexToTriplet(primary),
           secondary: hexToTriplet(secondary),
@@ -206,6 +216,31 @@ export function SettingsClient({
                       </div>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-slate-100 shadow-sm">
+                <CardHeader className="p-6 pb-0">
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-montessori-primary" /> Payment Details
+                  </CardTitle>
+                  <p className="text-sm text-slate-500 pt-1">Bank account printed on invoices under &quot;Please make all payments to&quot;.</p>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-2">
+                    <Label>Account Name</Label>
+                    <Input value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} placeholder="e.g. Nurture House Montessori School LTD" className="border-slate-200" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label>Account Number</Label>
+                      <Input value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} placeholder="e.g. 1307478941" className="border-slate-200" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Bank</Label>
+                      <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="e.g. Providus Bank" className="border-slate-200" />
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 

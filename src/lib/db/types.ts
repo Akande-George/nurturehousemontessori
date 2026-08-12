@@ -30,6 +30,29 @@ export type Attendance = Tables["attendance"]["Row"];
 
 export const CURRENT_ACADEMIC_YEAR = "2025-2026";
 
+// One row on an invoice (jsonb `line_items` column).
+export type InvoiceLineItem = { description: string; amount_cents: number };
+
+// Parse an invoice's line items; single-line invoices created before the
+// line_items column existed fall back to their description + pre-tax amount.
+export function invoiceLineItems(invoice: Invoice): InvoiceLineItem[] {
+  const raw = Array.isArray(invoice.line_items) ? invoice.line_items : [];
+  const items = raw.filter(
+    (item): item is InvoiceLineItem =>
+      !!item &&
+      typeof item === "object" &&
+      typeof (item as InvoiceLineItem).description === "string" &&
+      typeof (item as InvoiceLineItem).amount_cents === "number",
+  );
+  if (items.length > 0) return items;
+  return [
+    {
+      description: invoice.description,
+      amount_cents: invoice.amount_cents - (invoice.tax_cents ?? 0),
+    },
+  ];
+}
+
 export type CAComponent = { label: string; score: number; max: number };
 export type ExamScore = { score: number; max: number };
 
