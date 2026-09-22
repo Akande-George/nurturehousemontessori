@@ -16,8 +16,23 @@ export default async function StudentObservationPage({
   const supabase = await createClient();
 
   const student = supabase ? await getStudentById(supabase, studentId) : null;
+  // Observations open only for a child this teacher is assigned to — the same
+  // rule as every other teacher screen.
+  const teacherStudents =
+    supabase && school
+      ? await getTeacherStudents(supabase, {
+          teacherId: user.id,
+          schoolId: school.id,
+          schoolType: school.type,
+        })
+      : [];
 
-  if (!supabase || !school || !student || student.school_id !== school.id) {
+  if (
+    !supabase ||
+    !school ||
+    !student ||
+    !teacherStudents.some((s) => s.id === student.id)
+  ) {
     return (
       <div className="max-w-3xl mx-auto py-12">
         <Link
@@ -31,14 +46,7 @@ export default async function StudentObservationPage({
     );
   }
 
-  const [teacherStudents, observations] = await Promise.all([
-    getTeacherStudents(supabase, {
-      teacherId: user.id,
-      schoolId: school.id,
-      schoolType: school.type,
-    }),
-    getStudentObservations(supabase, student.id),
-  ]);
+  const observations = await getStudentObservations(supabase, student.id);
 
   return (
     <StudentObservationClient

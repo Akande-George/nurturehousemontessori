@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 import type { Student, SchoolType } from "./types";
 import { getTeacherClassrooms } from "./classrooms";
+import { getTeacherClasses } from "./classes";
 
 type DB = SupabaseClient<Database>;
 
@@ -52,20 +53,16 @@ export async function getSchoolStudents(
   return data ?? [];
 }
 
-// The children a teacher works with. A Montessori teacher who has been assigned
-// classrooms sees only those rooms.
+// The children a teacher works with — and only those. Deny by default: a
+// teacher sees children solely through an assignment, so with none they see
+// nobody at all.
 //
-// A teacher with NO assignment deliberately falls through to the whole-school
-// roll — which is what every teacher saw before classrooms existed. Scoping is
-// therefore opt-in, and that is a fail-OPEN default: forget to assign a teacher
-// and they see the entire school. It is the approved behaviour, chosen so that
-// applying the classrooms migration cannot silently blank out the screens of
-// staff who have not been assigned yet. The staff list surfaces such teachers
-// in amber ("No classroom — sees every child") so the state is visible to the
-// admin rather than silent.
+//   Montessori  -> the classrooms assigned to them (teacher_classroom_assignments)
+//   regular     -> the classes they teach (class teacher or subject teacher)
 //
-// To make this deny-by-default instead: return [] when classrooms.length === 0,
-// and require an explicit assignment before a teacher sees any child.
+// The admin-facing staff list flags teachers with no classroom in amber so the
+// gap is visible rather than silent. Whatever this rule says, recordAttendance
+// enforces the same scope — keep the two in step.
 export async function getTeacherStudents(
   db: DB,
   args: { teacherId: string; schoolId: string; schoolType: SchoolType },
@@ -76,17 +73,24 @@ export async function getTeacherStudents(
       args.teacherId,
       args.schoolId,
     );
-    if (classrooms.length > 0) {
-      const { data } = await db
-        .from("students")
-        .select("*")
-        .eq("school_id", args.schoolId)
-        .in("classroom", classrooms)
-        .order("name");
-      return data ?? [];
-    }
+    if (classrooms.length === 0) return [];
+    const { data } = await db
+      .from("students")
+      .select("*")
+      .eq("school_id", args.schoolId)
+      .in("classroom", classrooms)
+      .order("name");
+    return data ?? [];
   }
-  return getSchoolStudents(db, args.schoolId);
+
+  const classes = await getTeacherClasses(db, args.teacherId, args.schoolId);
+  if (classes.length === 0) return [];
+  const rosters = await Promise.all(
+    classes.map((c) => getClassStudents(db, c.id)),
+  );
+  const byId = new Map<string, Student>();
+  for (const roster of rosters) for (const s of roster) byId.set(s.id, s);
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export type Medication =

@@ -1,7 +1,9 @@
 import "server-only";
 import { sendHtmlEmail } from "./send";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "https://nurturehousemontessori.netlify.app/";
 
 // Minimal branded email shell.
 function shell(schoolName: string, body: string): string {
@@ -102,7 +104,9 @@ export function sendInvoiceIssued(
     invoiceNo?: string | null;
   },
 ) {
-  const label = invoice.invoiceNo ? `Invoice ${invoice.invoiceNo}` : "New invoice";
+  const label = invoice.invoiceNo
+    ? `Invoice ${invoice.invoiceNo}`
+    : "New invoice";
   return sendHtmlEmail({
     to: recipient,
     subject: `${schoolName}: ${label} — ${invoice.description}`,
@@ -293,7 +297,12 @@ export function sendProgressReportPublished(
 export function sendReportCardPublished(
   recipients: string[],
   schoolName: string,
-  info: { studentName: string; term: string; average: string; position: string },
+  info: {
+    studentName: string;
+    term: string;
+    average: string;
+    position: string;
+  },
 ) {
   return sendHtmlEmail({
     to: recipients,

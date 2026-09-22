@@ -51,15 +51,11 @@ export default async function TeacherStudentsPage() {
       }),
       getTeacherClassrooms(db, user.id, school!.id),
     ]);
-    // The teacher's own rooms, even when one is empty — or the rooms present on
-    // the roll when they have no assignment yet and so see the whole school.
-    const titles =
-      classrooms.length > 0
-        ? classrooms
-        : [...new Set(students.map((s) => s.classroom ?? "Unassigned"))].sort();
-    groups = titles.map((title) => ({
+    // Only the teacher's own rooms, shown even when one is empty. With no
+    // assignment they see no children and no rooms at all.
+    groups = classrooms.map((title) => ({
       title,
-      students: students.filter((s) => (s.classroom ?? "Unassigned") === title),
+      students: students.filter((s) => (s.classroom ?? "") === title),
     }));
   } else {
     const classes = await getTeacherClasses(db, user.id, school!.id);

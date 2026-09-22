@@ -433,7 +433,7 @@ export function SettingsClient({
                                   </span>
                                 ) : (
                                   <span className="text-amber-600">
-                                    No classroom — sees every child
+                                    No classroom — sees no children
                                   </span>
                                 )}
                               </p>
@@ -585,8 +585,8 @@ export function SettingsClient({
                 <Label>Classrooms</Label>
                 <p className="text-xs text-slate-400">
                   Pick every room this teacher covers — they can have more than
-                  one. Leave it empty and they&apos;ll see every child in the
-                  school.
+                  one. A teacher is only shown the children in the rooms you
+                  give them, so with none ticked they see no children at all.
                 </p>
                 <ClassroomPicker
                   classrooms={classrooms}
@@ -632,8 +632,8 @@ export function SettingsClient({
             />
             {editClassrooms.length === 0 && classrooms.length > 0 && (
               <p className="text-xs text-amber-600 mt-3">
-                With no classroom assigned, {editingMember?.name} sees every
-                child in the school.
+                With no classroom assigned, {editingMember?.name} sees no
+                children at all.
               </p>
             )}
           </div>

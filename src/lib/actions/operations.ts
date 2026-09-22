@@ -15,6 +15,8 @@ import {
   sendAfterSchoolConfirm,
 } from "@/lib/email/notifications";
 import { formatNaira } from "@/lib/format";
+import { getTeacherClassrooms } from "@/lib/db/classrooms";
+import { getTeacherClasses } from "@/lib/db/classes";
 import type { AttendanceStatus } from "@/lib/db/types";
 
 type Result = { ok: boolean; error?: string };
@@ -218,6 +220,45 @@ export async function recordAttendance(input: {
 }): Promise<Result> {
   const { ctx, supabase } = await ctxClient();
   if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
+
+  // The student must be in the caller's own school: school_id below comes from
+  // the session, so without this check a teacher could file attendance against
+  // another school's child (RLS only tests the school_id we supply).
+  const { data: student } = await supabase
+    .from("students")
+    .select("id, school_id, classroom, class_id, name")
+    .eq("id", input.studentId)
+    .maybeSingle();
+  if (!student || student.school_id !== ctx.school.id) {
+    return { ok: false, error: "That student isn't in your school." };
+  }
+
+  // Teachers record attendance only for the children they are assigned: their
+  // classrooms (Montessori) or their classes (regular). No assignment means no
+  // children — the same deny-by-default rule as getTeacherStudents, which is
+  // also what decides the roster the teacher is looking at.
+  if (ctx.role === "teacher") {
+    if (ctx.school.type === "montessori") {
+      const classrooms = await getTeacherClassrooms(
+        supabase,
+        ctx.user.id,
+        ctx.school.id,
+      );
+      if (!classrooms.includes(student.classroom ?? "")) {
+        return { ok: false, error: "That child isn't in a classroom you cover." };
+      }
+    } else {
+      const classes = await getTeacherClasses(
+        supabase,
+        ctx.user.id,
+        ctx.school.id,
+      );
+      if (!classes.some((c) => c.id === student.class_id)) {
+        return { ok: false, error: "That child isn't in a class you teach." };
+      }
+    }
+  }
+
   const { error } = await supabase.from("attendance").upsert(
     {
       school_id: ctx.school.id,

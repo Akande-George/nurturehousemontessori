@@ -7,13 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { recordAttendance } from "@/lib/actions/operations";
-import type {
-  Attendance,
-  AttendanceStatus,
-  SchoolClass,
-  Student,
-} from "@/lib/db/types";
-import { Check, Clock, X, Plane } from "lucide-react";
+import type { Attendance, AttendanceStatus, Student } from "@/lib/db/types";
+import { Check, Clock, Users, X, Plane } from "lucide-react";
 
 const STATUSES: AttendanceStatus[] = ["present", "late", "absent", "excused"];
 
@@ -32,17 +27,21 @@ const STATUS_ICON: Record<AttendanceStatus, typeof Check> = {
 };
 
 export function AttendanceClient({
-  classes,
+  groups,
   students,
   attendance,
   date,
-  classId,
+  groupId,
+  groupNoun,
 }: {
-  classes: SchoolClass[];
+  // The teacher's own classes (regular) or classrooms (Montessori) — only the
+  // ones they are assigned to. Empty means no assignment, so no children.
+  groups: { id: string; name: string }[];
   students: Student[];
   attendance: Attendance[];
   date: string;
-  classId: string;
+  groupId: string;
+  groupNoun: string;
 }) {
   const { toast } = useToast();
   const router = useRouter();
@@ -55,10 +54,10 @@ export function AttendanceClient({
     return map;
   }, [attendance]);
 
-  const pushParams = (next: { date?: string; classId?: string }) => {
+  const pushParams = (next: { date?: string; groupId?: string }) => {
     const params = new URLSearchParams();
     params.set("date", next.date ?? date);
-    params.set("classId", next.classId ?? classId);
+    params.set("groupId", next.groupId ?? groupId);
     router.push(`?${params.toString()}`);
   };
 
@@ -92,6 +91,26 @@ export function AttendanceClient({
     return counts;
   }, [students, recordByStudent]);
 
+  if (groups.length === 0) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div>
+          <h1 className="text-2xl font-serif text-slate-900">Attendance</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Record who is present today.
+          </p>
+        </div>
+        <Card className="border-dashed border-slate-200 shadow-none">
+          <CardContent className="py-16 flex flex-col items-center text-center text-slate-400">
+            <Users className="w-8 h-8 mb-3 text-slate-300" />
+            You aren&apos;t assigned to any {groupNoun} yet. Ask your school
+            admin to assign you one.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -114,19 +133,19 @@ export function AttendanceClient({
               className="w-44"
             />
           </div>
-          {classes.length > 1 && (
+          {groups.length > 1 && (
             <div>
-              <label className="text-xs font-medium text-slate-500 block mb-1">
-                Class
+              <label className="text-xs font-medium text-slate-500 block mb-1 capitalize">
+                {groupNoun}
               </label>
               <select
-                value={classId}
-                onChange={(e) => pushParams({ classId: e.target.value })}
+                value={groupId}
+                onChange={(e) => pushParams({ groupId: e.target.value })}
                 className="h-9 border border-slate-200 rounded-md px-3 text-sm bg-white"
               >
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
                   </option>
                 ))}
               </select>
@@ -164,7 +183,7 @@ export function AttendanceClient({
         <CardContent className="divide-y divide-slate-50">
           {students.length === 0 ? (
             <p className="text-sm text-slate-500 py-6 text-center">
-              No students are enrolled in this class yet.
+              No students are in this {groupNoun} yet.
             </p>
           ) : (
             students.map((student) => {
