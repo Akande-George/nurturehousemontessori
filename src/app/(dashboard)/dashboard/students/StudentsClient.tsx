@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { createStudent } from "@/lib/actions/students";
-import type { SchoolClass, SchoolType, Student } from "@/lib/db/types";
+import type { Classroom, SchoolClass, SchoolType, Student } from "@/lib/db/types";
 
 type AgeGroup = "infant_0_2" | "primary_3_6" | "lower_7_9";
 const AGE_GROUPS: { value: AgeGroup; label: string }[] = [
@@ -38,11 +38,14 @@ export function StudentsClient({
   classes,
   classNames,
   schoolType,
+  classrooms,
 }: {
   students: Student[];
   classes: SchoolClass[];
   classNames: Record<string, string>;
   schoolType: SchoolType;
+  // Montessori rooms, maintained on the Classrooms screen.
+  classrooms: Classroom[];
 }) {
   const { toast } = useToast();
   const isRegular = schoolType === "regular";
@@ -423,13 +426,35 @@ export function StudentsClient({
                   <label htmlFor="s-classroom" className="text-sm font-medium text-slate-700">
                     Classroom
                   </label>
-                  <Input
-                    id="s-classroom"
-                    value={sClassroom}
-                    onChange={(e) => setSClassroom(e.target.value)}
-                    placeholder="e.g. Toddler B"
-                    className="border-slate-200"
-                  />
+                  {classrooms.length > 0 ? (
+                    <Select value={sClassroom} onValueChange={setSClassroom}>
+                      <SelectTrigger id="s-classroom" className="border-slate-200">
+                        <SelectValue placeholder="Select a classroom" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classrooms.map((room) => (
+                          <SelectItem key={room.id} value={room.name}>
+                            {room.age_group
+                              ? `${room.name} · ${room.age_group}`
+                              : room.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <>
+                      <Input
+                        id="s-classroom"
+                        value={sClassroom}
+                        onChange={(e) => setSClassroom(e.target.value)}
+                        placeholder="e.g. Nurture Buds"
+                        className="border-slate-200"
+                      />
+                      <p className="text-xs text-slate-400">
+                        This becomes a classroom you can edit later.
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </div>

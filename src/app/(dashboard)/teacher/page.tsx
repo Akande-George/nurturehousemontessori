@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
-import { getSchoolStudents } from "@/lib/db/students";
+import { getTeacherStudents } from "@/lib/db/students";
 import {
   getSchoolObservations,
   getActivityFeed,
@@ -8,11 +8,15 @@ import {
 import { TeacherHomeClient } from "./TeacherHomeClient";
 
 export default async function TeacherDashboardPage() {
-  const { school } = await requireRole("teacher");
+  const { user, school } = await requireRole("teacher");
   const supabase = await createClient();
   if (!supabase || !school) return <TeacherHomeClient students={[]} recentObs={[]} obsCountByStudent={{}} postCountByStudent={{}} totalObs={0} totalPosts={0} schoolName="" />;
 
-  const students = await getSchoolStudents(supabase, school.id);
+  const students = await getTeacherStudents(supabase, {
+    teacherId: user.id,
+    schoolId: school.id,
+    schoolType: school.type,
+  });
   const [observations, feed] = await Promise.all([
     getSchoolObservations(supabase, school.id),
     getActivityFeed(supabase, students.map((s) => s.id), null),

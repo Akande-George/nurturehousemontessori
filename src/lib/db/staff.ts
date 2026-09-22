@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
+import { getSchoolTeacherClassrooms } from "./classrooms";
 
 // Admin-only staff directory. Uses the service-role client so it can read every
 // staff member's profile + auth sign-in status for the school.
@@ -14,6 +15,9 @@ export type StaffMember = {
   email: string;
   role: StaffRole;
   status: "active" | "invited";
+  // Montessori classrooms this teacher is assigned to (empty for admins and
+  // for teachers with no assignment yet).
+  classrooms: string[];
 };
 
 export async function getSchoolStaff(
@@ -35,7 +39,10 @@ export async function getSchoolStaff(
     .in("id", ids);
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
-  const { data: userList } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  const [{ data: userList }, classroomsByTeacher] = await Promise.all([
+    admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    getSchoolTeacherClassrooms(admin, schoolId),
+  ]);
   const signInMap = new Map(
     (userList?.users ?? []).map((u) => [u.id, u.last_sign_in_at ?? null]),
   );
@@ -49,6 +56,7 @@ export async function getSchoolStaff(
         email: p?.email ?? "",
         role: m.role as StaffRole,
         status: signInMap.get(m.user_id) ? ("active" as const) : ("invited" as const),
+        classrooms: classroomsByTeacher[m.user_id] ?? [],
       };
     })
     .sort((a, b) => {

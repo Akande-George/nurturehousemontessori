@@ -19,6 +19,8 @@ export async function inviteStaff(input: {
   email: string;
   name?: string;
   role: "admin" | "teacher";
+  // Montessori classrooms to assign up front (teachers only).
+  classrooms?: string[];
 }): Promise<Result> {
   const { school } = await requireRole("admin");
   if (!school) return { ok: false, error: "No school context." };
@@ -60,6 +62,18 @@ export async function inviteStaff(input: {
     );
   if (mErr) return { ok: false, error: mErr.message };
 
+  // A Montessori teacher can be in more than one classroom, so assignments are
+  // saved up front here rather than class-by-class later.
+  if (input.role === "teacher" && input.classrooms?.length) {
+    const saved = await replaceTeacherClassrooms(
+      admin,
+      school.id,
+      user.id,
+      input.classrooms,
+    );
+    if (!saved.ok) return saved;
+  }
+
   await admin.from("invitations").insert({
     school_id: school.id,
     email,
@@ -89,6 +103,93 @@ export async function removeStaff(userId: string): Promise<Result> {
     .eq("user_id", userId)
     .eq("school_id", school.id);
   if (error) return { ok: false, error: error.message };
+  revalidatePath("/dashboard/settings");
+  return { ok: true };
+}
+
+// Replace a teacher's classroom assignments with exactly `classrooms`. Names are
+// checked against the school's classrooms, so a stale or forged value is dropped
+// rather than written.
+async function replaceTeacherClassrooms(
+  admin: ReturnType<typeof createAdminClient>,
+  schoolId: string,
+  teacherId: string,
+  classrooms: string[],
+): Promise<Result> {
+  const { data: rooms } = await admin
+    .from("classrooms")
+    .select("name")
+    .eq("school_id", schoolId);
+  const known = new Set((rooms ?? []).map((r) => r.name));
+  const wanted = [...new Set(classrooms.map((c) => c.trim()))].filter((c) =>
+    known.has(c),
+  );
+
+  const { data: existing } = await admin
+    .from("teacher_classroom_assignments")
+    .select("id, classroom")
+    .eq("school_id", schoolId)
+    .eq("teacher_id", teacherId);
+  const current = existing ?? [];
+
+  const staleIds = current
+    .filter((r) => !wanted.includes(r.classroom))
+    .map((r) => r.id);
+  if (staleIds.length) {
+    const { error } = await admin
+      .from("teacher_classroom_assignments")
+      .delete()
+      .in("id", staleIds);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  const toAdd = wanted.filter(
+    (name) => !current.some((r) => r.classroom === name),
+  );
+  if (toAdd.length) {
+    const { error } = await admin.from("teacher_classroom_assignments").insert(
+      toAdd.map((classroom) => ({
+        school_id: schoolId,
+        teacher_id: teacherId,
+        classroom,
+      })),
+    );
+    if (error) return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
+}
+
+// Change which classrooms a teacher covers, from the staff list.
+export async function setTeacherClassrooms(
+  userId: string,
+  classrooms: string[],
+): Promise<Result> {
+  const { school } = await requireRole("admin");
+  if (!school) return { ok: false, error: "No school context." };
+
+  const admin = createAdminClient();
+  const { data: membership } = await admin
+    .from("memberships")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("school_id", school.id)
+    .maybeSingle();
+  if (!membership) {
+    return { ok: false, error: "That person is not on your staff." };
+  }
+  if (membership.role !== "teacher") {
+    return { ok: false, error: "Only teachers can be assigned to classrooms." };
+  }
+
+  const saved = await replaceTeacherClassrooms(
+    admin,
+    school.id,
+    userId,
+    classrooms,
+  );
+  if (!saved.ok) return saved;
+
   revalidatePath("/dashboard/settings");
   return { ok: true };
 }

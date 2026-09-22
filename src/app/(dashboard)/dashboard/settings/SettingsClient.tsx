@@ -15,14 +15,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import Link from "next/link";
 import {
   Building2,
   Bell,
+  Check,
   CheckCircle2,
   Clock,
   CreditCard,
   Loader2,
   Palette,
+  Pencil,
   Save,
   Trash2,
   UserPlus,
@@ -30,8 +33,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { updateSchoolBranding } from "@/lib/actions/schools";
-import { inviteStaff, removeStaff } from "@/lib/actions/staff";
-import { readTheme, type School } from "@/lib/db/types";
+import { inviteStaff, removeStaff, setTeacherClassrooms } from "@/lib/actions/staff";
+import { readTheme, type Classroom, type School } from "@/lib/db/types";
 import type { StaffMember } from "@/lib/db/staff";
 
 // "12 92 76" -> "#0c5c4c"
@@ -53,18 +56,79 @@ function hexToTriplet(hex: string): string {
   return `${(int >> 16) & 255} ${(int >> 8) & 255} ${int & 255}`;
 }
 
+// Multi-select over the school's classrooms: a Montessori teacher can cover
+// more than one room.
+function ClassroomPicker({
+  classrooms,
+  value,
+  onChange,
+}: {
+  classrooms: Classroom[];
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  if (classrooms.length === 0) {
+    return (
+      <p className="text-xs text-slate-400">
+        No classrooms yet.{" "}
+        <Link
+          href="/dashboard/classrooms"
+          className="text-montessori-primary hover:underline"
+        >
+          Add your classrooms
+        </Link>{" "}
+        first, then assign them.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {classrooms.map((classroom) => {
+        const on = value.includes(classroom.name);
+        return (
+          <button
+            key={classroom.id}
+            type="button"
+            aria-pressed={on}
+            title={classroom.age_group ?? undefined}
+            onClick={() =>
+              onChange(
+                on
+                  ? value.filter((n) => n !== classroom.name)
+                  : [...value, classroom.name],
+              )
+            }
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+              on
+                ? "border-montessori-primary bg-montessori-primary/10 text-montessori-primary"
+                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+            }`}
+          >
+            {on && <Check className="w-3.5 h-3.5" />}
+            {classroom.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function SettingsClient({
   school,
   staff,
   currentUserId,
+  classrooms,
 }: {
   school: School;
   staff: StaffMember[];
   currentUserId: string;
+  classrooms: Classroom[];
 }) {
   const { toast } = useToast();
   const [pending, start] = useTransition();
   const theme = readTheme(school.theme);
+  // Montessori schools organise staff by classroom; regular schools use classes.
+  const isMontessori = school.type === "montessori";
 
   // ---- Staff management ----
   const [staffPending, startStaff] = useTransition();
@@ -72,6 +136,10 @@ export function SettingsClient({
   const [staffEmail, setStaffEmail] = useState("");
   const [staffName, setStaffName] = useState("");
   const [staffRole, setStaffRole] = useState<"teacher" | "admin">("teacher");
+  const [staffClassrooms, setStaffClassrooms] = useState<string[]>([]);
+  // Editing the classrooms of a teacher who is already on staff.
+  const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
+  const [editClassrooms, setEditClassrooms] = useState<string[]>([]);
 
   const handleInviteStaff = () => {
     if (!staffEmail.trim()) return;
@@ -79,6 +147,7 @@ export function SettingsClient({
       email: staffEmail.trim(),
       name: staffName.trim() || undefined,
       role: staffRole,
+      classrooms: staffRole === "teacher" ? staffClassrooms : [],
     };
     startStaff(async () => {
       const res = await inviteStaff(payload);
@@ -89,8 +158,34 @@ export function SettingsClient({
       setStaffEmail("");
       setStaffName("");
       setStaffRole("teacher");
+      setStaffClassrooms([]);
       setIsStaffOpen(false);
-      toast({ title: "Staff invited", description: `${payload.email} now has access.` });
+      toast({
+        title: "Staff invited",
+        description:
+          payload.classrooms.length > 0
+            ? `${payload.email} now has access, covering ${payload.classrooms.join(", ")}.`
+            : `${payload.email} now has access.`,
+      });
+    });
+  };
+
+  const handleSaveClassrooms = () => {
+    if (!editingMember) return;
+    const member = editingMember;
+    startStaff(async () => {
+      const res = await setTeacherClassrooms(member.userId, editClassrooms);
+      if (!res.ok) {
+        toast({ title: "Could not save classrooms", description: res.error, variant: "destructive" });
+        return;
+      }
+      setEditingMember(null);
+      toast({
+        title: "Classrooms updated",
+        description: editClassrooms.length
+          ? `${member.name} now covers ${editClassrooms.join(", ")}.`
+          : `${member.name} is no longer assigned to any classroom.`,
+      });
     });
   };
 
@@ -330,6 +425,19 @@ export function SettingsClient({
                               )}
                             </p>
                             <p className="text-xs text-slate-500 truncate">{m.email}</p>
+                            {isMontessori && m.role === "teacher" && (
+                              <p className="text-xs truncate mt-1">
+                                {m.classrooms.length > 0 ? (
+                                  <span className="text-slate-500">
+                                    {m.classrooms.join(" · ")}
+                                  </span>
+                                ) : (
+                                  <span className="text-amber-600">
+                                    No classroom — sees every child
+                                  </span>
+                                )}
+                              </p>
+                            )}
                           </div>
                           <Badge
                             variant="secondary"
@@ -356,6 +464,19 @@ export function SettingsClient({
                             )}
                             {m.status === "active" ? "Active" : "Invited"}
                           </Badge>
+                          {isMontessori && m.role === "teacher" && (
+                            <button
+                              onClick={() => {
+                                setEditingMember(m);
+                                setEditClassrooms(m.classrooms);
+                              }}
+                              disabled={staffPending}
+                              aria-label={`Change classrooms for ${m.name}`}
+                              className="text-slate-400 hover:text-montessori-primary transition-colors p-1.5 rounded-md hover:bg-slate-100 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
                           {m.userId !== currentUserId && (
                             <button
                               onClick={() => handleRemoveStaff(m)}
@@ -459,6 +580,21 @@ export function SettingsClient({
                   : "Teachers can manage their own classes, students, and reports."}
               </p>
             </div>
+            {isMontessori && staffRole === "teacher" && (
+              <div className="space-y-2">
+                <Label>Classrooms</Label>
+                <p className="text-xs text-slate-400">
+                  Pick every room this teacher covers — they can have more than
+                  one. Leave it empty and they&apos;ll see every child in the
+                  school.
+                </p>
+                <ClassroomPicker
+                  classrooms={classrooms}
+                  value={staffClassrooms}
+                  onChange={setStaffClassrooms}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsStaffOpen(false)}>
@@ -471,6 +607,47 @@ export function SettingsClient({
             >
               {staffPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Send invite
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(editingMember)}
+        onOpenChange={(open) => !open && setEditingMember(null)}
+      >
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Classrooms</DialogTitle>
+            <DialogDescription>
+              Which rooms does {editingMember?.name} cover? They can have more
+              than one.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <ClassroomPicker
+              classrooms={classrooms}
+              value={editClassrooms}
+              onChange={setEditClassrooms}
+            />
+            {editClassrooms.length === 0 && classrooms.length > 0 && (
+              <p className="text-xs text-amber-600 mt-3">
+                With no classroom assigned, {editingMember?.name} sees every
+                child in the school.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingMember(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveClassrooms}
+              disabled={staffPending}
+              className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+            >
+              {staffPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save classrooms
             </Button>
           </DialogFooter>
         </DialogContent>

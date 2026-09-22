@@ -79,7 +79,17 @@ export async function createStudent(input: {
   if (school.type === "regular") {
     if (input.classId) row.class_id = input.classId;
   } else if (input.classroom?.trim()) {
-    row.classroom = input.classroom.trim();
+    const classroom = input.classroom.trim();
+    row.classroom = classroom;
+    // Keep the classroom list in step: a room typed in here (only possible
+    // before the school has any) becomes a real, editable classroom.
+    const { error: roomErr } = await supabase
+      .from("classrooms")
+      .upsert(
+        { school_id: school.id, name: classroom },
+        { onConflict: "school_id,name", ignoreDuplicates: true },
+      );
+    if (!roomErr) revalidatePath("/dashboard/classrooms");
   }
 
   const { data: student, error } = await supabase

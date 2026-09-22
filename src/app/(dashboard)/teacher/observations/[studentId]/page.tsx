@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
-import { getStudentById, getSchoolStudents } from "@/lib/db/students";
+import { getStudentById, getTeacherStudents } from "@/lib/db/students";
 import { getStudentObservations } from "@/lib/db/montessori";
 import { StudentObservationClient } from "./StudentObservationClient";
 
@@ -11,7 +11,7 @@ export default async function StudentObservationPage({
 }: {
   params: Promise<{ studentId: string }>;
 }) {
-  const { school } = await requireRole("teacher");
+  const { user, school } = await requireRole("teacher");
   const { studentId } = await params;
   const supabase = await createClient();
 
@@ -32,7 +32,11 @@ export default async function StudentObservationPage({
   }
 
   const [teacherStudents, observations] = await Promise.all([
-    getSchoolStudents(supabase, school.id),
+    getTeacherStudents(supabase, {
+      teacherId: user.id,
+      schoolId: school.id,
+      schoolType: school.type,
+    }),
     getStudentObservations(supabase, student.id),
   ]);
 

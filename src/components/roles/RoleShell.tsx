@@ -12,6 +12,7 @@ import {
   CalendarClock,
   ClipboardList,
   CreditCard,
+  DoorOpen,
   FileText,
   FolderOpen,
   GraduationCap,
@@ -79,6 +80,11 @@ const montessoriAdminNav: NavSection[] = [
   {
     label: "Classrooms",
     items: [
+      {
+        href: "/dashboard/classrooms",
+        label: "Classrooms",
+        icon: DoorOpen,
+      },
       {
         href: "/dashboard/assignments",
         label: "Class Assignments",

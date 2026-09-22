@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
-import { getSchoolStudents } from "@/lib/db/students";
+import { getTeacherStudents } from "@/lib/db/students";
 import {
   getSchoolDailyReports,
   getActivityFeed,
@@ -13,7 +13,7 @@ import { buildProgressMap, type ProgressMap } from "@/lib/curriculum/progress-ut
 import { ChildReportClient, type ReportPost } from "./ChildReportClient";
 
 export default async function TeacherChildReportPage() {
-  const { school } = await requireRole("teacher");
+  const { user, school } = await requireRole("teacher");
   const supabase = await createClient();
   if (!supabase || !school) {
     return (
@@ -27,7 +27,11 @@ export default async function TeacherChildReportPage() {
     );
   }
 
-  const students = await getSchoolStudents(supabase, school.id);
+  const students = await getTeacherStudents(supabase, {
+    teacherId: user.id,
+    schoolId: school.id,
+    schoolType: school.type,
+  });
   const ids = students.map((s) => s.id);
 
   const [progressRows, academicRows, dailyReports, feed] = await Promise.all([

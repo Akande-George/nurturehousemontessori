@@ -18,6 +18,7 @@ export type School = Tables["schools"]["Row"];
 export type Membership = Tables["memberships"]["Row"];
 export type Student = Tables["students"]["Row"];
 export type SchoolClass = Tables["classes"]["Row"];
+export type Classroom = Tables["classrooms"]["Row"];
 export type Subject = Tables["subjects"]["Row"];
 export type AssessmentScore = Tables["assessment_scores"]["Row"];
 export type ReportCard = Tables["report_cards"]["Row"];

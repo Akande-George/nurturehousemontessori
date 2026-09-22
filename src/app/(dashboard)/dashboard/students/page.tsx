@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
 import { getClasses } from "@/lib/db/classes";
+import { getClassrooms } from "@/lib/db/classrooms";
 import { getSchoolStudents } from "@/lib/db/students";
 import { StudentsClient } from "./StudentsClient";
 
@@ -9,9 +10,10 @@ export default async function StudentsPage() {
   const supabase = await createClient();
   if (!supabase || !school) return null;
 
-  const [students, classes] = await Promise.all([
+  const [students, classes, classrooms] = await Promise.all([
     getSchoolStudents(supabase, school.id),
     getClasses(supabase, school.id),
+    getClassrooms(supabase, school.id),
   ]);
 
   const classNames: Record<string, string> = {};
@@ -23,6 +25,7 @@ export default async function StudentsPage() {
       classes={classes}
       classNames={classNames}
       schoolType={school.type}
+      classrooms={classrooms}
     />
   );
 }

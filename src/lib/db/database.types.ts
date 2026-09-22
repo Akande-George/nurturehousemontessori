@@ -560,6 +560,41 @@ export type Database = {
           },
         ]
       }
+      classrooms: {
+        Row: {
+          age_group: string | null
+          created_at: string
+          id: string
+          name: string
+          school_id: string
+          sort_order: number
+        }
+        Insert: {
+          age_group?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          school_id: string
+          sort_order?: number
+        }
+        Update: {
+          age_group?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          school_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classrooms_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       curriculum_practices: {
         Row: {
           curriculum_progress_id: string
