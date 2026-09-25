@@ -14,8 +14,8 @@ import { getLeafById } from "@/lib/curriculum/curriculum";
 import type { AttendanceStatus } from "@/lib/db/types";
 import { groupIntoNonEmptyAreas, selectLessonsInWindow } from "./lessons";
 import type { LessonProgressRow } from "./lessons";
+import { ageGroupLabel } from "./age-bands";
 import {
-  AGE_GROUP_LABELS,
   CARE_LABELS,
   CARE_TYPES,
   parseTemperature,
@@ -169,9 +169,7 @@ export function buildDailySnapshot(input: DailySnapshotInput): DailySnapshot {
       avatarColor: input.student.avatar_color,
       age: ageAt(input.student.date_of_birth, reportDate),
       classroom: input.student.classroom,
-      ageGroupLabel: input.student.age_group
-        ? AGE_GROUP_LABELS[input.student.age_group] ?? input.student.age_group
-        : "",
+      ageGroupLabel: ageGroupLabel(input.student.age_group) ?? "",
       teacherName: input.teacherName,
       reportDate,
       parentNames: input.parentNames,

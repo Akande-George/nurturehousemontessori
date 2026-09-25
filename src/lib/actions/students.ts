@@ -5,6 +5,7 @@ import { createClient } from "@/supabase/server";
 import { createAdminClient } from "@/supabase/admin";
 import { getActiveContext, requireRole } from "@/lib/auth/context";
 import { linkParentToStudent } from "@/lib/server/link-parent";
+import { isAgeBand, type AgeGroup } from "@/lib/montessori/age-bands";
 
 type Result = { ok: boolean; error?: string };
 
@@ -55,7 +56,6 @@ export async function updateChildParameters(input: ParamsInput): Promise<Result>
   revalidatePath(`/dashboard/students/${input.studentId}`);
   return { ok: true };
 }
-type AgeGroup = "infant_0_2" | "primary_3_6" | "lower_7_9";
 
 // Add a student directly (the admin-typed path, alongside enrolment acceptance).
 // Optionally links a parent — creating their portal account + invite in one go.
@@ -73,6 +73,12 @@ export async function createStudent(input: {
 
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Enter the student's name." };
+
+  // Only the five current bands are accepted for new students; the retired
+  // 0–2 band exists solely on older records.
+  if (input.ageGroup && !isAgeBand(input.ageGroup)) {
+    return { ok: false, error: "Choose one of the five age bands." };
+  }
 
   const row: Record<string, unknown> = { school_id: school.id, name };
   if (input.ageGroup) row.age_group = input.ageGroup;
@@ -120,6 +126,46 @@ export async function createStudent(input: {
   }
 
   revalidatePath("/dashboard/students");
+  return { ok: true };
+}
+
+// Move a Montessori child to another classroom, or take them out of one
+// (classroom = null). The room must be one the school maintains, so a child
+// can never land in a room the Classrooms screen doesn't show.
+export async function moveStudentToClassroom(
+  studentId: string,
+  classroom: string | null,
+): Promise<Result> {
+  const ctx = await getActiveContext();
+  const supabase = await createClient();
+  if (!ctx || ctx.role !== "admin" || !ctx.school || !supabase) {
+    return { ok: false, error: "Not authorized" };
+  }
+  const schoolId = ctx.school.id;
+
+  const name = classroom?.trim() || null;
+  if (name) {
+    const { data: room } = await supabase
+      .from("classrooms")
+      .select("id")
+      .eq("school_id", schoolId)
+      .eq("name", name)
+      .maybeSingle();
+    if (!room) return { ok: false, error: `There is no classroom called "${name}".` };
+  }
+
+  const { data, error } = await supabase
+    .from("students")
+    .update({ classroom: name })
+    .eq("id", studentId)
+    .eq("school_id", schoolId)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Student not found." };
+
+  revalidatePath("/dashboard/students");
+  revalidatePath(`/dashboard/students/${studentId}`);
+  revalidatePath("/dashboard/classrooms");
   return { ok: true };
 }
 

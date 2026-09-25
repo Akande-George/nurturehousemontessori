@@ -16,15 +16,10 @@ import { useToast } from "@/hooks/use-toast";
 import { updateDailyReportStatus } from "@/lib/actions/montessori";
 import type { DailyReport } from "@/lib/db/montessori";
 import type { Enums } from "@/lib/db/types";
+import { AGE_GROUP_LABELS } from "@/lib/montessori/age-bands";
 
-type AgeGroup = Enums["age_group"];
 type ReportStatus = Enums["daily_report_status"];
 
-const AGE_GROUP_LABELS: Record<AgeGroup, string> = {
-  infant_0_2: "Infant Community",
-  primary_3_6: "Children's House",
-  lower_7_9: "7–9 Years",
-};
 
 const statusTone: Record<ReportStatus, string> = {
   draft: "bg-amber-100 text-amber-700",

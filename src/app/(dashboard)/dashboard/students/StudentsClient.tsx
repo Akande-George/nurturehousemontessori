@@ -2,7 +2,14 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Search, Plus, AlertTriangle, UserPlus, Loader2 } from "lucide-react";
+import {
+  Search,
+  Plus,
+  AlertTriangle,
+  UserPlus,
+  Loader2,
+  ArrowRightLeft,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,13 +32,16 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { createStudent } from "@/lib/actions/students";
 import type { Classroom, SchoolClass, SchoolType, Student } from "@/lib/db/types";
+import {
+  AGE_BANDS,
+  ageGroupLabel,
+  type AgeGroup,
+} from "@/lib/montessori/age-bands";
+import { MoveClassroomDialog } from "./MoveClassroomDialog";
 
-type AgeGroup = "infant_0_2" | "primary_3_6" | "lower_7_9";
-const AGE_GROUPS: { value: AgeGroup; label: string }[] = [
-  { value: "infant_0_2", label: "Infant (0–2)" },
-  { value: "primary_3_6", label: "Primary (3–6)" },
-  { value: "lower_7_9", label: "Lower Elementary (7–9)" },
-];
+
+// Sidebar key for Montessori children not yet placed in a room.
+const UNASSIGNED_ROOM = "__unassigned__";
 
 export function StudentsClient({
   students,
@@ -53,6 +63,7 @@ export function StudentsClient({
   const [logType, setLogType] = useState("Observation");
   const [activeClass, setActiveClass] = useState("All");
   const [query, setQuery] = useState("");
+  const [moving, setMoving] = useState<Student | null>(null);
 
   // ---- Add Student ----
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -106,14 +117,38 @@ export function StudentsClient({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return students.filter((s) => {
-      const matchesClass = activeClass === "All" || s.class_id === activeClass;
+      const matchesClass =
+        activeClass === "All" ||
+        (isRegular
+          ? s.class_id === activeClass
+          : activeClass === UNASSIGNED_ROOM
+            ? !s.classroom
+            : s.classroom === activeClass);
       const matchesQuery = !q || s.name.toLowerCase().includes(q);
       return matchesClass && matchesQuery;
     });
-  }, [students, activeClass, query]);
+  }, [students, activeClass, query, isRegular]);
 
-  const countFor = (classId: string) =>
-    students.filter((s) => s.class_id === classId).length;
+  // Sidebar filters: regular schools list their classes, Montessori schools
+  // their rooms (plus any children not yet placed in one).
+  const filters = useMemo(() => {
+    if (isRegular) {
+      return classes.map((cls) => ({
+        key: cls.id,
+        label: cls.name,
+        count: students.filter((s) => s.class_id === cls.id).length,
+      }));
+    }
+    const rooms = classrooms.map((room) => ({
+      key: room.name,
+      label: room.name,
+      count: students.filter((s) => s.classroom === room.name).length,
+    }));
+    const unplaced = students.filter((s) => !s.classroom).length;
+    return unplaced
+      ? [...rooms, { key: UNASSIGNED_ROOM, label: "No classroom", count: unplaced }]
+      : rooms;
+  }, [isRegular, classes, classrooms, students]);
 
   return (
     <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -175,18 +210,18 @@ export function StudentsClient({
                 >
                   All Students ({students.length})
                 </Button>
-                {classes.map((cls) => (
+                {filters.map((f) => (
                   <Button
-                    key={cls.id}
+                    key={f.key}
                     variant="ghost"
-                    onClick={() => setActiveClass(cls.id)}
+                    onClick={() => setActiveClass(f.key)}
                     className={`w-full justify-start font-medium ${
-                      activeClass === cls.id
+                      activeClass === f.key
                         ? "text-montessori-primary bg-montessori-primary/5 hover:bg-montessori-primary/10 hover:text-montessori-primary"
                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                     }`}
                   >
-                    {cls.name} ({countFor(cls.id)})
+                    {f.label} ({f.count})
                   </Button>
                 ))}
               </div>
@@ -211,64 +246,76 @@ export function StudentsClient({
                   student.allergies.length > 0 ||
                   (student.medical_notes ?? "").trim().length > 0;
                 return (
-                  <Link
-                    href={`/dashboard/students/${student.id}`}
-                    key={student.id}
-                    className="block"
-                  >
-                    <Card className="border-slate-100 shadow-sm hover-lift transition-all group cursor-pointer flex flex-col h-full">
-                      <CardContent className="p-5 flex flex-col h-full">
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`w-10 h-10 rounded-full ${student.avatar_color} text-white flex items-center justify-center font-medium shrink-0`}
-                            >
-                              {student.name.charAt(0)}
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-slate-900 text-sm group-hover:text-montessori-primary transition-colors">
-                                {student.name}
-                              </h3>
-                              <p className="text-xs text-slate-500">
-                                {className}
-                                {student.age_group
-                                  ? ` • ${student.age_group}`
-                                  : ""}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-auto space-y-3">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-slate-500">Allergies</span>
-                            {student.allergies.length > 0 ? (
-                              <Badge
-                                variant="secondary"
-                                className="bg-amber-100 text-amber-700 font-medium border-none gap-1"
+                  <div key={student.id} className="relative">
+                    <Link
+                      href={`/dashboard/students/${student.id}`}
+                      className="block h-full"
+                    >
+                      <Card className="border-slate-100 shadow-sm hover-lift transition-all group cursor-pointer flex flex-col h-full">
+                        <CardContent className="p-5 flex flex-col h-full">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`w-10 h-10 rounded-full ${student.avatar_color} text-white flex items-center justify-center font-medium shrink-0`}
                               >
-                                <AlertTriangle className="w-3 h-3" />
-                                {student.allergies.length}
-                              </Badge>
-                            ) : (
+                                {student.name.charAt(0)}
+                              </div>
+                              <div>
+                                <h3 className="font-medium text-slate-900 text-sm group-hover:text-montessori-primary transition-colors">
+                                  {student.name}
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                  {className}
+                                  {student.age_group
+                                    ? ` • ${ageGroupLabel(student.age_group)}`
+                                    : ""}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-auto space-y-3">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-slate-500">Allergies</span>
+                              {student.allergies.length > 0 ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-amber-100 text-amber-700 font-medium border-none gap-1"
+                                >
+                                  <AlertTriangle className="w-3 h-3" />
+                                  {student.allergies.length}
+                                </Badge>
+                              ) : (
+                                <span className="font-medium text-slate-700">
+                                  None
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-slate-500">Medical note</span>
                               <span className="font-medium text-slate-700">
-                                None
+                                {hasAlerts &&
+                                (student.medical_notes ?? "").trim().length > 0
+                                  ? "On file"
+                                  : "—"}
                               </span>
-                            )}
+                            </div>
                           </div>
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-slate-500">Medical note</span>
-                            <span className="font-medium text-slate-700">
-                              {hasAlerts &&
-                              (student.medical_notes ?? "").trim().length > 0
-                                ? "On file"
-                                : "—"}
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                    {!isRegular && (
+                      <button
+                        type="button"
+                        onClick={() => setMoving(student)}
+                        aria-label={`Move ${student.name} to another classroom`}
+                        title="Move to another classroom"
+                        className="absolute top-4 right-4 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:text-montessori-primary hover:bg-slate-100 transition-colors"
+                      >
+                        <ArrowRightLeft className="w-3.5 h-3.5" /> Move
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -358,6 +405,12 @@ export function StudentsClient({
         </DialogContent>
       </Dialog>
 
+      <MoveClassroomDialog
+        student={moving}
+        classrooms={classrooms}
+        onClose={() => setMoving(null)}
+      />
+
       {/* Add Student */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent className="sm:max-w-[480px]">
@@ -390,7 +443,7 @@ export function StudentsClient({
                     <SelectValue placeholder="Select age group" />
                   </SelectTrigger>
                   <SelectContent>
-                    {AGE_GROUPS.map((a) => (
+                    {AGE_BANDS.map((a) => (
                       <SelectItem key={a.value} value={a.value}>
                         {a.label}
                       </SelectItem>

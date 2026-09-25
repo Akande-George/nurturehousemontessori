@@ -19,8 +19,11 @@ import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
 import { getStudentById, getStudentMedications } from "@/lib/db/students";
 import { getClassById } from "@/lib/db/classes";
+import { getClassrooms } from "@/lib/db/classrooms";
+import { ageGroupLabel } from "@/lib/montessori/age-bands";
 import { MedicationsCard } from "./MedicationsCard";
 import { EditParametersButton } from "./EditParametersButton";
+import { MoveClassroomButton } from "../MoveClassroomDialog";
 
 type EmergencyContact = {
   name?: string;
@@ -76,9 +79,11 @@ export default async function StudentProfilePage({
     );
   }
 
-  const [cls, medications] = await Promise.all([
+  const isMontessori = school.type !== "regular";
+  const [cls, medications, classrooms] = await Promise.all([
     student.class_id ? getClassById(supabase, student.class_id) : null,
     getStudentMedications(supabase, student.id),
+    isMontessori ? getClassrooms(supabase, school.id) : [],
   ]);
 
   const emergency = readEmergencyContact(student.emergency_contact);
@@ -105,10 +110,20 @@ export default async function StudentProfilePage({
           <h1 className="text-2xl font-serif text-slate-900">{student.name}</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             {cls?.name ?? student.classroom ?? "Unassigned"}
-            {student.age_group ? ` · ${student.age_group}` : ""}
+            {student.age_group ? ` · ${ageGroupLabel(student.age_group)}` : ""}
           </p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-wrap justify-end gap-2">
+          {isMontessori && (
+            <MoveClassroomButton
+              student={{
+                id: student.id,
+                name: student.name,
+                classroom: student.classroom,
+              }}
+              classrooms={classrooms}
+            />
+          )}
           <EditParametersButton
             studentId={student.id}
             studentName={student.name}
@@ -123,10 +138,10 @@ export default async function StudentProfilePage({
         <Card className="border-slate-100 shadow-sm">
           <CardContent className="p-5">
             <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400 mb-1">
-              Class
+              {isMontessori ? "Classroom" : "Class"}
             </p>
             <p className="text-base font-medium text-slate-900">
-              {cls?.name ?? "—"}
+              {(isMontessori ? student.classroom : cls?.name) ?? "—"}
             </p>
           </CardContent>
         </Card>

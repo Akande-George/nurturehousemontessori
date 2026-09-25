@@ -26,6 +26,7 @@ import {
   type ProgressMap,
 } from "@/lib/curriculum/progress-utils";
 import type { Student } from "@/lib/db/types";
+import { ageGroupLabel } from "@/lib/montessori/age-bands";
 import type { DailyReport, Progress } from "@/lib/db/montessori";
 
 export type ReportPost = {
@@ -39,11 +40,6 @@ export type ReportPost = {
 type AcademicArea = { name?: string; level?: string; score?: number; trend?: string };
 type Recommendation = { title?: string; description?: string };
 
-const AGE_GROUP_LABEL: Record<string, string> = {
-  infant_0_2: "0–3 years",
-  primary_3_6: "3–6 years",
-  lower_7_9: "6–9 years",
-};
 
 function ordinal(n: number): string {
   const s = ["th", "st", "nd", "rd"];
@@ -153,7 +149,7 @@ export function ChildReportClient({
                 <ProfileField label="Classroom" value={selectedChild.classroom ?? "—"} />
                 <ProfileField
                   label="Age Group"
-                  value={selectedChild.age_group ? AGE_GROUP_LABEL[selectedChild.age_group] ?? selectedChild.age_group : "—"}
+                  value={ageGroupLabel(selectedChild.age_group) ?? "—"}
                 />
                 <ProfileField
                   label="Enrolled"
@@ -417,7 +413,7 @@ export function ChildReportClient({
                           })}
                         </span>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          {AGE_GROUP_LABEL[report.age_group] ?? report.age_group}
+                          {ageGroupLabel(report.age_group)}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

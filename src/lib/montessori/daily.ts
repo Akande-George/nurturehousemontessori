@@ -346,12 +346,6 @@ export function defaultDailyNarrative(snapshot: DailySnapshot): DailyNarrative {
 // Formatting
 // ---------------------------------------------------------------------------
 
-export const AGE_GROUP_LABELS: Record<string, string> = {
-  infant_0_2: "0–3 years",
-  primary_3_6: "3–6 years",
-  lower_7_9: "6–9 years",
-};
-
 /** "2026-03-10" -> "Tuesday, 10 March 2026". */
 export function formatLongDate(iso: string): string {
   const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);

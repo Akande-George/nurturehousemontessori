@@ -154,7 +154,7 @@ export function ClassroomsClient({
                 return (
                   <li
                     key={classroom.id}
-                    className="flex items-center gap-4 p-4 group"
+                    className="flex items-center gap-4 p-4"
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-montessori-primary/10 text-montessori-primary">
                       <DoorOpen className="w-5 h-5" />
@@ -176,15 +176,16 @@ export function ClassroomsClient({
                     </Badge>
                     <button
                       onClick={() => openEdit(classroom)}
-                      aria-label={`Edit ${classroom.name}`}
-                      className="text-slate-400 hover:text-montessori-primary transition-colors p-1.5 rounded-md hover:bg-slate-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
+                      aria-label={`Rename or edit ${classroom.name}`}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-montessori-primary transition-colors px-2 py-1.5 rounded-md hover:bg-slate-100"
                     >
-                      <Pencil className="w-4 h-4" />
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Edit</span>
                     </button>
                     <button
                       onClick={() => setRemoving(classroom)}
                       aria-label={`Remove ${classroom.name}`}
-                      className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
+                      className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -200,11 +201,11 @@ export function ClassroomsClient({
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
             <DialogTitle>
-              {editing ? "Edit classroom" : "Add a classroom"}
+              {editing ? `Edit ${editing.name}` : "Add a classroom"}
             </DialogTitle>
             <DialogDescription>
               {editing
-                ? "Renaming a classroom moves its children and teacher assignments with it."
+                ? "Change the room's name or age-group label. Its children and teachers stay with it."
                 : "Give the room a name, and the age group it covers."}
             </DialogDescription>
           </DialogHeader>

@@ -1989,7 +1989,13 @@ export type Database = {
       teacher_remark_for: { Args: { p: number }; Returns: string }
     }
     Enums: {
-      age_group: "infant_0_2" | "primary_3_6" | "lower_7_9"
+      age_group:
+        | "nido_0_1_5"
+        | "infant_0_2"
+        | "toddler_1_5_3"
+        | "primary_3_6"
+        | "lower_7_9"
+        | "upper_9_12"
       application_status: "submitted" | "accepted" | "rejected"
       attendance_status: "present" | "absent" | "late" | "excused"
       conference_report_status: "draft" | "published"
@@ -2136,7 +2142,14 @@ export const Constants = {
   },
   public: {
     Enums: {
-      age_group: ["infant_0_2", "primary_3_6", "lower_7_9"],
+      age_group: [
+        "nido_0_1_5",
+        "infant_0_2",
+        "toddler_1_5_3",
+        "primary_3_6",
+        "lower_7_9",
+        "upper_9_12",
+      ],
       application_status: ["submitted", "accepted", "rejected"],
       attendance_status: ["present", "absent", "late", "excused"],
       curriculum_status: [
