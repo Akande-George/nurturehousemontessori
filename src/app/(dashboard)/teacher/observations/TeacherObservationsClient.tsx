@@ -5,7 +5,8 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Clock, GraduationCap, Search } from "lucide-react";
+import { BookOpen, Clock, GraduationCap, Search, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { Student } from "@/lib/db/types";
 import type { ObservationWithLeaf } from "@/lib/db/montessori";
 
@@ -57,6 +58,16 @@ export function TeacherObservationsClient({
             {totalObs} total observations across {students.length} students.
           </p>
         </div>
+        {students.length > 0 && (
+          <Button
+            asChild
+            className="bg-montessori-primary text-white hover:bg-montessori-primary/90 shadow-sm gap-2"
+          >
+            <Link href="/teacher/observations/bulk">
+              <Users className="w-4 h-4" /> Bulk observation
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/supabase/server";
 import { getActiveContext } from "@/lib/auth/context";
 import { getStudentParentEmails } from "@/lib/db/people";
+import { getTeacherStudents } from "@/lib/db/students";
 import { sendFeverAlert } from "@/lib/email/notifications";
 import { FEVER_THRESHOLD_C } from "@/lib/montessori/daily";
 import type { CurriculumStatus } from "@/lib/db/types";
@@ -38,6 +39,52 @@ export async function createObservation(input: {
   if (error) return { ok: false, error: error.message };
   revalidatePath("/teacher/observations");
   return { ok: true };
+}
+
+// One observation logged against several children at once (a group
+// presentation, a shared activity). Each child gets their own row, so it shows
+// in every journal exactly as a single observation would. A teacher can only
+// log for children assigned to them — the same rule as the journal pages.
+export async function createBulkObservations(input: {
+  studentIds: string[];
+  leafId: string;
+  content: string;
+}): Promise<Result & { count?: number }> {
+  const { ctx, supabase } = await ctxClient();
+  if (!ctx?.school || !supabase || ctx.role !== "teacher") {
+    return { ok: false, error: "Not authorized" };
+  }
+  const schoolId = ctx.school.id;
+  const content = input.content.trim();
+  if (!content) return { ok: false, error: "Add a note before saving." };
+  if (!input.leafId) return { ok: false, error: "Choose a curriculum activity." };
+
+  const studentIds = [...new Set(input.studentIds)];
+  if (studentIds.length === 0) return { ok: false, error: "Select at least one child." };
+
+  const assigned = await getTeacherStudents(supabase, {
+    teacherId: ctx.user.id,
+    schoolId,
+    schoolType: ctx.school.type,
+  });
+  const allowed = new Set(assigned.map((s) => s.id));
+  if (studentIds.some((id) => !allowed.has(id))) {
+    return { ok: false, error: "Some of these children aren't in your classrooms." };
+  }
+
+  const { error } = await supabase.from("observations").insert(
+    studentIds.map((studentId) => ({
+      school_id: schoolId,
+      student_id: studentId,
+      teacher_id: ctx.user.id,
+      leaf_id: input.leafId,
+      content,
+    })),
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/teacher/observations", "layout");
+  return { ok: true, count: studentIds.length };
 }
 
 async function upsertProgress(
