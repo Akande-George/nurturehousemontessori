@@ -252,15 +252,18 @@ export function StudentsClient({
                     >
                       <Card className="border-slate-100 shadow-sm hover-lift transition-all group cursor-pointer flex flex-col h-full">
                         <CardContent className="p-5 flex flex-col h-full">
-                          <div className="flex justify-between items-start mb-4">
-                            <div className="flex items-center gap-3">
+                          {/* Montessori cards leave room on the right for the Move button. */}
+                          <div
+                            className={`flex justify-between items-start mb-4 ${isRegular ? "" : "pr-16"}`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
                               <div
                                 className={`w-10 h-10 rounded-full ${student.avatar_color} text-white flex items-center justify-center font-medium shrink-0`}
                               >
                                 {student.name.charAt(0)}
                               </div>
-                              <div>
-                                <h3 className="font-medium text-slate-900 text-sm group-hover:text-montessori-primary transition-colors">
+                              <div className="min-w-0">
+                                <h3 className="font-medium text-slate-900 text-sm group-hover:text-montessori-primary transition-colors break-words">
                                   {student.name}
                                 </h3>
                                 <p className="text-xs text-slate-500">
