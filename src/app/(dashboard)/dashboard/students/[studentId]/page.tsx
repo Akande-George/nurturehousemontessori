@@ -20,7 +20,6 @@ import { createClient } from "@/supabase/server";
 import { getStudentById, getStudentMedications } from "@/lib/db/students";
 import { getClassById } from "@/lib/db/classes";
 import { getClassrooms } from "@/lib/db/classrooms";
-import { ageGroupLabel } from "@/lib/montessori/age-bands";
 import { MedicationsCard } from "./MedicationsCard";
 import { EditParametersButton } from "./EditParametersButton";
 import { MoveClassroomButton } from "../MoveClassroomDialog";
@@ -110,7 +109,6 @@ export default async function StudentProfilePage({
           <h1 className="text-2xl font-serif text-slate-900">{student.name}</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             {cls?.name ?? student.classroom ?? "Unassigned"}
-            {student.age_group ? ` · ${ageGroupLabel(student.age_group)}` : ""}
           </p>
         </div>
         <div className="ml-auto flex flex-wrap justify-end gap-2">

@@ -34,7 +34,6 @@ import { createStudent } from "@/lib/actions/students";
 import type { Classroom, SchoolClass, SchoolType, Student } from "@/lib/db/types";
 import {
   AGE_BANDS,
-  ageGroupLabel,
   type AgeGroup,
 } from "@/lib/montessori/age-bands";
 import { MoveClassroomDialog } from "./MoveClassroomDialog";
@@ -266,9 +265,6 @@ export function StudentsClient({
                                 </h3>
                                 <p className="text-xs text-slate-500">
                                   {className}
-                                  {student.age_group
-                                    ? ` • ${ageGroupLabel(student.age_group)}`
-                                    : ""}
                                 </p>
                               </div>
                             </div>
