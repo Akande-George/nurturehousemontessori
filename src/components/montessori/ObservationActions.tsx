@@ -133,7 +133,9 @@ function EditObservationForm({
       <div className="space-y-4 py-2">
         <CurriculumLeafFields picker={picker} />
         <div>
-          <label className="text-sm font-medium text-slate-700 block mb-2">Observation</label>
+          <label className="text-sm font-medium text-slate-700 block mb-2">
+              Observation <span className="font-normal text-slate-400">(optional)</span>
+            </label>
           <Textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -147,7 +149,7 @@ function EditObservationForm({
         </Button>
         <Button
           onClick={handleSave}
-          disabled={pending || !content.trim() || !picker.leafId}
+          disabled={pending || !picker.leafId}
           className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
         >
           {pending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

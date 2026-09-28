@@ -407,6 +407,16 @@ export function academicYearWindow(academicYear: string): {
   return { from: `${year}-01-01`, to: `${year}-12-31` };
 }
 
+/**
+ * The academic year a date falls in, as "2026-2027": September starts a new
+ * year. Matches academicYearWindow, so a report defaulted to it counts the
+ * attendance recorded this year.
+ */
+export function academicYearFor(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  return date.getMonth() >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
 /** "2016-10-01" -> "10/1/2016", matching the report's marking-period line. */
 export function formatReportDate(iso: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);

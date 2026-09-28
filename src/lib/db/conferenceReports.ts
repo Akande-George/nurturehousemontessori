@@ -101,7 +101,13 @@ export async function collectConferenceInputs(
     periodEnd: string;
   },
 ): Promise<SnapshotInput> {
-  const year = academicYearWindow(args.academicYear);
+  // Year to date: from the start of the academic year up to the end of this
+  // marking period (never past it), and never starting after the period does.
+  const window = academicYearWindow(args.academicYear);
+  const year = {
+    from: window.from < args.periodStart ? window.from : args.periodStart,
+    to: window.to < args.periodEnd ? window.to : args.periodEnd,
+  };
 
   const [progressRows, observations, posts, parents, periodRows, yearRows] =
     await Promise.all([

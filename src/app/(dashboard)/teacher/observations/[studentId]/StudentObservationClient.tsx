@@ -49,10 +49,6 @@ export function StudentObservationClient({
   const [content, setContent] = useState("");
 
   const handleSubmit = () => {
-    if (!content.trim()) {
-      toast({ title: "Observation is empty", description: "Add a note before saving." });
-      return;
-    }
     if (leafIds.length === 0) {
       toast({ title: "Select a curriculum activity", description: "Choose an area, activity and at least one variation before saving." });
       return;
@@ -114,7 +110,9 @@ export function StudentObservationClient({
         <CardContent className="space-y-4">
           <CurriculumLeafFields picker={picker} />
           <div>
-            <label className="text-sm font-medium text-slate-700 block mb-2">Observation</label>
+            <label className="text-sm font-medium text-slate-700 block mb-2">
+              Observation <span className="font-normal text-slate-400">(optional)</span>
+            </label>
             <Textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -125,7 +123,7 @@ export function StudentObservationClient({
           <div className="flex justify-end">
             <Button
               onClick={handleSubmit}
-              disabled={!content.trim() || leafIds.length === 0 || pending}
+              disabled={leafIds.length === 0 || pending}
               className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
             >
               {pending ? "Saving…" : "Save Observation"}

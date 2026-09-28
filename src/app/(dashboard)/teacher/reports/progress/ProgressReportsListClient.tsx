@@ -39,10 +39,10 @@ import {
   DEFAULT_SECTIONS,
   SECTION_LABELS,
   TERM_LABELS,
+  academicYearFor,
   formatReportDate,
   type ConferenceSections,
 } from "@/lib/montessori/conference";
-import { CURRENT_ACADEMIC_YEAR } from "@/lib/db/types";
 import type { ConferenceReportStatus, Term } from "@/lib/db/types";
 
 type ReportLite = {
@@ -87,7 +87,7 @@ export function ProgressReportsListClient({
 
   const [studentId, setStudentId] = useState(students[0]?.id ?? "");
   const [term, setTerm] = useState<Term>("first");
-  const [academicYear, setAcademicYear] = useState(CURRENT_ACADEMIC_YEAR);
+  const [academicYear, setAcademicYear] = useState(() => academicYearFor());
   const [periodStart, setPeriodStart] = useState(defaultStart);
   const [periodEnd, setPeriodEnd] = useState(today);
   const [sections, setSections] = useState<ConferenceSections>(DEFAULT_SECTIONS);

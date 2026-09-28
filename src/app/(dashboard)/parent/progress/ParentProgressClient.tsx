@@ -229,7 +229,7 @@ export function ParentProgressClient({
                                           <span className="text-slate-500 font-normal">{" · "}{obs.leafName}</span>
                                         )}
                                       </span>{" "}
-                                      <span>— {obs.content}</span>
+                                      {obs.content && <span>— {obs.content}</span>}
                                       <span className="ml-2 text-xs text-slate-400">
                                         {new Date(obs.created_at).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}
                                       </span>

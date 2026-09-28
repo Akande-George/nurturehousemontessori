@@ -183,7 +183,7 @@ export function BulkObservationClient({
                   htmlFor="bulk-content"
                   className="text-sm font-medium text-slate-700 block mb-2"
                 >
-                  Note
+                  Note <span className="font-normal text-slate-400">(optional)</span>
                 </label>
                 <Textarea
                   id="bulk-content"
@@ -202,7 +202,7 @@ export function BulkObservationClient({
                 </p>
                 <Button
                   onClick={handleSubmit}
-                  disabled={pending || count === 0 || !content.trim() || picker.leafIds.length === 0}
+                  disabled={pending || count === 0 || picker.leafIds.length === 0}
                   className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
                 >
                   {pending

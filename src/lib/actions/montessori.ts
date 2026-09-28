@@ -70,8 +70,8 @@ export async function createBulkObservations(input: {
     return { ok: false, error: "Not authorized" };
   }
   const schoolId = ctx.school.id;
+  // The note is optional — the curriculum item alone is a useful record.
   const content = input.content.trim();
-  if (!content) return { ok: false, error: "Add a note before saving." };
   const leafIds = cleanLeafIds(input.leafIds);
   if (!leafIds) return { ok: false, error: "Choose a curriculum activity." };
 
@@ -143,7 +143,6 @@ export async function updateObservation(input: {
   content: string;
 }): Promise<Result> {
   const content = input.content.trim();
-  if (!content) return { ok: false, error: "Add a note before saving." };
   if (!input.leafId) return { ok: false, error: "Choose a curriculum activity." };
   const guard = await authorOrAdmin("observations", input.id);
   if (!guard.ok) return guard;
