@@ -3,12 +3,16 @@ import { createClient } from "@/supabase/server";
 import { getClasses } from "@/lib/db/classes";
 import { getClassrooms } from "@/lib/db/classrooms";
 import { getSchoolStudents } from "@/lib/db/students";
+import { placeByAge } from "@/lib/db/placement";
 import { StudentsClient } from "./StudentsClient";
 
 export default async function StudentsPage() {
   const { school } = await requireRole("admin");
   const supabase = await createClient();
   if (!supabase || !school) return null;
+
+  // Montessori: move anyone who has aged out of their room before listing.
+  if (school.type !== "regular") await placeByAge(supabase, { schoolId: school.id });
 
   const [students, classes, classrooms] = await Promise.all([
     getSchoolStudents(supabase, school.id),

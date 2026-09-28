@@ -26,6 +26,26 @@ async function ctxClient() {
   return { ctx, supabase };
 }
 
+// Editing/removing school structure (classes, subjects, timetable) is an admin
+// job; the pages that expose it are admin-only too.
+async function adminCtx() {
+  const ctx = await getActiveContext();
+  const supabase = await createClient();
+  if (!ctx || ctx.role !== "admin" || !ctx.school || !supabase) return null;
+  return { schoolId: ctx.school.id, supabase };
+}
+
+// Class and subject names appear on almost every staff and parent screen, so a
+// rename or removal refreshes all three areas.
+function revalidateAcademics() {
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/teacher", "layout");
+  revalidatePath("/parent", "layout");
+}
+
+const plural = (n: number, one: string, many: string) =>
+  `${n} ${n === 1 ? one : many}`;
+
 export async function saveScores(input: {
   classId: string;
   subjectId: string;
@@ -162,6 +182,89 @@ export async function createClass(input: {
   return { ok: true };
 }
 
+export async function updateClass(
+  id: string,
+  input: { name: string; level: number; classTeacherId?: string | null },
+): Promise<Result> {
+  const c = await adminCtx();
+  if (!c) return { ok: false, error: "Not authorized" };
+  const name = input.name.trim();
+  if (!name) return { ok: false, error: "Enter a class name." };
+  if (!Number.isInteger(input.level)) {
+    return { ok: false, error: "Level must be a whole number." };
+  }
+  const { data, error } = await c.supabase
+    .from("classes")
+    .update({
+      name,
+      level: input.level,
+      class_teacher_id: input.classTeacherId ?? null,
+    })
+    .eq("id", id)
+    .eq("school_id", c.schoolId)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Class not found." };
+  revalidateAcademics();
+  return { ok: true };
+}
+
+export async function deleteClass(id: string): Promise<Result> {
+  const c = await adminCtx();
+  if (!c) return { ok: false, error: "Not authorized" };
+
+  const { data: current } = await c.supabase
+    .from("classes")
+    .select("id, name")
+    .eq("id", id)
+    .eq("school_id", c.schoolId)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "Class not found." };
+
+  // Refuse while students are still enrolled rather than leaving them
+  // without a class.
+  const { count: students } = await c.supabase
+    .from("students")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", c.schoolId)
+    .eq("class_id", id);
+  if (students) {
+    return {
+      ok: false,
+      error: `${plural(students, "student is", "students are")} still in ${current.name}. Move them to another class first.`,
+    };
+  }
+
+  // Scores and report cards cascade with the class, so a class with grade
+  // history (e.g. one whose students were promoted out) is kept.
+  const [{ count: scores }, { count: cards }] = await Promise.all([
+    c.supabase
+      .from("assessment_scores")
+      .select("id", { count: "exact", head: true })
+      .eq("class_id", id),
+    c.supabase
+      .from("report_cards")
+      .select("id", { count: "exact", head: true })
+      .eq("class_id", id),
+  ]);
+  if (scores || cards) {
+    return {
+      ok: false,
+      error: `${current.name} has recorded scores or report cards. Deleting it would erase that grade history, so it can't be removed.`,
+    };
+  }
+
+  // Timetable periods, homework and subject-teacher assignments cascade.
+  const { error } = await c.supabase
+    .from("classes")
+    .delete()
+    .eq("id", id)
+    .eq("school_id", c.schoolId);
+  if (error) return { ok: false, error: error.message };
+  revalidateAcademics();
+  return { ok: true };
+}
+
 export async function createSubject(input: {
   name: string;
   code?: string;
@@ -175,6 +278,69 @@ export async function createSubject(input: {
   });
   if (error) return { ok: false, error: error.message };
   revalidatePath("/dashboard/subjects");
+  return { ok: true };
+}
+
+export async function updateSubject(
+  id: string,
+  input: { name: string; code?: string },
+): Promise<Result> {
+  const c = await adminCtx();
+  if (!c) return { ok: false, error: "Not authorized" };
+  const name = input.name.trim();
+  if (!name) return { ok: false, error: "Enter a subject name." };
+  const { data, error } = await c.supabase
+    .from("subjects")
+    .update({ name, code: input.code?.trim() || null })
+    .eq("id", id)
+    .eq("school_id", c.schoolId)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Subject not found." };
+  revalidateAcademics();
+  return { ok: true };
+}
+
+export async function deleteSubject(id: string): Promise<Result> {
+  const c = await adminCtx();
+  if (!c) return { ok: false, error: "Not authorized" };
+
+  const { data: current } = await c.supabase
+    .from("subjects")
+    .select("id, name")
+    .eq("id", id)
+    .eq("school_id", c.schoolId)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "Subject not found." };
+
+  // Scores and published report-card rows cascade with the subject; refuse
+  // rather than silently erase grade data.
+  const [{ count: scores }, { count: cardRows }] = await Promise.all([
+    c.supabase
+      .from("assessment_scores")
+      .select("id", { count: "exact", head: true })
+      .eq("subject_id", id),
+    c.supabase
+      .from("report_card_rows")
+      .select("id", { count: "exact", head: true })
+      .eq("subject_id", id),
+  ]);
+  if (scores || cardRows) {
+    return {
+      ok: false,
+      error: `${current.name} has recorded scores or appears on report cards. Deleting it would erase that grade data, so it can't be removed.`,
+    };
+  }
+
+  // Subject-teacher assignments cascade; timetable periods and homework keep
+  // their slot with the subject cleared.
+  const { error } = await c.supabase
+    .from("subjects")
+    .delete()
+    .eq("id", id)
+    .eq("school_id", c.schoolId);
+  if (error) return { ok: false, error: error.message };
+  revalidateAcademics();
   return { ok: true };
 }
 
@@ -209,6 +375,8 @@ export async function createTimetablePeriod(input: {
 }): Promise<Result> {
   const { ctx, supabase } = await ctxClient();
   if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
+  const invalid = periodTimeError(input.startTime, input.endTime);
+  if (invalid) return { ok: false, error: invalid };
   const { error } = await supabase.from("timetable_periods").insert({
     school_id: ctx.school.id,
     class_id: input.classId,
@@ -220,6 +388,69 @@ export async function createTimetablePeriod(input: {
   });
   if (error) return { ok: false, error: error.message };
   revalidatePath("/dashboard/timetable");
+  return { ok: true };
+}
+
+// "HH:MM" strings from <input type="time"> compare correctly as text.
+function periodTimeError(startTime: string, endTime: string) {
+  if (!startTime || !endTime) return "Enter a start and end time.";
+  if (endTime <= startTime) return "The period must end after it starts.";
+  return null;
+}
+
+function revalidateTimetable() {
+  revalidatePath("/dashboard/timetable");
+  revalidatePath("/teacher/timetable");
+  revalidatePath("/parent/timetable");
+}
+
+export async function updateTimetablePeriod(
+  id: string,
+  input: {
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    subjectId: string;
+    teacherId?: string | null;
+  },
+): Promise<Result> {
+  const c = await adminCtx();
+  if (!c) return { ok: false, error: "Not authorized" };
+  const invalid = periodTimeError(input.startTime, input.endTime);
+  if (invalid) return { ok: false, error: invalid };
+  if (input.dayOfWeek < 1 || input.dayOfWeek > 5) {
+    return { ok: false, error: "Pick a day from Monday to Friday." };
+  }
+  const { data, error } = await c.supabase
+    .from("timetable_periods")
+    .update({
+      day_of_week: input.dayOfWeek,
+      start_time: input.startTime,
+      end_time: input.endTime,
+      subject_id: input.subjectId,
+      teacher_id: input.teacherId ?? null,
+    })
+    .eq("id", id)
+    .eq("school_id", c.schoolId)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Period not found." };
+  revalidateTimetable();
+  return { ok: true };
+}
+
+export async function deleteTimetablePeriod(id: string): Promise<Result> {
+  const c = await adminCtx();
+  if (!c) return { ok: false, error: "Not authorized" };
+  const { data, error } = await c.supabase
+    .from("timetable_periods")
+    .delete()
+    .eq("id", id)
+    .eq("school_id", c.schoolId)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Period not found." };
+  revalidateTimetable();
   return { ok: true };
 }
 
@@ -301,5 +532,69 @@ export async function createHomework(input: {
     dueDate: input.dueDate,
   });
   revalidatePath("/teacher/homework");
+  return { ok: true };
+}
+
+// Homework can be changed by the teacher who set it, or by a school admin.
+async function homeworkEditCtx(id: string) {
+  const { ctx, supabase } = await ctxClient();
+  if (!ctx?.school || !supabase) return { error: "Not authorized" } as const;
+  const { data: hw } = await supabase
+    .from("homework")
+    .select("id, teacher_id")
+    .eq("id", id)
+    .eq("school_id", ctx.school.id)
+    .maybeSingle();
+  if (!hw) return { error: "Homework not found." } as const;
+  if (ctx.role !== "admin" && hw.teacher_id !== ctx.user.id) {
+    return { error: "Only the teacher who set this homework can change it." } as const;
+  }
+  return { ctx, supabase, schoolId: ctx.school.id } as const;
+}
+
+// Edits are silent: parents were emailed when it was assigned, and the
+// per-student submissions are left untouched.
+export async function updateHomework(
+  id: string,
+  input: {
+    subjectId: string;
+    title: string;
+    description: string;
+    dueDate: string;
+  },
+): Promise<Result> {
+  const c = await homeworkEditCtx(id);
+  if ("error" in c) return { ok: false, error: c.error };
+  const title = input.title.trim();
+  if (!title) return { ok: false, error: "Enter a title." };
+  if (!input.dueDate) return { ok: false, error: "Pick a due date." };
+  const { error } = await c.supabase
+    .from("homework")
+    .update({
+      subject_id: input.subjectId,
+      title,
+      description: input.description.trim(),
+      due_date: input.dueDate,
+    })
+    .eq("id", id)
+    .eq("school_id", c.schoolId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/teacher/homework");
+  revalidatePath("/parent/homework");
+  return { ok: true };
+}
+
+// Submissions cascade with the homework.
+export async function deleteHomework(id: string): Promise<Result> {
+  const c = await homeworkEditCtx(id);
+  if ("error" in c) return { ok: false, error: c.error };
+  const { error } = await c.supabase
+    .from("homework")
+    .delete()
+    .eq("id", id)
+    .eq("school_id", c.schoolId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/teacher/homework");
+  revalidatePath("/parent/homework");
   return { ok: true };
 }

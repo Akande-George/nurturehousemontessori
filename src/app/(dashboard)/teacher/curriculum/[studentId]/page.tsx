@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
 import { getStudentById, getTeacherStudents } from "@/lib/db/students";
 import { getStudentCurriculumProgress } from "@/lib/db/montessori";
+import { getSchoolCurriculum } from "@/lib/db/curriculum";
 import { buildProgressMap } from "@/lib/curriculum/progress-utils";
 import { StudentCurriculumClient } from "./StudentCurriculumClient";
 
@@ -43,8 +44,11 @@ export default async function StudentCurriculumPage({
     );
   }
 
-  const rows = await getStudentCurriculumProgress(supabase, student.id);
+  const [rows, { visible: curriculum }] = await Promise.all([
+    getStudentCurriculumProgress(supabase, student.id),
+    getSchoolCurriculum(supabase, school.id),
+  ]);
   const progress = buildProgressMap(rows);
 
-  return <StudentCurriculumClient student={student} progress={progress} />;
+  return <StudentCurriculumClient student={student} progress={progress} curriculum={curriculum} />;
 }

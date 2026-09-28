@@ -18,10 +18,12 @@ import { Badge } from "@/components/ui/badge";
 import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
 import { getStudentById, getStudentMedications } from "@/lib/db/students";
-import { getClassById } from "@/lib/db/classes";
+import { getClassById, getClasses } from "@/lib/db/classes";
 import { getClassrooms } from "@/lib/db/classrooms";
+import { ageInMonths, formatAge } from "@/lib/montessori/age-bands";
 import { MedicationsCard } from "./MedicationsCard";
 import { EditParametersButton } from "./EditParametersButton";
+import { ClassroomPinNotice, EditDetailsButton } from "./EditDetailsButton";
 import { MoveClassroomButton } from "../MoveClassroomDialog";
 
 type EmergencyContact = {
@@ -79,11 +81,13 @@ export default async function StudentProfilePage({
   }
 
   const isMontessori = school.type !== "regular";
-  const [cls, medications, classrooms] = await Promise.all([
+  const [cls, medications, classrooms, classes] = await Promise.all([
     student.class_id ? getClassById(supabase, student.class_id) : null,
     getStudentMedications(supabase, student.id),
     isMontessori ? getClassrooms(supabase, school.id) : [],
+    isMontessori ? [] : getClasses(supabase, school.id),
   ]);
+  const months = student.date_of_birth ? ageInMonths(student.date_of_birth) : null;
 
   const emergency = readEmergencyContact(student.emergency_contact);
   const hasMedical =
@@ -112,6 +116,20 @@ export default async function StudentProfilePage({
           </p>
         </div>
         <div className="ml-auto flex flex-wrap justify-end gap-2">
+          <EditDetailsButton
+            student={{
+              id: student.id,
+              name: student.name,
+              date_of_birth: student.date_of_birth,
+              enrolled_at: student.enrolled_at ? student.enrolled_at.slice(0, 10) : null,
+              class_id: student.class_id,
+              classroom: student.classroom,
+              classroom_pinned: student.classroom_pinned,
+            }}
+            schoolType={school.type}
+            classes={classes}
+            classrooms={classrooms}
+          />
           {isMontessori && (
             <MoveClassroomButton
               student={{
@@ -132,6 +150,10 @@ export default async function StudentProfilePage({
         </div>
       </div>
 
+      {isMontessori && student.classroom_pinned && (
+        <ClassroomPinNotice studentId={student.id} classroom={student.classroom} />
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-slate-100 shadow-sm">
           <CardContent className="p-5">
@@ -151,6 +173,9 @@ export default async function StudentProfilePage({
             <p className="text-base font-medium text-slate-900">
               {student.date_of_birth ?? "—"}
             </p>
+            {months != null && months >= 0 && (
+              <p className="text-xs text-slate-500 mt-0.5">{formatAge(months)} old</p>
+            )}
           </CardContent>
         </Card>
         <Card className="border-slate-100 shadow-sm">

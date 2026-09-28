@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CalendarDays, Loader2, Plus, Users } from "lucide-react";
+import { CalendarDays, Loader2, Plus, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import {
+  deleteDailyReport,
   generateDailyReport,
   generateDailyReportsForStudents,
 } from "@/lib/actions/daily";
@@ -115,6 +116,19 @@ export function DailyReportsListClient({
         router.refresh();
       } else {
         toast({ title: res.error ?? "Could not generate", variant: "destructive" });
+      }
+    });
+  };
+
+  const handleDelete = (r: ReportLite) => {
+    if (!window.confirm(`Delete the draft report for ${r.studentName}? This can't be undone.`)) return;
+    start(async () => {
+      const res = await deleteDailyReport(r.id);
+      if (res.ok) {
+        toast({ title: "Report deleted" });
+        router.refresh();
+      } else {
+        toast({ title: res.error ?? "Could not delete", variant: "destructive" });
       }
     });
   };
@@ -309,11 +323,25 @@ export function DailyReportsListClient({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/teacher/reports/daily/${r.id}`}>
-                            {r.status === "sent" ? "View" : "Edit"}
-                          </Link>
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={`/teacher/reports/daily/${r.id}`}>
+                              {r.status === "sent" ? "View" : "Edit"}
+                            </Link>
+                          </Button>
+                          {r.status === "draft" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-slate-500 hover:text-red-600"
+                              onClick={() => handleDelete(r)}
+                              disabled={pending}
+                              aria-label={`Delete report for ${r.studentName}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

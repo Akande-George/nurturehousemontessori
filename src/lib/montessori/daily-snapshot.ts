@@ -10,7 +10,7 @@
 // generate time. For a daily report generated on the day itself that is exactly
 // right; back-dating a report can show a level the child only reached later.
 
-import { getLeafById } from "@/lib/curriculum/curriculum";
+import { CURRICULUM, getLeafById, type Area } from "@/lib/curriculum/curriculum";
 import type { AttendanceStatus } from "@/lib/db/types";
 import { groupIntoNonEmptyAreas, selectLessonsInWindow } from "./lessons";
 import type { LessonProgressRow } from "./lessons";
@@ -65,6 +65,11 @@ export type DailySnapshotInput = {
     caption: string | null;
     leaf_id: string | null;
   }[];
+  /**
+   * The school's FULL curriculum catalog (getSchoolCurriculum(...).all), so
+   * custom and renamed lessons report correctly. Defaults to the built-in album.
+   */
+  curriculum?: Area[];
 };
 
 /** "14:05:00" -> "14:05"; anything unparseable passes through untouched. */
@@ -123,12 +128,14 @@ function buildCareGroups(logs: DailyActivityLogRow[]): DailyCareGroup[] {
 
 export function buildDailySnapshot(input: DailySnapshotInput): DailySnapshot {
   const { reportDate } = input;
+  const catalog = input.curriculum ?? CURRICULUM;
 
   // Single-day window — same selection rules as the termly report.
   const lessons = selectLessonsInWindow(
     input.progressRows,
     reportDate,
     reportDate,
+    catalog,
   );
 
   const fromTs = `${reportDate}T00:00:00.000Z`;
@@ -137,7 +144,7 @@ export function buildDailySnapshot(input: DailySnapshotInput): DailySnapshot {
   const notes: DailyNote[] = input.observations
     .filter((o) => o.created_at >= fromTs && o.created_at <= toTs)
     .map((o) => {
-      const leaf = getLeafById(o.leaf_id);
+      const leaf = getLeafById(o.leaf_id, catalog);
       return {
         id: o.id,
         time: tidyTime(o.created_at.slice(11, 16)),
@@ -157,7 +164,7 @@ export function buildDailySnapshot(input: DailySnapshotInput): DailySnapshot {
       id: p.id,
       imageUrl: p.image_url as string,
       caption: p.caption,
-      areaName: p.leaf_id ? getLeafById(p.leaf_id)?.areaName ?? null : null,
+      areaName: p.leaf_id ? getLeafById(p.leaf_id, catalog)?.areaName ?? null : null,
     }));
 
   return {
@@ -179,7 +186,7 @@ export function buildDailySnapshot(input: DailySnapshotInput): DailySnapshot {
       notes: input.attendance?.notes ?? null,
     },
     care: buildCareGroups(input.activityLogs),
-    areas: groupIntoNonEmptyAreas(lessons),
+    areas: groupIntoNonEmptyAreas(lessons, catalog),
     notes,
     pictures,
   };

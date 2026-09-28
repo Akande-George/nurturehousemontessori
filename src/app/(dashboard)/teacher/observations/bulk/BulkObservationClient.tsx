@@ -15,16 +15,24 @@ import {
 import { createBulkObservations } from "@/lib/actions/montessori";
 import { useToast } from "@/hooks/use-toast";
 import type { Student } from "@/lib/db/types";
+import type { Area } from "@/lib/curriculum/curriculum";
 
 function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("");
 }
 
-export function BulkObservationClient({ students }: { students: Student[] }) {
+export function BulkObservationClient({
+  students,
+  curriculum,
+}: {
+  students: Student[];
+  /** The school's full catalog (hidden nodes flagged). */
+  curriculum: Area[];
+}) {
   const { toast } = useToast();
   const router = useRouter();
   const [pending, start] = useTransition();
-  const picker = useCurriculumLeaf();
+  const picker = useCurriculumLeaf(curriculum);
   const [content, setContent] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 

@@ -9,6 +9,8 @@ import {
   type DailyReport,
   type Progress,
 } from "@/lib/db/montessori";
+import { getSchoolCurriculum } from "@/lib/db/curriculum";
+import { CURRICULUM } from "@/lib/curriculum/curriculum";
 import { buildProgressMap, type ProgressMap } from "@/lib/curriculum/progress-utils";
 import { ChildReportClient, type ReportPost } from "./ChildReportClient";
 
@@ -23,6 +25,8 @@ export default async function TeacherChildReportPage() {
         academicByStudent={{}}
         reportsByStudent={{}}
         postsByStudent={{}}
+        curriculum={CURRICULUM}
+        curriculumAll={CURRICULUM}
       />
     );
   }
@@ -33,12 +37,13 @@ export default async function TeacherChildReportPage() {
     schoolType: school.type,
   });
   const ids = students.map((s) => s.id);
+  const { visible, all } = await getSchoolCurriculum(supabase, school.id);
 
   const [progressRows, academicRows, dailyReports, feed] = await Promise.all([
     Promise.all(students.map((s) => getStudentCurriculumProgress(supabase, s.id))),
     Promise.all(students.map((s) => getStudentProgress(supabase, s.id))),
     getSchoolDailyReports(supabase, school.id),
-    getActivityFeed(supabase, ids, null),
+    getActivityFeed(supabase, ids, null, all),
   ]);
 
   const progressByStudent: Record<string, ProgressMap> = {};
@@ -71,6 +76,8 @@ export default async function TeacherChildReportPage() {
       academicByStudent={academicByStudent}
       reportsByStudent={reportsByStudent}
       postsByStudent={postsByStudent}
+      curriculum={visible}
+      curriculumAll={all}
     />
   );
 }

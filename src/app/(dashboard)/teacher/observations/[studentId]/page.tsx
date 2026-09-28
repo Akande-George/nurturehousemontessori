@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
 import { getStudentById, getTeacherStudents } from "@/lib/db/students";
 import { getStudentObservations } from "@/lib/db/montessori";
+import { getSchoolCurriculum } from "@/lib/db/curriculum";
 import { StudentObservationClient } from "./StudentObservationClient";
 
 export default async function StudentObservationPage({
@@ -46,13 +47,16 @@ export default async function StudentObservationPage({
     );
   }
 
-  const observations = await getStudentObservations(supabase, student.id);
+  const curriculum = await getSchoolCurriculum(supabase, school.id);
+  const observations = await getStudentObservations(supabase, student.id, curriculum.all);
 
   return (
     <StudentObservationClient
       student={student}
       teacherStudents={teacherStudents}
       observations={observations}
+      curriculum={curriculum.all}
+      currentUserId={user.id}
     />
   );
 }

@@ -67,8 +67,8 @@ export async function generateDailyReport(input: {
   if (!student || student.school_id !== ctx.school.id) {
     return { ok: false, error: "Child not found" };
   }
-  // daily_reports.age_group is NOT NULL and the admin queue displays it, so
-  // refuse rather than guessing a band that may be wrong for this child.
+  // daily_reports.age_group is NOT NULL, so refuse rather than guessing a band
+  // that may be wrong for this child.
   if (!student.age_group) {
     return {
       ok: false,

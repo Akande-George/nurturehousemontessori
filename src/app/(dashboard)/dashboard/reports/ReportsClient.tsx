@@ -16,10 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { updateDailyReportStatus } from "@/lib/actions/montessori";
 import type { DailyReport } from "@/lib/db/montessori";
 import type { Enums } from "@/lib/db/types";
-import { AGE_GROUP_LABELS } from "@/lib/montessori/age-bands";
 
 type ReportStatus = Enums["daily_report_status"];
-
 
 const statusTone: Record<ReportStatus, string> = {
   draft: "bg-amber-100 text-amber-700",
@@ -124,9 +122,6 @@ export function ReportsClient({
                   Child
                 </TableHead>
                 <TableHead className="font-medium text-xs uppercase tracking-wider text-slate-500">
-                  Programme
-                </TableHead>
-                <TableHead className="font-medium text-xs uppercase tracking-wider text-slate-500">
                   Date
                 </TableHead>
                 <TableHead className="font-medium text-xs uppercase tracking-wider text-slate-500">
@@ -147,9 +142,6 @@ export function ReportsClient({
                         {studentClassrooms[report.student_id]}
                       </p>
                     )}
-                  </TableCell>
-                  <TableCell className="text-slate-600">
-                    {AGE_GROUP_LABELS[report.age_group]}
                   </TableCell>
                   <TableCell className="text-slate-600">
                     {report.report_date}
@@ -189,7 +181,7 @@ export function ReportsClient({
               {visible.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={4}
                     className="py-12 text-center text-sm text-slate-500"
                   >
                     No {tab} reports right now.

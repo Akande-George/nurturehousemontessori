@@ -86,6 +86,11 @@ const montessoriAdminNav: NavSection[] = [
         icon: DoorOpen,
       },
       {
+        href: "/dashboard/curriculum",
+        label: "Curriculum",
+        icon: GraduationCap,
+      },
+      {
         href: "/dashboard/assignments",
         label: "Class Assignments",
         icon: Users,

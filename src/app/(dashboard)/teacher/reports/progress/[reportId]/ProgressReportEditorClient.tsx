@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Send,
   Star,
+  Trash2,
   Undo2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
+  deleteConferenceReport,
   publishConferenceReport,
   regenerateConferenceSnapshot,
   unpublishConferenceReport,
@@ -209,6 +211,19 @@ export function ProgressReportEditorClient({
       if (res.ok) router.refresh();
     });
 
+  const handleDelete = () => {
+    if (!window.confirm("Delete this draft report? This can't be undone.")) return;
+    start(async () => {
+      const res = await deleteConferenceReport(id);
+      if (res.ok) {
+        toast({ title: "Report deleted" });
+        router.push("/teacher/reports/progress");
+      } else {
+        toast({ title: res.error ?? "Could not delete", variant: "destructive" });
+      }
+    });
+  };
+
   const h = snapshot.header;
 
   return (
@@ -276,6 +291,16 @@ export function ProgressReportEditorClient({
                 className="gap-1.5 bg-montessori-primary text-white hover:bg-montessori-primary/90"
               >
                 <Send className="h-4 w-4" /> Publish
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDelete}
+                disabled={pending}
+                className="gap-1.5 text-slate-500 hover:text-red-600"
+                aria-label="Delete report"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
               </Button>
             </>
           )}

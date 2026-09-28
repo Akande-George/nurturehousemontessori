@@ -5,13 +5,14 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Eye, Loader2, RefreshCw, Send, Undo2 } from "lucide-react";
+import { ArrowLeft, Eye, Loader2, RefreshCw, Send, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
+  deleteDailyReport,
   regenerateDailySnapshot,
   sendDailyReport,
   unsendDailyReport,
@@ -155,6 +156,19 @@ export function DailyReportEditorClient({
       if (res.ok) router.refresh();
     });
 
+  const handleDelete = () => {
+    if (!window.confirm("Delete this draft report? This can't be undone.")) return;
+    start(async () => {
+      const res = await deleteDailyReport(id);
+      if (res.ok) {
+        toast({ title: "Report deleted" });
+        router.push("/teacher/reports/daily");
+      } else {
+        toast({ title: res.error ?? "Could not delete", variant: "destructive" });
+      }
+    });
+  };
+
   return (
     <div className="mx-auto max-w-4xl pb-24">
       {/* ---- Chrome (never part of the printed document) ----------------- */}
@@ -221,6 +235,16 @@ export function DailyReportEditorClient({
               >
                 <Send className="h-4 w-4" /> Send to parents
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDelete}
+                disabled={pending}
+                className="gap-1.5 text-slate-500 hover:text-red-600"
+                aria-label="Delete report"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
+              </Button>
             </>
           )}
         </div>
@@ -243,7 +267,7 @@ export function DailyReportEditorClient({
         <div className="space-y-5">
           <Card
             title={`${h.childName} — ${formatLongDate(h.reportDate)}`}
-            hint={[h.classroom, h.ageGroupLabel].filter(Boolean).join(" · ")}
+            hint={h.classroom || undefined}
           >
             <p className="text-xs text-slate-400">
               {snapshot.care.reduce((n, g) => n + g.entries.length, 0)} care

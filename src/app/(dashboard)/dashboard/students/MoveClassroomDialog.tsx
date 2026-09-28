@@ -94,7 +94,7 @@ export function MoveClassroomDialog({
             <SelectContent>
               {classrooms.map((room) => (
                 <SelectItem key={room.id} value={room.name}>
-                  {room.age_group ? `${room.name} · ${room.age_group}` : room.name}
+                  {room.name}
                 </SelectItem>
               ))}
               <SelectItem value={UNASSIGNED}>No classroom</SelectItem>

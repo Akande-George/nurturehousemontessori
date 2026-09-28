@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Filter, Heart } from "lucide-react";
-import { CURRICULUM, type Leaf } from "@/lib/curriculum/curriculum";
+import type { Area, Leaf } from "@/lib/curriculum/curriculum";
 import { toggleActivityLike } from "@/lib/actions/montessori";
 import { useToast } from "@/hooks/use-toast";
 import type { Student } from "@/lib/db/types";
@@ -56,10 +56,13 @@ export function ParentFeedClient({
   children,
   posts,
   parentFirstName,
+  curriculum,
 }: {
   children: Student[];
   posts: FeedPost[];
   parentFirstName: string;
+  /** Areas of the children's schools' full catalogs — for the feed's area filter. */
+  curriculum: Area[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -80,8 +83,8 @@ export function ParentFeedClient({
 
   const feedAreas = useMemo(() => {
     const present = new Set(posts.map((p) => p.leaf?.areaName).filter(Boolean));
-    return CURRICULUM.filter((a) => present.has(a.name));
-  }, [posts]);
+    return curriculum.filter((a) => present.has(a.name));
+  }, [posts, curriculum]);
 
   const filteredPosts = useMemo(() => {
     let list = posts;

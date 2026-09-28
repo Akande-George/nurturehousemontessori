@@ -88,9 +88,6 @@ export function DailyReportDocument({
               {h.age && <Field label="Age" value={h.age} />}
               {h.teacherName && <Field label="Teacher" value={h.teacherName} />}
               {h.classroom && <Field label="Classroom" value={h.classroom} />}
-              {h.ageGroupLabel && (
-                <Field label="Age band" value={h.ageGroupLabel} />
-              )}
               <Field label="Date" value={formatLongDate(h.reportDate)} />
               {h.parentNames.length > 0 && (
                 <Field label="Parents" value={h.parentNames.join(", ")} />

@@ -1,9 +1,10 @@
 // Client-usable helpers that compute Montessori curriculum stats from real
-// Supabase `curriculum_progress` rows (plus their practice history) against the
-// static curriculum catalog. Mirrors the shapes the old demo-store produced so
-// the pedagogy UI can stay unchanged.
+// Supabase `curriculum_progress` rows (plus their practice history) against a
+// curriculum catalog. Mirrors the shapes the old demo-store produced so the
+// pedagogy UI can stay unchanged. Stats take the school's VISIBLE catalog (see
+// ./school-curriculum.ts) and default to the built-in album.
 
-import { CURRICULUM, getAllLeaves, type Leaf } from "./curriculum";
+import { CURRICULUM, getAllLeaves, type Area, type Leaf } from "./curriculum";
 import type { CurriculumStatus } from "@/lib/db/types";
 
 export type ProgressEntry = {
@@ -58,12 +59,15 @@ function tallyStatus(stats: CurriculumAreaStats, status: CurriculumStatus) {
   else stats.notStarted += 1;
 }
 
-export function getCurriculumStats(progress: ProgressMap): CurriculumStats {
+export function getCurriculumStats(
+  progress: ProgressMap,
+  areas: Area[] = CURRICULUM,
+): CurriculumStats {
   const overall = emptyStats();
   const byArea: Record<string, CurriculumAreaStats> = {};
-  for (const area of CURRICULUM) byArea[area.id] = emptyStats();
+  for (const area of areas) byArea[area.id] = emptyStats();
 
-  for (const leaf of getAllLeaves()) {
+  for (const leaf of getAllLeaves(areas)) {
     const p = progress[leaf.leafId];
     const status: CurriculumStatus = p ? p.status : "not_started";
     tallyStatus(overall, status);
@@ -75,9 +79,10 @@ export function getCurriculumStats(progress: ProgressMap): CurriculumStats {
 export function getLeavesByStatus(
   progress: ProgressMap,
   status: CurriculumStatus,
+  areas: Area[] = CURRICULUM,
 ): Leaf[] {
   const out: Leaf[] = [];
-  for (const leaf of getAllLeaves()) {
+  for (const leaf of getAllLeaves(areas)) {
     const p = progress[leaf.leafId];
     const current: CurriculumStatus = p ? p.status : "not_started";
     if (current === status) out.push(leaf);
@@ -85,8 +90,11 @@ export function getLeavesByStatus(
   return out;
 }
 
-export function getMasteredLeaves(progress: ProgressMap): Leaf[] {
-  return getLeavesByStatus(progress, "proficient");
+export function getMasteredLeaves(
+  progress: ProgressMap,
+  areas: Area[] = CURRICULUM,
+): Leaf[] {
+  return getLeavesByStatus(progress, "proficient", areas);
 }
 
 export type RecentPresentation = {

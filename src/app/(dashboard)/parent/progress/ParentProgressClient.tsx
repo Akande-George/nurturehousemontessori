@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUp, ArrowDown, TrendingUp, Award, Lightbulb, Sparkles, Info } from "lucide-react";
-import { CURRICULUM, getLeafById, type Leaf } from "@/lib/curriculum/curriculum";
+import { CURRICULUM, getLeafById, type Area, type Leaf } from "@/lib/curriculum/curriculum";
 import {
   getCurriculumStats,
   getLeavesByStatus,
@@ -47,11 +47,14 @@ export function ParentProgressClient({
   progressByStudent,
   academicByStudent,
   obsByStudent,
+  curriculumBySchool,
 }: {
   children: Student[];
   progressByStudent: Record<string, ProgressMap>;
   academicByStudent: Record<string, Progress | null>;
   obsByStudent: Record<string, ObsLite[]>;
+  /** Each child's school catalog: `visible` for stats/charts, `all` for resolving leaf ids. */
+  curriculumBySchool: Record<string, { visible: Area[]; all: Area[] }>;
 }) {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(children[0]?.id ?? null);
   const [tab, setTab] = useState<"summary" | "journey">("journey");
@@ -60,6 +63,10 @@ export function ParentProgressClient({
   const progress = selectedChild ? progressByStudent[selectedChild.id] ?? {} : {};
   const academic = selectedChild ? academicByStudent[selectedChild.id] ?? null : null;
   const observations = selectedChild ? obsByStudent[selectedChild.id] ?? [] : [];
+  const catalog = (selectedChild && curriculumBySchool[selectedChild.school_id]) || {
+    visible: CURRICULUM,
+    all: CURRICULUM,
+  };
 
   const obsByArea = useMemo(() => {
     const map: Record<string, ObsLite[]> = {};
@@ -135,7 +142,7 @@ export function ParentProgressClient({
         ))}
       </div>
 
-      {selectedChild && tab === "journey" && <CurriculumJourney progress={progress} />}
+      {selectedChild && tab === "journey" && <CurriculumJourney progress={progress} curriculum={catalog.visible} curriculumAll={catalog.all} />}
 
       {selectedChild && tab === "summary" && (
         <>
@@ -316,11 +323,19 @@ export function ParentProgressClient({
   );
 }
 
-function CurriculumJourney({ progress }: { progress: ProgressMap }) {
-  const stats = getCurriculumStats(progress);
-  const recent = getRecentPresentations(progress, getLeafById, 8);
-  const developing = getLeavesByStatus(progress, "developing");
-  const mastered = getMasteredLeaves(progress);
+function CurriculumJourney({
+  progress,
+  curriculum,
+  curriculumAll,
+}: {
+  progress: ProgressMap;
+  curriculum: Area[];
+  curriculumAll: Area[];
+}) {
+  const stats = getCurriculumStats(progress, curriculum);
+  const recent = getRecentPresentations(progress, (id) => getLeafById(id, curriculumAll), 8);
+  const developing = getLeavesByStatus(progress, "developing", curriculum);
+  const mastered = getMasteredLeaves(progress, curriculum);
   const [showHelp, setShowHelp] = useState(false);
 
   const overallPct = touchedPercent(stats.overall);
@@ -374,7 +389,7 @@ function CurriculumJourney({ progress }: { progress: ProgressMap }) {
                 <span className="text-sky-700 font-semibold">{stats.overall.introduced}</span> introduced
               </p>
             </div>
-            <PetalChart stats={stats} overallPct={overallPct} />
+            <PetalChart stats={stats} overallPct={overallPct} curriculum={curriculum} />
           </div>
         </CardContent>
       </Card>
@@ -437,6 +452,7 @@ function CurriculumJourney({ progress }: { progress: ProgressMap }) {
         badgeClass="bg-amber-50 text-amber-700 border-amber-200"
         emptyText="No activities are in active practice yet."
         byArea={developingByArea}
+        curriculum={curriculum}
       />
       <LeafGalleryCard
         title="Proficient"
@@ -445,6 +461,7 @@ function CurriculumJourney({ progress }: { progress: ProgressMap }) {
         badgeClass="bg-emerald-50 text-emerald-700 border-emerald-200"
         emptyText="No activities have been marked proficient yet."
         byArea={masteredByArea}
+        curriculum={curriculum}
       />
     </div>
   );
@@ -463,6 +480,7 @@ function LeafGalleryCard({
   badgeClass,
   emptyText,
   byArea,
+  curriculum,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -470,6 +488,7 @@ function LeafGalleryCard({
   badgeClass: string;
   emptyText: string;
   byArea: Record<string, Leaf[]>;
+  curriculum: Area[];
 }) {
   return (
     <Card className="border-slate-100 shadow-sm">
@@ -485,7 +504,7 @@ function LeafGalleryCard({
           <p className="text-sm text-slate-500 italic">{emptyText}</p>
         ) : (
           <div className="space-y-4">
-            {CURRICULUM.map((area) => {
+            {curriculum.map((area) => {
               const items = byArea[area.id];
               if (!items || items.length === 0) return null;
               return (
@@ -516,7 +535,15 @@ function LeafGalleryCard({
   );
 }
 
-function PetalChart({ stats, overallPct }: { stats: CurriculumStats; overallPct: number }) {
+function PetalChart({
+  stats,
+  overallPct,
+  curriculum,
+}: {
+  stats: CurriculumStats;
+  overallPct: number;
+  curriculum: Area[];
+}) {
   const size = 180;
   const center = size / 2;
   const petalLength = 58;
@@ -533,11 +560,11 @@ function PetalChart({ stats, overallPct }: { stats: CurriculumStats; overallPct:
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        {CURRICULUM.map((area, i) => {
+        {curriculum.map((area, i) => {
           const s = stats.byArea[area.id];
           const pct = s.total === 0 ? 0 : (s.introduced + s.developing + s.proficient) / s.total;
           const masteredPct = s.total === 0 ? 0 : s.proficient / s.total;
-          const angle = (i / CURRICULUM.length) * 2 * Math.PI - Math.PI / 2;
+          const angle = (i / curriculum.length) * 2 * Math.PI - Math.PI / 2;
           const colors = colorMap[area.color] ?? colorMap.emerald;
           const tipX = center + Math.cos(angle) * petalLength;
           const tipY = center + Math.sin(angle) * petalLength;

@@ -19,25 +19,32 @@ import {
   CurriculumLeafFields,
   useCurriculumLeaf,
 } from "@/components/montessori/CurriculumLeafPicker";
+import { ObservationActions } from "@/components/montessori/ObservationActions";
 import { createObservation } from "@/lib/actions/montessori";
 import { useToast } from "@/hooks/use-toast";
 import type { Student } from "@/lib/db/types";
 import type { ObservationWithLeaf } from "@/lib/db/montessori";
+import type { Area } from "@/lib/curriculum/curriculum";
 
 export function StudentObservationClient({
   student,
   teacherStudents,
   observations,
+  curriculum,
+  currentUserId,
 }: {
   student: Student;
   teacherStudents: Student[];
   observations: ObservationWithLeaf[];
+  /** The school's full catalog (hidden nodes flagged). */
+  curriculum: Area[];
+  currentUserId: string;
 }) {
   const { toast } = useToast();
   const router = useRouter();
   const [pending, start] = useTransition();
 
-  const picker = useCurriculumLeaf();
+  const picker = useCurriculumLeaf(curriculum);
   const leafId = picker.leafId;
   const [content, setContent] = useState("");
 
@@ -161,21 +168,26 @@ export function StudentObservationClient({
                             </>
                           )}
                         </div>
-                        <p className="text-xs text-slate-400 shrink-0">
-                          {new Date(obs.created_at).toLocaleDateString("en-NG", {
-                            weekday: "short",
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                          {" · "}
-                          {new Date(obs.created_at).toLocaleTimeString("en-NG", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <p className="text-xs text-slate-400">
+                            {new Date(obs.created_at).toLocaleDateString("en-NG", {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                            {" · "}
+                            {new Date(obs.created_at).toLocaleTimeString("en-NG", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                          {obs.teacher_id === currentUserId && (
+                            <ObservationActions observation={obs} catalog={curriculum} />
+                          )}
+                        </div>
                       </div>
-                      <p className="text-sm text-slate-700 leading-relaxed">{obs.content}</p>
+                      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{obs.content}</p>
                     </div>
                   </div>
                 ))}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { BookOpen, ExternalLink, FileText, Loader2, Plus, Trash2, Video } from "lucide-react";
+import { BookOpen, ExternalLink, FileText, Loader2, Pencil, Plus, Trash2, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { createResource, deleteResource } from "@/lib/actions/resources";
+import { createResource, deleteResource, updateResource } from "@/lib/actions/resources";
 import type { Resource } from "@/lib/db/resources";
 
 type ResourceType = "article" | "video" | "policy";
@@ -37,6 +37,9 @@ export function ResourcesAdminClient({ resources }: { resources: Resource[] }) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [isOpen, setIsOpen] = useState(false);
+  // Set while the dialog is editing an existing resource rather than adding one;
+  // openCreate/openEdit set it fresh each time the dialog opens.
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [url, setUrl] = useState("");
@@ -47,9 +50,24 @@ export function ResourcesAdminClient({ resources }: { resources: Resource[] }) {
     setDescription("");
     setUrl("");
     setType("article");
+    setEditingId(null);
   };
 
-  const handleCreate = () => {
+  const openCreate = () => {
+    reset();
+    setIsOpen(true);
+  };
+
+  const openEdit = (r: Resource) => {
+    setEditingId(r.id);
+    setTitle(r.title);
+    setDescription(r.description ?? "");
+    setUrl(r.url ?? "");
+    setType(TYPES.includes(r.type as ResourceType) ? (r.type as ResourceType) : "article");
+    setIsOpen(true);
+  };
+
+  const handleSubmit = () => {
     if (!title.trim()) return;
     const payload = {
       title: title.trim(),
@@ -57,15 +75,24 @@ export function ResourcesAdminClient({ resources }: { resources: Resource[] }) {
       type,
       url: url.trim() || undefined,
     };
+    const id = editingId;
     startTransition(async () => {
-      const res = await createResource(payload);
+      const res = id ? await updateResource({ id, ...payload }) : await createResource(payload);
       if (!res.ok) {
-        toast({ title: "Could not add resource", description: res.error, variant: "destructive" });
+        toast({
+          title: id ? "Could not save resource" : "Could not add resource",
+          description: res.error,
+          variant: "destructive",
+        });
         return;
       }
       reset();
       setIsOpen(false);
-      toast({ title: "Resource added", description: `${payload.title} is now visible to parents.` });
+      toast(
+        id
+          ? { title: "Resource updated", description: `Parents now see the updated ${payload.title}.` }
+          : { title: "Resource added", description: `${payload.title} is now visible to parents.` },
+      );
     });
   };
 
@@ -90,7 +117,7 @@ export function ResourcesAdminClient({ resources }: { resources: Resource[] }) {
           </p>
         </div>
         <Button
-          onClick={() => setIsOpen(true)}
+          onClick={openCreate}
           className="bg-montessori-primary text-white hover:bg-montessori-primary/90 shadow-sm"
         >
           <Plus className="w-4 h-4 mr-2" /> Add Resource
@@ -141,6 +168,14 @@ export function ResourcesAdminClient({ resources }: { resources: Resource[] }) {
                   )}
                 </div>
                 <button
+                  onClick={() => openEdit(r)}
+                  disabled={isPending}
+                  aria-label="Edit resource"
+                  className="text-slate-400 hover:text-montessori-primary transition-colors p-1.5 rounded-md hover:bg-slate-100"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => handleDelete(r.id, r.title)}
                   disabled={isPending}
                   aria-label="Delete resource"
@@ -157,9 +192,11 @@ export function ResourcesAdminClient({ resources }: { resources: Resource[] }) {
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>Add Resource</DialogTitle>
+            <DialogTitle>{editingId ? "Edit Resource" : "Add Resource"}</DialogTitle>
             <DialogDescription>
-              Share a guide, video, or policy with the parents at your school.
+              {editingId
+                ? "Changes show in the parent portal straight away."
+                : "Share a guide, video, or policy with the parents at your school."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -226,12 +263,12 @@ export function ResourcesAdminClient({ resources }: { resources: Resource[] }) {
               Cancel
             </Button>
             <Button
-              onClick={handleCreate}
+              onClick={handleSubmit}
               disabled={isPending || !title.trim()}
               className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
             >
               {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Publish
+              {editingId ? "Save changes" : "Publish"}
             </Button>
           </DialogFooter>
         </DialogContent>

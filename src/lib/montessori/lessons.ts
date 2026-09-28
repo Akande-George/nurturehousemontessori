@@ -2,13 +2,16 @@
 // they group" logic. Used by both the termly progress report (a marking period)
 // and the daily report (a single day).
 //
-// Pure — imports only the static curriculum catalog.
+// Pure. Every helper takes the school's FULL curriculum catalog (hidden nodes
+// included, so history on a since-hidden lesson still reports) and defaults to
+// the built-in album.
 
 import {
   CURRICULUM,
-  getAllLeaves,
   getLeafById,
+  getLeafIndex,
   isGeneralLeafId,
+  type Area,
 } from "@/lib/curriculum/curriculum";
 import type { CurriculumStatus } from "@/lib/db/types";
 
@@ -61,12 +64,13 @@ export function selectLessonsInWindow(
   rows: LessonProgressRow[],
   from: string,
   to: string,
+  catalog: Area[] = CURRICULUM,
 ): Map<string, LessonEntry> {
   const out = new Map<string, LessonEntry>();
   for (const row of rows) {
     if (row.status === "not_started") continue;
     if (isGeneralLeafId(row.leaf_id)) continue;
-    const leaf = getLeafById(row.leaf_id);
+    const leaf = getLeafById(row.leaf_id, catalog);
     if (!leaf) continue;
 
     const practices = row.practices ?? [];
@@ -94,12 +98,13 @@ export function selectLessonsInWindow(
 /** Every lesson the child has ever touched, with its current level. */
 export function selectAllLessons(
   rows: LessonProgressRow[],
+  catalog: Area[] = CURRICULUM,
 ): Map<string, LessonEntry> {
   const out = new Map<string, LessonEntry>();
   for (const row of rows) {
     if (row.status === "not_started") continue;
     if (isGeneralLeafId(row.leaf_id)) continue;
-    const leaf = getLeafById(row.leaf_id);
+    const leaf = getLeafById(row.leaf_id, catalog);
     if (!leaf) continue;
 
     const dates = (row.practices ?? []).map((p) => day(p.practiced_on)).sort();
@@ -117,14 +122,16 @@ export function selectAllLessons(
 /**
  * Group chosen leaves into Area -> Subcategory -> lessons in curriculum (album)
  * order rather than alphabetically. Empty subcategories are dropped; empty areas
- * are kept so a report can say "no lessons this period".
+ * are kept so a report can say "no lessons this period" — except hidden areas,
+ * which only appear when they still carry lessons.
  */
 export function groupIntoAreas(
   lessonByLeafId: Map<string, LessonEntry>,
+  catalog: Area[] = CURRICULUM,
 ): LessonAreaGroup[] {
-  // getAllLeaves() is already in album order, so one pass preserves it.
+  // The leaf index is already in album order, so one pass preserves it.
   const bySubcategory = new Map<string, LessonEntry[]>();
-  for (const leaf of getAllLeaves()) {
+  for (const leaf of getLeafIndex(catalog).values()) {
     const lesson = lessonByLeafId.get(leaf.leafId);
     if (!lesson) continue;
     const list = bySubcategory.get(leaf.subcategoryId) ?? [];
@@ -132,26 +139,33 @@ export function groupIntoAreas(
     bySubcategory.set(leaf.subcategoryId, list);
   }
 
-  return CURRICULUM.map((area) => ({
-    areaId: area.id,
-    areaName: area.name,
-    areaDescription: area.description,
-    subcategories: area.subcategories
-      .map((sub) => ({
-        subcategoryId: sub.id,
-        subcategoryName: sub.name,
-        description: sub.description ?? null,
-        lessons: bySubcategory.get(sub.id) ?? [],
-      }))
-      .filter((sub) => sub.lessons.length > 0),
-  }));
+  return catalog
+    .map((area) => ({
+      hidden: !!area.hidden,
+      group: {
+        areaId: area.id,
+        areaName: area.name,
+        areaDescription: area.description,
+        subcategories: area.subcategories
+          .map((sub) => ({
+            subcategoryId: sub.id,
+            subcategoryName: sub.name,
+            description: sub.description ?? null,
+            lessons: bySubcategory.get(sub.id) ?? [],
+          }))
+          .filter((sub) => sub.lessons.length > 0),
+      },
+    }))
+    .filter(({ hidden, group }) => !hidden || group.subcategories.length > 0)
+    .map(({ group }) => group);
 }
 
 /** Drops areas with no lessons — for a single day, empty areas are just noise. */
 export function groupIntoNonEmptyAreas(
   lessonByLeafId: Map<string, LessonEntry>,
+  catalog: Area[] = CURRICULUM,
 ): LessonAreaGroup[] {
-  return groupIntoAreas(lessonByLeafId).filter(
+  return groupIntoAreas(lessonByLeafId, catalog).filter(
     (a) => a.subcategories.length > 0,
   );
 }

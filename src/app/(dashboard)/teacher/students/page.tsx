@@ -9,7 +9,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { requireRole } from "@/lib/auth/context";
-import { ageGroupLabel } from "@/lib/montessori/age-bands";
 import { createClient } from "@/supabase/server";
 import { getTeacherClasses } from "@/lib/db/classes";
 import { getTeacherClassrooms } from "@/lib/db/classrooms";
@@ -115,7 +114,6 @@ export default async function TeacherStudentsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="min-w-[200px]">Student</TableHead>
-                        <TableHead>Age group</TableHead>
                         <TableHead>Date of birth</TableHead>
                         <TableHead>Classroom</TableHead>
                       </TableRow>
@@ -137,9 +135,6 @@ export default async function TeacherStudentsPage() {
                                 {student.name}
                               </span>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-slate-600">
-                            {ageGroupLabel(student.age_group) ?? "—"}
                           </TableCell>
                           <TableCell className="text-slate-600">
                             {formatDob(student.date_of_birth)}

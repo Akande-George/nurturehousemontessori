@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ImageIcon, Search } from "lucide-react";
-import { CURRICULUM } from "@/lib/curriculum/curriculum";
+import type { Area } from "@/lib/curriculum/curriculum";
 
 export type GalleryItem = {
   id: string;
@@ -25,14 +25,21 @@ function formatDate(iso: string) {
   });
 }
 
-export function GalleryClient({ items }: { items: GalleryItem[] }) {
+export function GalleryClient({
+  items,
+  curriculum,
+}: {
+  items: GalleryItem[];
+  /** The school's full catalog — so posts filed under a since-hidden area stay filterable. */
+  curriculum: Area[];
+}) {
   const [areaFilter, setAreaFilter] = useState("All");
   const [search, setSearch] = useState("");
 
   const areasPresent = useMemo(() => {
     const present = new Set(items.map((i) => i.areaName).filter(Boolean));
-    return CURRICULUM.filter((a) => present.has(a.name));
-  }, [items]);
+    return curriculum.filter((a) => present.has(a.name));
+  }, [items, curriculum]);
 
   const filtered = items.filter((i) => {
     const matchesArea = areaFilter === "All" || i.areaName === areaFilter;

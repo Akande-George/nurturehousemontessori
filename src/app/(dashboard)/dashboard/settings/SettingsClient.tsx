@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { updateSchoolBranding } from "@/lib/actions/schools";
-import { inviteStaff, removeStaff, setTeacherClassrooms } from "@/lib/actions/staff";
+import { inviteStaff, removeStaff, updateStaffMember } from "@/lib/actions/staff";
 import { readTheme, type Classroom, type School } from "@/lib/db/types";
 import type { StaffMember } from "@/lib/db/staff";
 
@@ -137,9 +137,17 @@ export function SettingsClient({
   const [staffName, setStaffName] = useState("");
   const [staffRole, setStaffRole] = useState<"teacher" | "admin">("teacher");
   const [staffClassrooms, setStaffClassrooms] = useState<string[]>([]);
-  // Editing the classrooms of a teacher who is already on staff.
+  // Editing someone already on staff: name, role and (Montessori teachers)
+  // classrooms, all in one dialog.
   const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editRole, setEditRole] = useState<"teacher" | "admin">("teacher");
   const [editClassrooms, setEditClassrooms] = useState<string[]>([]);
+  const adminCount = staff.filter((m) => m.role === "admin").length;
+  // Mirrors the server rules in updateStaffMember / removeStaff.
+  const isLastAdmin = (m: StaffMember) => m.role === "admin" && adminCount <= 1;
+  const editingSelf = editingMember?.userId === currentUserId;
+  const roleLocked = Boolean(editingMember && (editingSelf || isLastAdmin(editingMember)));
 
   const handleInviteStaff = () => {
     if (!staffEmail.trim()) return;
@@ -170,21 +178,36 @@ export function SettingsClient({
     });
   };
 
-  const handleSaveClassrooms = () => {
+  const openEditMember = (m: StaffMember) => {
+    setEditingMember(m);
+    setEditName(m.fullName ?? "");
+    setEditRole(m.role);
+    setEditClassrooms(m.classrooms);
+  };
+
+  const handleSaveMember = () => {
     if (!editingMember) return;
     const member = editingMember;
+    const payload = {
+      userId: member.userId,
+      name: editName.trim(),
+      role: editRole,
+      classrooms: isMontessori && editRole === "teacher" ? editClassrooms : undefined,
+    };
     startStaff(async () => {
-      const res = await setTeacherClassrooms(member.userId, editClassrooms);
+      const res = await updateStaffMember(payload);
       if (!res.ok) {
-        toast({ title: "Could not save classrooms", description: res.error, variant: "destructive" });
+        toast({ title: "Could not save changes", description: res.error, variant: "destructive" });
         return;
       }
       setEditingMember(null);
+      const displayName = payload.name || member.email;
       toast({
-        title: "Classrooms updated",
-        description: editClassrooms.length
-          ? `${member.name} now covers ${editClassrooms.join(", ")}.`
-          : `${member.name} is no longer assigned to any classroom.`,
+        title: "Staff member updated",
+        description:
+          payload.role !== member.role
+            ? `${displayName} is now ${payload.role === "admin" ? "an admin" : "a teacher"}.`
+            : `${displayName}'s details have been saved.`,
       });
     });
   };
@@ -464,20 +487,15 @@ export function SettingsClient({
                             )}
                             {m.status === "active" ? "Active" : "Invited"}
                           </Badge>
-                          {isMontessori && m.role === "teacher" && (
-                            <button
-                              onClick={() => {
-                                setEditingMember(m);
-                                setEditClassrooms(m.classrooms);
-                              }}
-                              disabled={staffPending}
-                              aria-label={`Change classrooms for ${m.name}`}
-                              className="text-slate-400 hover:text-montessori-primary transition-colors p-1.5 rounded-md hover:bg-slate-100 opacity-0 group-hover:opacity-100 focus:opacity-100"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                          )}
-                          {m.userId !== currentUserId && (
+                          <button
+                            onClick={() => openEditMember(m)}
+                            disabled={staffPending}
+                            aria-label={`Edit ${m.name}`}
+                            className="text-slate-400 hover:text-montessori-primary transition-colors p-1.5 rounded-md hover:bg-slate-100 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          {m.userId !== currentUserId && !isLastAdmin(m) && (
                             <button
                               onClick={() => handleRemoveStaff(m)}
                               disabled={staffPending}
@@ -618,23 +636,72 @@ export function SettingsClient({
       >
         <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
-            <DialogTitle>Classrooms</DialogTitle>
-            <DialogDescription>
-              Which rooms does {editingMember?.name} cover? They can have more
-              than one.
-            </DialogDescription>
+            <DialogTitle>Edit staff member</DialogTitle>
+            <DialogDescription>{editingMember?.email}</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <ClassroomPicker
-              classrooms={classrooms}
-              value={editClassrooms}
-              onChange={setEditClassrooms}
-            />
-            {editClassrooms.length === 0 && classrooms.length > 0 && (
-              <p className="text-xs text-amber-600 mt-3">
-                With no classroom assigned, {editingMember?.name} sees no
-                children at all.
-              </p>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-staff-name">Display name</Label>
+              <Input
+                id="edit-staff-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="e.g. Ms. Sarah Reed"
+                className="border-slate-200"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Role</Label>
+              <div className="flex gap-2">
+                {(["teacher", "admin"] as const).map((r) => (
+                  <Button
+                    key={r}
+                    type="button"
+                    variant={editRole === r ? "default" : "outline"}
+                    onClick={() => setEditRole(r)}
+                    disabled={roleLocked}
+                    className={`flex-1 capitalize ${
+                      editRole === r
+                        ? "bg-montessori-primary text-white hover:bg-montessori-primary/90"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    {r}
+                  </Button>
+                ))}
+              </div>
+              {roleLocked ? (
+                <p className="text-xs text-slate-400">
+                  {editingSelf
+                    ? "You can't change your own role — ask another admin."
+                    : "This is the school's only admin. Make someone else an admin first."}
+                </p>
+              ) : (
+                editingMember?.role === "teacher" &&
+                editRole === "admin" &&
+                isMontessori &&
+                editingMember.classrooms.length > 0 && (
+                  <p className="text-xs text-amber-600">
+                    Admins aren&apos;t assigned to classrooms, so{" "}
+                    {editingMember.classrooms.join(", ")} will be unassigned.
+                  </p>
+                )
+              )}
+            </div>
+            {isMontessori && editRole === "teacher" && (
+              <div className="space-y-2">
+                <Label>Classrooms</Label>
+                <ClassroomPicker
+                  classrooms={classrooms}
+                  value={editClassrooms}
+                  onChange={setEditClassrooms}
+                />
+                {editClassrooms.length === 0 && classrooms.length > 0 && (
+                  <p className="text-xs text-amber-600">
+                    With no classroom assigned, they see no children at all.
+                  </p>
+                )}
+              </div>
             )}
           </div>
           <DialogFooter>
@@ -642,12 +709,12 @@ export function SettingsClient({
               Cancel
             </Button>
             <Button
-              onClick={handleSaveClassrooms}
+              onClick={handleSaveMember}
               disabled={staffPending}
               className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
             >
               {staffPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Save classrooms
+              Save changes
             </Button>
           </DialogFooter>
         </DialogContent>

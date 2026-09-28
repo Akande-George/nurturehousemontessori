@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
-  CURRICULUM,
   type Activity,
   type Area,
   type Subcategory,
@@ -52,15 +51,17 @@ type OpenCell = { studentId: string; leafId: string } | null;
 export function CurriculumMatrix({
   students,
   progressByStudent,
+  curriculum,
 }: {
   students: MatrixStudent[];
   progressByStudent: Record<string, ProgressMap>;
+  curriculum: Area[];
 }) {
-  const [activeAreaId, setActiveAreaId] = useState(CURRICULUM[0].id);
+  const [activeAreaId, setActiveAreaId] = useState(curriculum[0]?.id ?? "");
   const [search, setSearch] = useState("");
   const [openSubs, setOpenSubs] = useState<Record<string, boolean>>(() => {
     const m: Record<string, boolean> = {};
-    for (const area of CURRICULUM) {
+    for (const area of curriculum) {
       area.subcategories.forEach((sub, i) => {
         m[sub.id] = i === 0;
       });
@@ -70,14 +71,18 @@ export function CurriculumMatrix({
   const [openActivities, setOpenActivities] = useState<Record<string, boolean>>({});
   const [openCell, setOpenCell] = useState<OpenCell>(null);
 
-  const activeArea = CURRICULUM.find((a) => a.id === activeAreaId) ?? CURRICULUM[0];
+  const activeArea = curriculum.find((a) => a.id === activeAreaId) ?? curriculum[0];
   const trimmedSearch = search.trim().toLowerCase();
+
+  if (!activeArea) {
+    return <p className="text-sm text-slate-500 py-8 text-center">No curriculum areas yet.</p>;
+  }
 
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto -mx-1 px-1">
         <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-          {CURRICULUM.map((area) => (
+          {curriculum.map((area) => (
             <button
               key={area.id}
               onClick={() => setActiveAreaId(area.id)}

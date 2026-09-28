@@ -23,8 +23,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { createInvoice, markInvoicePaid } from "@/lib/actions/operations";
-import type { Invoice } from "@/lib/db/types";
+import {
+  createInvoice,
+  deleteInvoice,
+  markInvoicePaid,
+  updateInvoice,
+} from "@/lib/actions/operations";
+import { invoiceLineItems, type Invoice } from "@/lib/db/types";
 
 type StudentOption = { id: string; name: string };
 
@@ -51,6 +56,34 @@ export function AccountingClient({
   );
   const [tax, setTax] = useState("");
   const [dueDate, setDueDate] = useState("");
+  // Unpaid invoice being edited; null while the dialog issues a new one.
+  const [editing, setEditing] = useState<Invoice | null>(null);
+
+  const resetForm = () => {
+    setEditing(null);
+    setItems([{ description: "Tuition", amount: "" }]);
+    setTax("");
+    setDueDate("");
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setIsCreateOpen(true);
+  };
+
+  const openEdit = (invoice: Invoice) => {
+    setEditing(invoice);
+    setStudentId(invoice.student_id);
+    setItems(
+      invoiceLineItems(invoice).map((item) => ({
+        description: item.description,
+        amount: String(item.amount_cents / 100),
+      })),
+    );
+    setTax(invoice.tax_cents > 0 ? String(invoice.tax_cents / 100) : "");
+    setDueDate(invoice.due_date ?? "");
+    setIsCreateOpen(true);
+  };
 
   const updateItem = (
     index: number,
@@ -102,22 +135,44 @@ export function AccountingClient({
       });
       return;
     }
+    const editingId = editing?.id ?? null;
     start(async () => {
-      const res = await createInvoice({
-        studentId,
-        items: validItems,
-        taxCents: Math.round(taxAmount * 100),
-        dueDate,
-      });
+      // Editing recomputes totals server-side and keeps the invoice number; no
+      // email is re-sent.
+      const res = editingId
+        ? await updateInvoice(editingId, {
+            items: validItems,
+            taxCents: Math.round(taxAmount * 100),
+            dueDate,
+          })
+        : await createInvoice({
+            studentId,
+            items: validItems,
+            taxCents: Math.round(taxAmount * 100),
+            dueDate,
+          });
       if (res.ok) {
         setIsCreateOpen(false);
-        setItems([{ description: "Tuition", amount: "" }]);
-        setTax("");
-        setDueDate("");
-        toast({ title: "Invoice issued" });
+        resetForm();
+        toast({ title: editingId ? "Invoice updated" : "Invoice issued" });
       } else {
         toast({ title: res.error ?? "Failed", variant: "destructive" });
       }
+    });
+  };
+
+  const handleDelete = (invoice: Invoice) => {
+    const label = invoice.invoice_no ?? invoice.description;
+    if (
+      !window.confirm(
+        `Delete invoice ${label} for ${studentName(invoice.student_id)}? This can't be undone.`,
+      )
+    )
+      return;
+    start(async () => {
+      const res = await deleteInvoice(invoice.id);
+      if (res.ok) toast({ title: "Invoice deleted" });
+      else toast({ title: res.error ?? "Failed", variant: "destructive" });
     });
   };
 
@@ -139,7 +194,7 @@ export function AccountingClient({
           </p>
         </div>
         <Button
-          onClick={() => setIsCreateOpen(true)}
+          onClick={openCreate}
           className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
         >
           Create Invoice
@@ -207,7 +262,7 @@ export function AccountingClient({
                     {invoice.description}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <Badge
                     variant="outline"
                     className={
@@ -222,14 +277,33 @@ export function AccountingClient({
                     {formatCurrency(invoice.amount_cents)}
                   </p>
                   {invoice.status !== "paid" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={pending}
-                      onClick={() => handleMarkPaid(invoice.id)}
-                    >
-                      Mark paid
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => handleMarkPaid(invoice.id)}
+                      >
+                        Mark paid
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => openEdit(invoice)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={pending}
+                        onClick={() => handleDelete(invoice)}
+                        className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                      >
+                        Delete
+                      </Button>
+                    </>
                   )}
                   <Button asChild variant="outline" size="sm">
                     <Link href={`/invoice/${invoice.id}`}>Open</Link>
@@ -241,18 +315,34 @@ export function AccountingClient({
         </CardContent>
       </Card>
 
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <Dialog
+        open={isCreateOpen}
+        onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          if (!open) resetForm();
+        }}
+      >
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
-            <DialogTitle>Create invoice</DialogTitle>
+            <DialogTitle>
+              {editing
+                ? `Edit invoice${editing.invoice_no ? ` ${editing.invoice_no}` : ""}`
+                : "Create invoice"}
+            </DialogTitle>
             <DialogDescription>
-              Issue an invoice to a student&apos;s family.
+              {editing
+                ? "Update the items, tax, or due date. The family is not emailed again."
+                : "Issue an invoice to a student's family."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
               <Label>Student</Label>
-              <Select value={studentId} onValueChange={setStudentId}>
+              <Select
+                value={studentId}
+                onValueChange={setStudentId}
+                disabled={!!editing}
+              >
                 <SelectTrigger className="bg-white border-slate-200">
                   <SelectValue placeholder="Select student" />
                 </SelectTrigger>
@@ -353,7 +443,13 @@ export function AccountingClient({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreateOpen(false);
+                resetForm();
+              }}
+            >
               Cancel
             </Button>
             <Button
@@ -361,7 +457,7 @@ export function AccountingClient({
               disabled={pending}
               className="bg-montessori-primary text-white"
             >
-              Issue Invoice
+              {editing ? "Save Changes" : "Issue Invoice"}
             </Button>
           </DialogFooter>
         </DialogContent>

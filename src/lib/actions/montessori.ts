@@ -87,6 +87,66 @@ export async function createBulkObservations(input: {
   return { ok: true, count: studentIds.length };
 }
 
+// Edit / delete guard for observations and activity posts: the row must belong
+// to the active school, and the caller must be the teacher who wrote it or an
+// admin. Returns the row's student_id for revalidation, or an error.
+async function authorOrAdmin(
+  table: "observations" | "activity_posts",
+  id: string,
+): Promise<
+  | { ok: true; supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>; studentId: string }
+  | { ok: false; error: string }
+> {
+  const { ctx, supabase } = await ctxClient();
+  if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
+  if (ctx.role !== "admin" && ctx.role !== "teacher") return { ok: false, error: "Not authorized" };
+  const { data: row } = await supabase
+    .from(table)
+    .select("school_id, teacher_id, student_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row || row.school_id !== ctx.school.id) return { ok: false, error: "Not found" };
+  if (ctx.role !== "admin" && row.teacher_id !== ctx.user.id) {
+    return { ok: false, error: "Only the teacher who wrote this (or an admin) can change it." };
+  }
+  return { ok: true, supabase, studentId: row.student_id };
+}
+
+function revalidateObservations(studentId: string) {
+  revalidatePath("/teacher/observations");
+  revalidatePath(`/teacher/observations/${studentId}`);
+  revalidatePath("/teacher");
+  revalidatePath("/parent/progress");
+}
+
+export async function updateObservation(input: {
+  id: string;
+  leafId: string;
+  content: string;
+}): Promise<Result> {
+  const content = input.content.trim();
+  if (!content) return { ok: false, error: "Add a note before saving." };
+  if (!input.leafId) return { ok: false, error: "Choose a curriculum activity." };
+  const guard = await authorOrAdmin("observations", input.id);
+  if (!guard.ok) return guard;
+  const { error } = await guard.supabase
+    .from("observations")
+    .update({ content, leaf_id: input.leafId })
+    .eq("id", input.id);
+  if (error) return { ok: false, error: error.message };
+  revalidateObservations(guard.studentId);
+  return { ok: true };
+}
+
+export async function deleteObservation(id: string): Promise<Result> {
+  const guard = await authorOrAdmin("observations", id);
+  if (!guard.ok) return guard;
+  const { error } = await guard.supabase.from("observations").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidateObservations(guard.studentId);
+  return { ok: true };
+}
+
 async function upsertProgress(
   supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>,
   schoolId: string,
@@ -168,6 +228,39 @@ export async function addActivityPost(input: {
   if (error) return { ok: false, error: error.message };
   revalidatePath("/teacher/activity");
   revalidatePath("/parent");
+  return { ok: true };
+}
+
+function revalidatePosts() {
+  revalidatePath("/teacher/activity");
+  revalidatePath("/teacher/gallery");
+  revalidatePath("/teacher");
+  revalidatePath("/parent");
+}
+
+export async function updateActivityPost(input: {
+  id: string;
+  caption: string;
+  leafId: string | null;
+}): Promise<Result> {
+  const guard = await authorOrAdmin("activity_posts", input.id);
+  if (!guard.ok) return guard;
+  const { error } = await guard.supabase
+    .from("activity_posts")
+    .update({ caption: input.caption.trim(), leaf_id: input.leafId || null })
+    .eq("id", input.id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePosts();
+  return { ok: true };
+}
+
+// Deletes the post row (likes cascade). The photo stays in storage.
+export async function deleteActivityPost(id: string): Promise<Result> {
+  const guard = await authorOrAdmin("activity_posts", id);
+  if (!guard.ok) return guard;
+  const { error } = await guard.supabase.from("activity_posts").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePosts();
   return { ok: true };
 }
 

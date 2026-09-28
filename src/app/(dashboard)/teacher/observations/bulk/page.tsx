@@ -1,6 +1,8 @@
 import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
 import { getTeacherStudents } from "@/lib/db/students";
+import { getSchoolCurriculum } from "@/lib/db/curriculum";
+import { CURRICULUM } from "@/lib/curriculum/curriculum";
 import { BulkObservationClient } from "./BulkObservationClient";
 
 export default async function BulkObservationPage() {
@@ -17,5 +19,8 @@ export default async function BulkObservationPage() {
         })
       : [];
 
-  return <BulkObservationClient students={students} />;
+  const curriculum =
+    supabase && school ? (await getSchoolCurriculum(supabase, school.id)).all : CURRICULUM;
+
+  return <BulkObservationClient students={students} curriculum={curriculum} />;
 }

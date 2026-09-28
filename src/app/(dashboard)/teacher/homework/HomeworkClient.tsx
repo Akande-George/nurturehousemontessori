@@ -14,6 +14,14 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,9 +29,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { createHomework } from "@/lib/actions/academics";
+import {
+  createHomework,
+  deleteHomework,
+  updateHomework,
+} from "@/lib/actions/academics";
 import type { Homework, SchoolClass, Subject } from "@/lib/db/types";
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -37,11 +49,13 @@ function formatDate(iso: string | null) {
 }
 
 export function HomeworkClient({
+  userId,
   classes,
   subjects,
   subjectsByClass,
   homeworkByClass,
 }: {
+  userId: string;
   classes: SchoolClass[];
   subjects: Subject[];
   subjectsByClass: Record<string, Subject[]>;
@@ -68,6 +82,78 @@ export function HomeworkClient({
   const canSubmit = Boolean(
     classId && activeSubjectId && title.trim() && dueDate.trim(),
   );
+
+  // Only the teacher who set a piece of homework can edit or remove it here.
+  const [editing, setEditing] = useState<Homework | null>(null);
+  const [editSubjectId, setEditSubjectId] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [removing, setRemoving] = useState<Homework | null>(null);
+
+  // The homework's current subject stays selectable even if it's no longer
+  // among the subjects this teacher is assigned for the class.
+  const editSubjects = editing
+    ? [
+        ...(subjectsByClass[editing.class_id] ?? []),
+        ...subjects.filter(
+          (s) =>
+            s.id === editing.subject_id &&
+            !(subjectsByClass[editing.class_id] ?? []).some((t) => t.id === s.id),
+        ),
+      ]
+    : [];
+
+  const openEdit = (hw: Homework) => {
+    setEditing(hw);
+    setEditSubjectId(hw.subject_id ?? "");
+    setEditTitle(hw.title);
+    setEditDescription(hw.description ?? "");
+    setEditDueDate(hw.due_date ?? "");
+  };
+
+  const canSave = Boolean(
+    editSubjectId && editTitle.trim() && editDueDate.trim(),
+  );
+
+  const handleSave = () => {
+    if (!editing || !canSave) return;
+    start(async () => {
+      const res = await updateHomework(editing.id, {
+        subjectId: editSubjectId,
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        dueDate: editDueDate,
+      });
+      if (!res.ok) {
+        toast({
+          title: "Could not save homework",
+          description: res.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: "Homework updated", description: editTitle.trim() });
+      setEditing(null);
+    });
+  };
+
+  const handleDelete = () => {
+    if (!removing) return;
+    start(async () => {
+      const res = await deleteHomework(removing.id);
+      if (!res.ok) {
+        toast({
+          title: "Could not remove",
+          description: res.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: "Homework removed", description: removing.title });
+      setRemoving(null);
+    });
+  };
 
   const handleAssign = () => {
     if (!canSubmit) return;
@@ -242,13 +328,34 @@ export function HomeworkClient({
                         </p>
                       )}
                     </div>
-                    <div className="text-left sm:text-right shrink-0">
-                      <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold">
-                        Due
-                      </p>
-                      <p className="text-sm font-medium text-slate-900">
-                        {formatDate(hw.due_date)}
-                      </p>
+                    <div className="flex items-start gap-3 shrink-0">
+                      <div className="text-left sm:text-right">
+                        <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold">
+                          Due
+                        </p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {formatDate(hw.due_date)}
+                        </p>
+                      </div>
+                      {hw.teacher_id === userId && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openEdit(hw)}
+                            aria-label={`Edit ${hw.title}`}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-montessori-primary transition-colors px-2 py-1.5 rounded-md hover:bg-slate-100"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Edit</span>
+                          </button>
+                          <button
+                            onClick={() => setRemoving(hw)}
+                            aria-label={`Remove ${hw.title}`}
+                            className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -257,6 +364,119 @@ export function HomeworkClient({
           )}
         </div>
       </div>
+
+      <Dialog open={Boolean(editing)} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Edit homework</DialogTitle>
+            <DialogDescription>
+              Parents aren&apos;t emailed again, and students&apos; submissions
+              are kept.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="mb-1.5 block text-xs text-slate-500">
+                Subject
+              </Label>
+              <Select value={editSubjectId} onValueChange={setEditSubjectId}>
+                <SelectTrigger className="bg-white border-slate-200">
+                  <SelectValue placeholder="Select subject" />
+                </SelectTrigger>
+                <SelectContent>
+                  {editSubjects.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label
+                htmlFor="hw-title"
+                className="mb-1.5 block text-xs text-slate-500"
+              >
+                Title
+              </Label>
+              <Input
+                id="hw-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label
+                htmlFor="hw-description"
+                className="mb-1.5 block text-xs text-slate-500"
+              >
+                Description
+              </Label>
+              <Textarea
+                id="hw-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="min-h-[90px]"
+              />
+            </div>
+            <div>
+              <Label
+                htmlFor="hw-due"
+                className="mb-1.5 block text-xs text-slate-500"
+              >
+                Due date
+              </Label>
+              <Input
+                id="hw-due"
+                type="date"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={pending || !canSave}
+              className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+            >
+              {pending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(removing)}
+        onOpenChange={(o) => !o && setRemoving(null)}
+      >
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Remove {removing?.title}?</DialogTitle>
+            <DialogDescription>
+              The assignment and every student&apos;s submission record for it
+              are deleted. This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemoving(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDelete}
+              disabled={pending}
+              className="bg-red-500 text-white hover:bg-red-600"
+            >
+              {pending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

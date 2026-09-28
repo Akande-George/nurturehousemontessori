@@ -26,15 +26,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CURRICULUM, type Leaf } from "@/lib/curriculum/curriculum";
-import { addActivityPost } from "@/lib/actions/montessori";
+import type { Area, Leaf } from "@/lib/curriculum/curriculum";
+import {
+  addActivityPost,
+  deleteActivityPost,
+  updateActivityPost,
+} from "@/lib/actions/montessori";
+import {
+  CurriculumLeafFields,
+  useCurriculumLeaf,
+} from "@/components/montessori/CurriculumLeafPicker";
 import { uploadActivityImage } from "@/lib/actions/media";
-import { Camera, Heart, ImageIcon, Plus, Search, Upload } from "lucide-react";
+import { Camera, Heart, ImageIcon, Loader2, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import type { Student } from "@/lib/db/types";
 
 type Post = {
   id: string;
   student_id: string;
+  teacher_id: string | null;
+  leaf_id: string | null;
   caption: string | null;
   image_url: string | null;
   created_at: string;
@@ -62,7 +72,21 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-export function TeacherActivityClient({ students, posts }: { students: Student[]; posts: Post[] }) {
+export function TeacherActivityClient({
+  students,
+  posts,
+  currentUserId,
+  curriculum,
+  catalog,
+}: {
+  students: Student[];
+  posts: Post[];
+  currentUserId: string;
+  /** The school catalog without hidden items — what the pickers offer. */
+  curriculum: Area[];
+  /** The full catalog (hidden items flagged), for editing an existing post. */
+  catalog: Area[];
+}) {
   const { toast } = useToast();
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -74,11 +98,12 @@ export function TeacherActivityClient({ students, posts }: { students: Student[]
   const [caption, setCaption] = useState("");
   const [areaFilter, setAreaFilter] = useState<string>("All");
   const [imageDataUrl, setImageDataUrl] = useState<string>("");
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
 
-  const [areaId, setAreaId] = useState(CURRICULUM[0].id);
-  const area = CURRICULUM.find((a) => a.id === areaId) ?? CURRICULUM[0];
+  const [areaId, setAreaId] = useState(curriculum[0]?.id ?? "");
+  const area = curriculum.find((a) => a.id === areaId) ?? curriculum[0];
   const flatActivities = useMemo(
-    () => area.subcategories.flatMap((sub) => sub.activities.map((act) => ({ sub, act }))),
+    () => (area?.subcategories ?? []).flatMap((sub) => sub.activities.map((act) => ({ sub, act }))),
     [area],
   );
   const [activityId, setActivityId] = useState(flatActivities[0]?.act.id ?? "");
@@ -89,8 +114,8 @@ export function TeacherActivityClient({ students, posts }: { students: Student[]
 
   const handleAreaChange = (value: string) => {
     setAreaId(value);
-    const nextArea = CURRICULUM.find((a) => a.id === value) ?? CURRICULUM[0];
-    const firstAct = nextArea.subcategories.flatMap((s) => s.activities)[0];
+    const nextArea = curriculum.find((a) => a.id === value) ?? curriculum[0];
+    const firstAct = (nextArea?.subcategories ?? []).flatMap((s) => s.activities)[0];
     setActivityId(firstAct?.id ?? "");
     setVariationId("");
   };
@@ -127,8 +152,8 @@ export function TeacherActivityClient({ students, posts }: { students: Student[]
   const resetDialog = () => {
     setCaption("");
     setImageDataUrl("");
-    setAreaId(CURRICULUM[0].id);
-    setActivityId(CURRICULUM[0].subcategories.flatMap((s) => s.activities)[0]?.id ?? "");
+    setAreaId(curriculum[0]?.id ?? "");
+    setActivityId((curriculum[0]?.subcategories ?? []).flatMap((s) => s.activities)[0]?.id ?? "");
     setVariationId("");
   };
 
@@ -160,6 +185,19 @@ export function TeacherActivityClient({ students, posts }: { students: Student[]
         router.refresh();
       } else {
         toast({ title: res.error ?? "Failed to post", variant: "destructive" });
+      }
+    });
+  };
+
+  const handleDeletePost = (post: Post) => {
+    if (!window.confirm("Delete this post? Parents will no longer see it. This can't be undone.")) return;
+    start(async () => {
+      const res = await deleteActivityPost(post.id);
+      if (res.ok) {
+        toast({ title: "Post deleted" });
+        router.refresh();
+      } else {
+        toast({ title: res.error ?? "Failed to delete", variant: "destructive" });
       }
     });
   };
@@ -256,7 +294,7 @@ export function TeacherActivityClient({ students, posts }: { students: Student[]
                 >
                   All
                 </button>
-                {CURRICULUM.map((a) => (
+                {curriculum.map((a) => (
                   <button
                     key={a.id}
                     onClick={() => setAreaFilter(a.name)}
@@ -321,6 +359,32 @@ export function TeacherActivityClient({ students, posts }: { students: Student[]
                         <span className="text-xs text-slate-500">
                           {post.like_count} {post.like_count === 1 ? "like" : "likes"} from parent
                         </span>
+                        {post.teacher_id === currentUserId && (
+                          <div className="ml-auto flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-slate-500 hover:text-slate-900"
+                              onClick={() => setEditingPost(post)}
+                              disabled={pending}
+                              aria-label="Edit post"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-slate-500 hover:text-red-600"
+                              onClick={() => handleDeletePost(post)}
+                              disabled={pending}
+                              aria-label="Delete post"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -387,7 +451,7 @@ export function TeacherActivityClient({ students, posts }: { students: Student[]
                     <SelectValue placeholder="Select area" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CURRICULUM.map((a) => (
+                    {curriculum.map((a) => (
                       <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -400,7 +464,7 @@ export function TeacherActivityClient({ students, posts }: { students: Student[]
                     <SelectValue placeholder="Select activity" />
                   </SelectTrigger>
                   <SelectContent>
-                    {area.subcategories.map((sub) => (
+                    {(area?.subcategories ?? []).map((sub) => (
                       <SelectGroup key={sub.id}>
                         <SelectLabel className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
                           {sub.name}
@@ -458,6 +522,81 @@ export function TeacherActivityClient({ students, posts }: { students: Student[]
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={editingPost !== null} onOpenChange={(open) => !open && setEditingPost(null)}>
+        <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit post</DialogTitle>
+            <DialogDescription>Change the caption or the activity it&apos;s filed under.</DialogDescription>
+          </DialogHeader>
+          {/* Mounted per post so the picker starts from the saved leaf each time. */}
+          {editingPost && (
+            <EditPostForm key={editingPost.id} post={editingPost} catalog={catalog} onDone={() => setEditingPost(null)} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function EditPostForm({
+  post,
+  catalog,
+  onDone,
+}: {
+  post: Post;
+  catalog: Area[];
+  onDone: () => void;
+}) {
+  const { toast } = useToast();
+  const router = useRouter();
+  const picker = useCurriculumLeaf(catalog, post.leaf_id);
+  const [caption, setCaption] = useState(post.caption ?? "");
+  const [pending, start] = useTransition();
+
+  const handleSave = () => {
+    start(async () => {
+      const res = await updateActivityPost({
+        id: post.id,
+        caption,
+        leafId: picker.leafId || null,
+      });
+      if (res.ok) {
+        toast({ title: "Post updated" });
+        onDone();
+        router.refresh();
+      } else {
+        toast({ title: res.error ?? "Failed to save", variant: "destructive" });
+      }
+    });
+  };
+
+  return (
+    <>
+      <div className="space-y-4 py-2">
+        <CurriculumLeafFields picker={picker} />
+        <div>
+          <label className="text-sm font-medium text-slate-700 block mb-2">Caption</label>
+          <Textarea
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            className="min-h-[120px] border-slate-200 focus-visible:ring-montessori-primary"
+          />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onDone} disabled={pending}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSave}
+          disabled={pending || !caption.trim()}
+          className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+        >
+          {pending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          Save
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

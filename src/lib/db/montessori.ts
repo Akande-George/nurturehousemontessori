@@ -1,7 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
-import { getLeafById, type Leaf } from "@/lib/curriculum/curriculum";
+import { getLeafById, type Area, type Leaf } from "@/lib/curriculum/curriculum";
+import { getCatalogsForSchools } from "./curriculum";
 
 type DB = SupabaseClient<Database>;
 
@@ -15,29 +16,55 @@ export type Progress = Database["public"]["Tables"]["progress"]["Row"];
 
 export type ObservationWithLeaf = Observation & { leaf: Leaf | null };
 
+// Rows carry a text leaf_id into the school's curriculum. Resolve it against
+// `catalog` (a school's full catalog, hidden nodes included) when the caller has
+// one; otherwise load each row's school catalog so custom and renamed nodes
+// still resolve.
+async function leafResolver(
+  db: DB,
+  rows: { school_id: string }[],
+  catalog?: Area[],
+): Promise<(row: { school_id: string; leaf_id: string | null }) => Leaf | null> {
+  if (catalog) return (row) => (row.leaf_id ? getLeafById(row.leaf_id, catalog) ?? null : null);
+  const catalogs = await getCatalogsForSchools(
+    db,
+    rows.map((r) => r.school_id),
+  );
+  return (row) =>
+    row.leaf_id
+      ? getLeafById(row.leaf_id, catalogs.get(row.school_id)?.all) ?? null
+      : null;
+}
+
 // ---- Observations ----
 export async function getStudentObservations(
   db: DB,
   studentId: string,
+  catalog?: Area[],
 ): Promise<ObservationWithLeaf[]> {
   const { data } = await db
     .from("observations")
     .select("*")
     .eq("student_id", studentId)
     .order("created_at", { ascending: false });
-  return (data ?? []).map((o) => ({ ...o, leaf: getLeafById(o.leaf_id) ?? null }));
+  const rows = data ?? [];
+  const resolve = await leafResolver(db, rows, catalog);
+  return rows.map((o) => ({ ...o, leaf: resolve(o) }));
 }
 
 export async function getSchoolObservations(
   db: DB,
   schoolId: string,
+  catalog?: Area[],
 ): Promise<ObservationWithLeaf[]> {
   const { data } = await db
     .from("observations")
     .select("*")
     .eq("school_id", schoolId)
     .order("created_at", { ascending: false });
-  return (data ?? []).map((o) => ({ ...o, leaf: getLeafById(o.leaf_id) ?? null }));
+  const rows = data ?? [];
+  const resolve = await leafResolver(db, rows, catalog);
+  return rows.map((o) => ({ ...o, leaf: resolve(o) }));
 }
 
 // ---- Curriculum progress ----
@@ -101,6 +128,7 @@ export async function getActivityFeed(
   db: DB,
   studentIds: string[],
   parentId: string | null,
+  catalog?: Area[],
 ): Promise<ActivityPostWithMeta[]> {
   if (studentIds.length === 0) return [];
   const { data: posts } = await db
@@ -108,11 +136,13 @@ export async function getActivityFeed(
     .select("*, likes:post_likes(parent_id)")
     .in("student_id", studentIds)
     .order("created_at", { ascending: false });
-  return (posts ?? []).map((p) => {
+  const rows = posts ?? [];
+  const resolve = await leafResolver(db, rows, catalog);
+  return rows.map((p) => {
     const likes = (p as { likes?: { parent_id: string }[] }).likes ?? [];
     return {
       ...(p as ActivityPost),
-      leaf: p.leaf_id ? getLeafById(p.leaf_id) ?? null : null,
+      leaf: resolve(p),
       like_count: likes.length,
       liked_by_me: parentId ? likes.some((l) => l.parent_id === parentId) : false,
     };
@@ -122,8 +152,9 @@ export async function getActivityFeed(
 export async function getStudentActivityPosts(
   db: DB,
   studentId: string,
+  catalog?: Area[],
 ): Promise<ActivityPostWithMeta[]> {
-  return getActivityFeed(db, [studentId], null);
+  return getActivityFeed(db, [studentId], null, catalog);
 }
 
 // ---- Progress ----

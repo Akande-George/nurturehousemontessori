@@ -1,16 +1,27 @@
-export type Variation = {
+// The built-in Montessori album. Schools edit it through an overlay
+// (public.curriculum_nodes, merged in ./school-curriculum.ts): built-in nodes can
+// be renamed, re-described or hidden, and custom nodes added. `hidden` / `custom`
+// are only ever set on a merged catalog, never on CURRICULUM itself.
+type NodeFlags = {
+  /** Hidden by the school — kept in the full catalog so old records resolve. */
+  hidden?: boolean;
+  /** Added by the school (not part of the built-in album). */
+  custom?: boolean;
+};
+
+export type Variation = NodeFlags & {
   id: string;
   name: string;
 };
 
-export type Activity = {
+export type Activity = NodeFlags & {
   id: string;
   name: string;
   variations: Variation[];
   description?: string;
 };
 
-export type Subcategory = {
+export type Subcategory = NodeFlags & {
   id: string;
   name: string;
   activities: Activity[];
@@ -18,7 +29,7 @@ export type Subcategory = {
   description?: string;
 };
 
-export type Area = {
+export type Area = NodeFlags & {
   id: string;
   name: string;
   color: string;
@@ -1565,60 +1576,68 @@ export type Leaf = {
   description?: string;
 };
 
-let cachedLeaves: Leaf[] | null = null;
-let cachedLeafIndex: Map<string, Leaf> | null = null;
+// Every helper below takes the catalog to read, defaulting to the built-in
+// album. Pass a school's merged catalog (see ./school-curriculum.ts): its
+// `visible` areas for pickers / matrices / stats, its `all` areas for resolving
+// a stored leaf id to a name (so hidden nodes still resolve). Results are
+// memoised per catalog array, so pass the same array instance around.
+const leavesCache = new WeakMap<Area[], Leaf[]>();
+const leafIndexCache = new WeakMap<Area[], Map<string, Leaf>>();
 
-export function getAllLeaves(): Leaf[] {
-  if (cachedLeaves) return cachedLeaves;
+function toLeaf(area: Area, sub: Subcategory, act: Activity, v?: Variation): Leaf {
+  return {
+    leafId: v ? v.id : act.id,
+    leafName: v ? v.name : act.name,
+    activityId: act.id,
+    activityName: act.name,
+    subcategoryId: sub.id,
+    subcategoryName: sub.name,
+    areaId: area.id,
+    areaName: area.name,
+    areaColor: area.color,
+    areaTone: area.tone,
+    description: act.description,
+  };
+}
+
+/** Trackable leaves (a variation, or an activity without variations) in album order. */
+export function getAllLeaves(areas: Area[] = CURRICULUM): Leaf[] {
+  const cached = leavesCache.get(areas);
+  if (cached) return cached;
   const leaves: Leaf[] = [];
-  for (const area of CURRICULUM) {
+  for (const area of areas) {
     for (const sub of area.subcategories) {
       for (const act of sub.activities) {
         if (act.variations.length === 0) {
-          leaves.push({
-            leafId: act.id,
-            leafName: act.name,
-            activityId: act.id,
-            activityName: act.name,
-            subcategoryId: sub.id,
-            subcategoryName: sub.name,
-            areaId: area.id,
-            areaName: area.name,
-            areaColor: area.color,
-            areaTone: area.tone,
-            description: act.description,
-          });
+          leaves.push(toLeaf(area, sub, act));
         } else {
-          for (const v of act.variations) {
-            leaves.push({
-              leafId: v.id,
-              leafName: v.name,
-              activityId: act.id,
-              activityName: act.name,
-              subcategoryId: sub.id,
-              subcategoryName: sub.name,
-              areaId: area.id,
-              areaName: area.name,
-              areaColor: area.color,
-              areaTone: area.tone,
-              description: act.description,
-            });
-          }
+          for (const v of act.variations) leaves.push(toLeaf(area, sub, act, v));
         }
       }
     }
   }
-  cachedLeaves = leaves;
+  leavesCache.set(areas, leaves);
   return leaves;
 }
 
-export function getLeafIndex(): Map<string, Leaf> {
-  if (cachedLeafIndex) return cachedLeafIndex;
+/**
+ * leafId -> Leaf, in album order. Beyond the trackable leaves it also indexes
+ * every activity that HAS variations under its own id, so a record filed
+ * against an activity before variations were added to it still resolves.
+ */
+export function getLeafIndex(areas: Area[] = CURRICULUM): Map<string, Leaf> {
+  const cached = leafIndexCache.get(areas);
+  if (cached) return cached;
   const index = new Map<string, Leaf>();
-  for (const leaf of getAllLeaves()) {
-    index.set(leaf.leafId, leaf);
+  for (const area of areas) {
+    for (const sub of area.subcategories) {
+      for (const act of sub.activities) {
+        index.set(act.id, toLeaf(area, sub, act));
+        for (const v of act.variations) index.set(v.id, toLeaf(area, sub, act, v));
+      }
+    }
   }
-  cachedLeafIndex = index;
+  leafIndexCache.set(areas, index);
   return index;
 }
 
@@ -1634,9 +1653,12 @@ export function isGeneralLeafId(leafId: string): boolean {
   return leafId.startsWith(GENERAL_LEAF_PREFIX);
 }
 
-export function getLeafById(leafId: string): Leaf | undefined {
+export function getLeafById(
+  leafId: string,
+  areas: Area[] = CURRICULUM,
+): Leaf | undefined {
   if (isGeneralLeafId(leafId)) {
-    const area = getAreaById(leafId.slice(GENERAL_LEAF_PREFIX.length));
+    const area = getAreaById(leafId.slice(GENERAL_LEAF_PREFIX.length), areas);
     if (!area) return undefined;
     return {
       leafId,
@@ -1651,9 +1673,12 @@ export function getLeafById(leafId: string): Leaf | undefined {
       areaTone: area.tone,
     };
   }
-  return getLeafIndex().get(leafId);
+  return getLeafIndex(areas).get(leafId);
 }
 
-export function getAreaById(areaId: string): Area | undefined {
-  return CURRICULUM.find((a) => a.id === areaId);
+export function getAreaById(
+  areaId: string,
+  areas: Area[] = CURRICULUM,
+): Area | undefined {
+  return areas.find((a) => a.id === areaId);
 }

@@ -565,6 +565,8 @@ export type Database = {
           age_group: string | null
           created_at: string
           id: string
+          max_age_months: number | null
+          min_age_months: number | null
           name: string
           school_id: string
           sort_order: number
@@ -573,6 +575,8 @@ export type Database = {
           age_group?: string | null
           created_at?: string
           id?: string
+          max_age_months?: number | null
+          min_age_months?: number | null
           name: string
           school_id: string
           sort_order?: number
@@ -581,6 +585,8 @@ export type Database = {
           age_group?: string | null
           created_at?: string
           id?: string
+          max_age_months?: number | null
+          min_age_months?: number | null
           name?: string
           school_id?: string
           sort_order?: number
@@ -588,6 +594,56 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "classrooms_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      curriculum_nodes: {
+        Row: {
+          created_at: string
+          description: string | null
+          hidden: boolean
+          id: string
+          kind: string
+          name: string | null
+          node_id: string
+          parent_node_id: string | null
+          school_id: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          hidden?: boolean
+          id?: string
+          kind: string
+          name?: string | null
+          node_id: string
+          parent_node_id?: string | null
+          school_id: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          hidden?: boolean
+          id?: string
+          kind?: string
+          name?: string | null
+          node_id?: string
+          parent_node_id?: string | null
+          school_id?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "curriculum_nodes_school_id_fkey"
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "schools"
@@ -1727,6 +1783,7 @@ export type Database = {
           avatar_color: string
           class_id: string | null
           classroom: string | null
+          classroom_pinned: boolean
           created_at: string
           date_of_birth: string | null
           emergency_contact: Json | null
@@ -1745,6 +1802,7 @@ export type Database = {
           avatar_color?: string
           class_id?: string | null
           classroom?: string | null
+          classroom_pinned?: boolean
           created_at?: string
           date_of_birth?: string | null
           emergency_contact?: Json | null
@@ -1763,6 +1821,7 @@ export type Database = {
           avatar_color?: string
           class_id?: string | null
           classroom?: string | null
+          classroom_pinned?: boolean
           created_at?: string
           date_of_birth?: string | null
           emergency_contact?: Json | null
@@ -1937,6 +1996,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      place_students_by_age: {
+        Args: { p_school?: string; p_student?: string }
+        Returns: number
+      }
       compute_report_card: {
         Args: {
           p_class_id: string

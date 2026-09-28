@@ -15,7 +15,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  CURRICULUM,
   type Activity,
   type Area,
   type Subcategory,
@@ -62,20 +61,22 @@ function leafMatchesFilter(status: CurriculumStatus, filter: Filter): boolean {
 export function StudentCurriculumClient({
   student,
   progress,
+  curriculum,
 }: {
   student: Student;
   progress: ProgressMap;
+  curriculum: Area[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const [pending, start] = useTransition();
 
-  const [activeAreaId, setActiveAreaId] = useState(CURRICULUM[0].id);
+  const [activeAreaId, setActiveAreaId] = useState(curriculum[0]?.id ?? "");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [openSubs, setOpenSubs] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
-    for (const area of CURRICULUM) {
+    for (const area of curriculum) {
       area.subcategories.forEach((sub, idx) => {
         initial[sub.id] = idx === 0;
       });
@@ -84,8 +85,8 @@ export function StudentCurriculumClient({
   });
   const [openActivities, setOpenActivities] = useState<Record<string, boolean>>({});
 
-  const stats = getCurriculumStats(progress);
-  const activeArea = CURRICULUM.find((a) => a.id === activeAreaId) ?? CURRICULUM[0];
+  const stats = getCurriculumStats(progress, curriculum);
+  const activeArea = curriculum.find((a) => a.id === activeAreaId) ?? curriculum[0];
   const trimmedSearch = search.trim().toLowerCase();
   const overallPct = touchedPercent(stats.overall);
 
@@ -168,7 +169,7 @@ export function StudentCurriculumClient({
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-5">
-            {CURRICULUM.map((area) => {
+            {curriculum.map((area) => {
               const pct = touchedPercent(stats.byArea[area.id]);
               return (
                 <button
@@ -197,7 +198,7 @@ export function StudentCurriculumClient({
 
       <div className="overflow-x-auto -mx-1 px-1">
         <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-          {CURRICULUM.map((area) => (
+          {curriculum.map((area) => (
             <button
               key={area.id}
               onClick={() => setActiveAreaId(area.id)}
@@ -238,20 +239,22 @@ export function StudentCurriculumClient({
         </div>
       </div>
 
-      <AreaBody
-        area={activeArea}
-        progress={progress}
-        search={trimmedSearch}
-        filter={filter}
-        openSubs={openSubs}
-        setOpenSubs={setOpenSubs}
-        openActivities={openActivities}
-        setOpenActivities={setOpenActivities}
-        pending={pending}
-        onAddPracticeToday={handleAddPracticeToday}
-        onAddPracticeOnDate={handleAddPracticeOnDate}
-        onStatusChange={handleStatusChange}
-      />
+      {activeArea && (
+        <AreaBody
+          area={activeArea}
+          progress={progress}
+          search={trimmedSearch}
+          filter={filter}
+          openSubs={openSubs}
+          setOpenSubs={setOpenSubs}
+          openActivities={openActivities}
+          setOpenActivities={setOpenActivities}
+          pending={pending}
+          onAddPracticeToday={handleAddPracticeToday}
+          onAddPracticeOnDate={handleAddPracticeOnDate}
+          onStatusChange={handleStatusChange}
+        />
+      )}
     </div>
   );
 }

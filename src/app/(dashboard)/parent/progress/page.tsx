@@ -7,6 +7,8 @@ import {
   getStudentObservations,
   type Progress,
 } from "@/lib/db/montessori";
+import { getCatalogsForSchools } from "@/lib/db/curriculum";
+import type { SchoolCurriculum } from "@/lib/curriculum/school-curriculum";
 import { buildProgressMap, type ProgressMap } from "@/lib/curriculum/progress-utils";
 import { ParentProgressClient, type ObsLite } from "./ParentProgressClient";
 
@@ -14,15 +16,29 @@ export default async function AcademicProgressPage() {
   const { user } = await requireRole("parent");
   const supabase = await createClient();
   if (!supabase) {
-    return <ParentProgressClient children={[]} progressByStudent={{}} academicByStudent={{}} obsByStudent={{}} />;
+    return (
+      <ParentProgressClient
+        children={[]}
+        progressByStudent={{}}
+        academicByStudent={{}}
+        obsByStudent={{}}
+        curriculumBySchool={{}}
+      />
+    );
   }
 
   const children = await getStudentsForParent(supabase, user.id);
+  const catalogs = await getCatalogsForSchools(supabase, children.map((c) => c.school_id));
   const [progressRows, academicRows, obsRows] = await Promise.all([
     Promise.all(children.map((c) => getStudentCurriculumProgress(supabase, c.id))),
     Promise.all(children.map((c) => getStudentProgress(supabase, c.id))),
-    Promise.all(children.map((c) => getStudentObservations(supabase, c.id))),
+    Promise.all(
+      children.map((c) =>
+        getStudentObservations(supabase, c.id, catalogs.get(c.school_id)?.all),
+      ),
+    ),
   ]);
+  const curriculumBySchool: Record<string, SchoolCurriculum> = Object.fromEntries(catalogs);
 
   const progressByStudent: Record<string, ProgressMap> = {};
   const academicByStudent: Record<string, Progress | null> = {};
@@ -46,6 +62,7 @@ export default async function AcademicProgressPage() {
       progressByStudent={progressByStudent}
       academicByStudent={academicByStudent}
       obsByStudent={obsByStudent}
+      curriculumBySchool={curriculumBySchool}
     />
   );
 }

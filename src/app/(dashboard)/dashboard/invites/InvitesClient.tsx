@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Mail, CheckCircle2, Clock, KeyRound, Loader2, UserPlus } from "lucide-react";
+import { Mail, CheckCircle2, Clock, KeyRound, Loader2, Pencil, Unlink, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -30,7 +30,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { inviteParent, resendParentInvite } from "@/lib/actions/invites";
+import {
+  inviteParent,
+  resendParentInvite,
+  unlinkParent,
+  updateParentName,
+} from "@/lib/actions/invites";
 import type { PortalRow, PortalStatus } from "@/lib/db/invites";
 
 const STATUS_STYLE: Record<
@@ -69,6 +74,11 @@ export function InvitesClient({
   const [email, setEmail] = useState("");
   const [parentName, setParentName] = useState("");
   const [studentId, setStudentId] = useState("");
+  // Managing a linked parent: rename, or unlink from a child. Tracked by id so
+  // the dialog reflects the refreshed roster after each change.
+  const [managingId, setManagingId] = useState<string | null>(null);
+  const [manageName, setManageName] = useState("");
+  const managing = roster.find((r) => r.parentId && r.parentId === managingId) ?? null;
 
   const stats = useMemo(() => {
     const active = roster.filter((r) => r.status === "active").length;
@@ -105,6 +115,48 @@ export function InvitesClient({
         return;
       }
       toast({ title: "Invite resent", description: `A new sign-in link was emailed to ${row.email}.` });
+    });
+  };
+
+  const openManage = (row: PortalRow) => {
+    if (!row.parentId) return;
+    setManagingId(row.parentId);
+    setManageName(row.fullName);
+  };
+
+  const handleSaveName = () => {
+    if (!managing?.parentId || !manageName.trim()) return;
+    const parentId = managing.parentId;
+    const name = manageName.trim();
+    startTransition(async () => {
+      const res = await updateParentName({ parentId, name });
+      if (!res.ok) {
+        toast({ title: "Could not save name", description: res.error, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Name updated", description: `Saved as ${name}.` });
+    });
+  };
+
+  const handleUnlink = (child: { id: string; name: string }) => {
+    if (!managing?.parentId) return;
+    const parentId = managing.parentId;
+    const parentLabel = managing.parentName;
+    const lastChild = managing.children.length === 1;
+    const ok = window.confirm(
+      lastChild
+        ? `Unlink ${parentLabel} from ${child.name}? This is their only child here, so they will also lose portal access.`
+        : `Unlink ${parentLabel} from ${child.name}? They will no longer see ${child.name} in the portal.`,
+    );
+    if (!ok) return;
+    startTransition(async () => {
+      const res = await unlinkParent({ parentId, studentId: child.id });
+      if (!res.ok) {
+        toast({ title: "Could not unlink", description: res.error, variant: "destructive" });
+        return;
+      }
+      if (lastChild) setManagingId(null);
+      toast({ title: "Parent unlinked", description: `${parentLabel} is no longer linked to ${child.name}.` });
     });
   };
 
@@ -217,7 +269,7 @@ export function InvitesClient({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-slate-400 text-sm">{row.lastAction}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right whitespace-nowrap">
                         {row.status !== "active" && row.email && (
                           <Button
                             variant="ghost"
@@ -226,6 +278,17 @@ export function InvitesClient({
                             className="text-montessori-primary hover:text-montessori-primary/80 hover:bg-montessori-primary/5 opacity-0 group-hover:opacity-100 transition-all font-medium h-8 px-3"
                           >
                             Resend
+                          </Button>
+                        )}
+                        {row.parentId && (
+                          <Button
+                            variant="ghost"
+                            disabled={isPending}
+                            onClick={() => openManage(row)}
+                            aria-label={`Manage ${row.parentName}`}
+                            className="text-slate-400 hover:text-montessori-primary hover:bg-slate-100 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all h-8 w-8 p-0"
+                          >
+                            <Pencil className="w-4 h-4" />
                           </Button>
                         )}
                       </TableCell>
@@ -303,6 +366,65 @@ export function InvitesClient({
             >
               {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Send invite
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(managing)} onOpenChange={(open) => !open && setManagingId(null)}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle>Manage parent</DialogTitle>
+            <DialogDescription>{managing?.email}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-5 py-4">
+            <div className="space-y-2">
+              <label htmlFor="manage-name" className="text-sm font-medium text-slate-700">
+                Display name
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  id="manage-name"
+                  value={manageName}
+                  onChange={(e) => setManageName(e.target.value)}
+                  placeholder="e.g. Amanda Wong"
+                  className="border-slate-200"
+                />
+                <Button
+                  onClick={handleSaveName}
+                  disabled={isPending || !manageName.trim() || manageName.trim() === managing?.fullName}
+                  className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-slate-700">Linked children</p>
+              <ul className="divide-y divide-slate-100 rounded-lg border border-slate-100">
+                {managing?.children.map((child) => (
+                  <li key={child.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                    <span className="text-sm text-slate-800 truncate">{child.name}</span>
+                    <Button
+                      variant="ghost"
+                      disabled={isPending}
+                      onClick={() => handleUnlink(child)}
+                      className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 gap-1.5"
+                    >
+                      <Unlink className="w-3.5 h-3.5" /> Unlink
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-slate-400">
+                To link another child, use Invite Parent with the same email.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManagingId(null)}>
+              {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -39,7 +39,7 @@ export async function linkParentToStudent(input: {
       .from("profiles")
       .update({ full_name: input.name.trim() })
       .eq("id", parent.id)
-      .is("full_name", null);
+      .eq("full_name", ""); // only fill an unset name (column defaults to '')
   }
 
   const { error: mErr } = await admin

@@ -10,9 +10,15 @@ export type PortalStatus = "active" | "invited" | "pending";
 
 export type PortalRow = {
   key: string;
+  // Set for linked parent accounts; null for invite-only (pending) rows.
+  parentId: string | null;
   parentName: string;
+  // The profile's own name ('' when unset — parentName then falls back).
+  fullName: string;
   email: string;
   students: string[];
+  // Linked children with ids, for unlinking.
+  children: { id: string; name: string }[];
   status: PortalStatus;
   lastAction: string;
 };
@@ -66,14 +72,20 @@ export async function getPortalRoster(
     const existing = byParent.get(l.parent_id);
     if (existing) {
       if (!existing.students.includes(studentName)) existing.students.push(studentName);
+      if (!existing.children.some((c) => c.id === l.student_id)) {
+        existing.children.push({ id: l.student_id, name: studentName });
+      }
       continue;
     }
     const signedIn = Boolean(signInMap.get(l.parent_id));
     byParent.set(l.parent_id, {
       key: l.parent_id,
+      parentId: l.parent_id,
       parentName: p.full_name || p.email || "Parent",
+      fullName: p.full_name ?? "",
       email: p.email ?? "",
       students: [studentName],
+      children: [{ id: l.student_id, name: studentName }],
       status: signedIn ? "active" : "invited",
       lastAction: signedIn ? "Portal active" : "Invited — awaiting first sign-in",
     });
@@ -93,9 +105,12 @@ export async function getPortalRoster(
     if (linkedEmails.has(inv.email.toLowerCase())) continue;
     byParent.set(`inv:${inv.email}`, {
       key: `inv:${inv.email}`,
+      parentId: null,
       parentName: inv.email,
+      fullName: "",
       email: inv.email,
       students: inv.student_id ? [studentMap.get(inv.student_id) ?? "—"] : [],
+      children: [],
       status: "pending",
       lastAction: "Invite sent",
     });

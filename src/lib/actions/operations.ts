@@ -27,6 +27,14 @@ async function ctxClient() {
   return { ctx, supabase };
 }
 
+// Admin of the active school. The edit/delete actions below filter every write
+// by this school_id, so an id from another school simply matches no row.
+async function adminClient() {
+  const { ctx, supabase } = await ctxClient();
+  if (!ctx?.school || !supabase || ctx.role !== "admin") return null;
+  return { ctx, school: ctx.school, supabase };
+}
+
 // Post a notice to the current school's board (admin/staff).
 export async function createNotice(input: {
   title: string;
@@ -53,6 +61,48 @@ export async function createNotice(input: {
   return { ok: true };
 }
 
+// Edit a posted notice in place. Deliberately does NOT re-send the parent
+// email fan-out; parents see the corrected text on the board.
+export async function updateNotice(
+  noticeId: string,
+  input: { title: string; content: string },
+): Promise<Result> {
+  const admin = await adminClient();
+  if (!admin) return { ok: false, error: "Not authorized" };
+  const title = input.title.trim();
+  const content = input.content.trim();
+  if (!title || !content)
+    return { ok: false, error: "A title and message are required" };
+  const { data, error } = await admin.supabase
+    .from("notices")
+    .update({ title, content })
+    .eq("id", noticeId)
+    .eq("school_id", admin.school.id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Notice not found" };
+  revalidatePath("/dashboard");
+  revalidatePath("/parent/notices");
+  return { ok: true };
+}
+
+export async function deleteNotice(noticeId: string): Promise<Result> {
+  const admin = await adminClient();
+  if (!admin) return { ok: false, error: "Not authorized" };
+  // notice_reads rows cascade with the notice.
+  const { data, error } = await admin.supabase
+    .from("notices")
+    .delete()
+    .eq("id", noticeId)
+    .eq("school_id", admin.school.id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Notice not found" };
+  revalidatePath("/dashboard");
+  revalidatePath("/parent/notices");
+  return { ok: true };
+}
+
 export async function markNoticeRead(noticeId: string): Promise<Result> {
   const { ctx, supabase } = await ctxClient();
   if (!ctx || !supabase) return { ok: false, error: "Not authorized" };
@@ -65,6 +115,29 @@ export async function markNoticeRead(noticeId: string): Promise<Result> {
   return { ok: true };
 }
 
+// Normalise line items + tax into the stored invoice columns. Shared by create
+// and update so an edited invoice totals exactly like a freshly issued one.
+function priceInvoice(
+  rawItems: { description: string; amountCents: number }[],
+  rawTaxCents?: number,
+) {
+  const items = rawItems
+    .map((item) => ({
+      description: item.description.trim(),
+      amount_cents: Math.round(item.amountCents),
+    }))
+    .filter((item) => item.description && item.amount_cents > 0);
+  if (items.length === 0) return null;
+  const taxCents = Math.max(0, Math.round(rawTaxCents ?? 0));
+  const subtotalCents = items.reduce((sum, item) => sum + item.amount_cents, 0);
+  const totalCents = subtotalCents + taxCents;
+  const description =
+    items.length === 1
+      ? items[0].description
+      : `${items[0].description} + ${items.length - 1} more`;
+  return { items, taxCents, totalCents, description };
+}
+
 export async function createInvoice(input: {
   studentId: string;
   parentId?: string | null;
@@ -74,21 +147,10 @@ export async function createInvoice(input: {
 }): Promise<Result> {
   const { ctx, supabase } = await ctxClient();
   if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
-  const items = input.items
-    .map((item) => ({
-      description: item.description.trim(),
-      amount_cents: Math.round(item.amountCents),
-    }))
-    .filter((item) => item.description && item.amount_cents > 0);
-  if (items.length === 0)
+  const priced = priceInvoice(input.items, input.taxCents);
+  if (!priced)
     return { ok: false, error: "At least one line item is required" };
-  const taxCents = Math.max(0, Math.round(input.taxCents ?? 0));
-  const subtotalCents = items.reduce((sum, item) => sum + item.amount_cents, 0);
-  const totalCents = subtotalCents + taxCents;
-  const description =
-    items.length === 1
-      ? items[0].description
-      : `${items[0].description} + ${items.length - 1} more`;
+  const { items, taxCents, totalCents, description } = priced;
   const { data: invoice, error } = await supabase
     .from("invoices")
     .insert({
@@ -119,6 +181,66 @@ export async function createInvoice(input: {
   );
   revalidatePath("/dashboard/accounting");
   revalidatePath("/parent/invoices");
+  return { ok: true };
+}
+
+// Edit an unpaid invoice's line items, tax and due date. invoice_no and the
+// student are kept; paid invoices are read-only (the status filter makes the
+// update match nothing). No email is re-sent.
+export async function updateInvoice(
+  invoiceId: string,
+  input: {
+    items: { description: string; amountCents: number }[];
+    taxCents?: number;
+    dueDate: string;
+  },
+): Promise<Result> {
+  const admin = await adminClient();
+  if (!admin) return { ok: false, error: "Not authorized" };
+  if (!input.dueDate) return { ok: false, error: "A due date is required" };
+  const priced = priceInvoice(input.items, input.taxCents);
+  if (!priced)
+    return { ok: false, error: "At least one line item is required" };
+  const { data, error } = await admin.supabase
+    .from("invoices")
+    .update({
+      description: priced.description,
+      line_items: priced.items,
+      tax_cents: priced.taxCents,
+      amount_cents: priced.totalCents,
+      due_date: input.dueDate,
+    })
+    .eq("id", invoiceId)
+    .eq("school_id", admin.school.id)
+    .eq("status", "unpaid")
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length)
+    return { ok: false, error: "Only unpaid invoices can be edited" };
+  revalidatePath("/dashboard/accounting");
+  revalidatePath("/parent/invoices");
+  revalidatePath(`/invoice/${invoiceId}`);
+  return { ok: true };
+}
+
+// Remove an invoice issued in error. Unpaid only — paid invoices stay on the
+// ledger as the payment record.
+export async function deleteInvoice(invoiceId: string): Promise<Result> {
+  const admin = await adminClient();
+  if (!admin) return { ok: false, error: "Not authorized" };
+  const { data, error } = await admin.supabase
+    .from("invoices")
+    .delete()
+    .eq("id", invoiceId)
+    .eq("school_id", admin.school.id)
+    .eq("status", "unpaid")
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length)
+    return { ok: false, error: "Only unpaid invoices can be deleted" };
+  revalidatePath("/dashboard/accounting");
+  revalidatePath("/parent/invoices");
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 
@@ -160,6 +282,63 @@ export async function createCalendarEvent(input: {
     created_by: ctx.user.id,
   });
   if (error) return { ok: false, error: error.message };
+  revalidatePath("/dashboard/calendar");
+  revalidatePath("/parent/calendar");
+  return { ok: true };
+}
+
+export async function updateCalendarEvent(
+  eventId: string,
+  input: {
+    title: string;
+    description?: string | null;
+    location?: string | null;
+    startsAt: string;
+    endsAt?: string | null;
+    type?: string;
+    audience?: string;
+    allDay?: boolean;
+  },
+): Promise<Result> {
+  const admin = await adminClient();
+  if (!admin) return { ok: false, error: "Not authorized" };
+  const title = input.title.trim();
+  if (!title || !input.startsAt)
+    return { ok: false, error: "A title and a date are required" };
+  // Only overwrite audience when the caller sends one (the form doesn't).
+  const { data, error } = await admin.supabase
+    .from("calendar_events")
+    .update({
+      title,
+      description: input.description ?? null,
+      location: input.location ?? null,
+      starts_at: input.startsAt,
+      ends_at: input.endsAt ?? null,
+      type: input.type ?? "academic",
+      all_day: input.allDay ?? false,
+      ...(input.audience ? { audience: input.audience } : {}),
+    })
+    .eq("id", eventId)
+    .eq("school_id", admin.school.id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Event not found" };
+  revalidatePath("/dashboard/calendar");
+  revalidatePath("/parent/calendar");
+  return { ok: true };
+}
+
+export async function deleteCalendarEvent(eventId: string): Promise<Result> {
+  const admin = await adminClient();
+  if (!admin) return { ok: false, error: "Not authorized" };
+  const { data, error } = await admin.supabase
+    .from("calendar_events")
+    .delete()
+    .eq("id", eventId)
+    .eq("school_id", admin.school.id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Event not found" };
   revalidatePath("/dashboard/calendar");
   revalidatePath("/parent/calendar");
   return { ok: true };

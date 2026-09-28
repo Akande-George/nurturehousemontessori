@@ -15,8 +15,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { createNotice } from "@/lib/actions/operations";
-import { AlertTriangle, HeartPulse } from "lucide-react";
+import {
+  createNotice,
+  deleteNotice,
+  updateNotice,
+} from "@/lib/actions/operations";
+import { AlertTriangle, HeartPulse, Pencil, Trash2 } from "lucide-react";
 import type { Notice } from "@/lib/db/types";
 
 export type MedicalStudent = {
@@ -51,6 +55,8 @@ export function DashboardClient({
   const [isNoticeOpen, setIsNoticeOpen] = useState(false);
   const [noticeTitle, setNoticeTitle] = useState("");
   const [noticeBody, setNoticeBody] = useState("");
+  // Notice being edited; null while the dialog posts a new one.
+  const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
 
   const metrics = [
     { label: "Enrolled Students", value: stats.studentCount.toString() },
@@ -58,6 +64,29 @@ export function DashboardClient({
     { label: "Classes", value: stats.classCount.toString() },
     { label: "Outstanding Invoices", value: stats.outstanding.toString() },
   ];
+
+  const openNewNotice = () => {
+    setEditingNoticeId(null);
+    setNoticeTitle("");
+    setNoticeBody("");
+    setIsNoticeOpen(true);
+  };
+
+  const openEditNotice = (notice: Notice) => {
+    setEditingNoticeId(notice.id);
+    setNoticeTitle(notice.title);
+    setNoticeBody(notice.content);
+    setIsNoticeOpen(true);
+  };
+
+  const handleDeleteNotice = (notice: Notice) => {
+    if (!window.confirm(`Delete the notice "${notice.title}"?`)) return;
+    start(async () => {
+      const res = await deleteNotice(notice.id);
+      if (res.ok) toast({ title: "Notice deleted" });
+      else toast({ title: res.error ?? "Failed", variant: "destructive" });
+    });
+  };
 
   const handlePostNotice = () => {
     if (!noticeTitle.trim() || !noticeBody.trim()) {
@@ -68,16 +97,19 @@ export function DashboardClient({
       });
       return;
     }
+    const input = { title: noticeTitle.trim(), content: noticeBody.trim() };
+    const editingId = editingNoticeId;
     start(async () => {
-      const res = await createNotice({
-        title: noticeTitle.trim(),
-        content: noticeBody.trim(),
-      });
+      // Editing only updates the board; parents are not emailed again.
+      const res = editingId
+        ? await updateNotice(editingId, input)
+        : await createNotice(input);
       if (res.ok) {
         setNoticeTitle("");
         setNoticeBody("");
+        setEditingNoticeId(null);
         setIsNoticeOpen(false);
-        toast({ title: "Notice posted" });
+        toast({ title: editingId ? "Notice updated" : "Notice posted" });
       } else {
         toast({ title: res.error ?? "Failed", variant: "destructive" });
       }
@@ -94,7 +126,7 @@ export function DashboardClient({
           </p>
         </div>
         <Button
-          onClick={() => setIsNoticeOpen(true)}
+          onClick={openNewNotice}
           className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
         >
           Post to Notice Board
@@ -204,9 +236,31 @@ export function DashboardClient({
               >
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <p className="font-medium text-slate-900">{notice.title}</p>
-                  <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 border-none">
-                    All parents
-                  </Badge>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 border-none">
+                      All parents
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
+                      disabled={pending}
+                      onClick={() => openEditNotice(notice)}
+                      aria-label={`Edit ${notice.title}`}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
+                      disabled={pending}
+                      onClick={() => handleDeleteNotice(notice)}
+                      aria-label={`Delete ${notice.title}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-sm text-slate-600 line-clamp-2">
                   {notice.content}
@@ -220,10 +274,13 @@ export function DashboardClient({
       <Dialog open={isNoticeOpen} onOpenChange={setIsNoticeOpen}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
-            <DialogTitle>Create school notice</DialogTitle>
+            <DialogTitle>
+              {editingNoticeId ? "Edit school notice" : "Create school notice"}
+            </DialogTitle>
             <DialogDescription>
-              This publishes to all parents and appears instantly in the parent
-              portal.
+              {editingNoticeId
+                ? "Changes appear on the parent portal right away. Parents are not emailed again."
+                : "This publishes to all parents and appears instantly in the parent portal."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -248,7 +305,7 @@ export function DashboardClient({
               disabled={pending}
               className="bg-montessori-primary text-white"
             >
-              Publish Notice
+              {editingNoticeId ? "Save Changes" : "Publish Notice"}
             </Button>
           </DialogFooter>
         </DialogContent>

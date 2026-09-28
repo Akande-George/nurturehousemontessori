@@ -1,12 +1,20 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { PlusCircle, BookOpen } from "lucide-react";
+import { PlusCircle, BookOpen, Loader2, Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -16,7 +24,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { createSubject } from "@/lib/actions/academics";
+import {
+  createSubject,
+  deleteSubject,
+  updateSubject,
+} from "@/lib/actions/academics";
 import type { Subject } from "@/lib/db/types";
 
 export function SubjectsClient({ subjects }: { subjects: Subject[] }) {
@@ -31,6 +43,57 @@ export function SubjectsClient({ subjects }: { subjects: Subject[] }) {
     setName("");
     setCode("");
     setShowForm(false);
+  };
+
+  const [editing, setEditing] = useState<Subject | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCode, setEditCode] = useState("");
+  const [removing, setRemoving] = useState<Subject | null>(null);
+
+  const openEdit = (subject: Subject) => {
+    setEditing(subject);
+    setEditName(subject.name);
+    setEditCode(subject.code ?? "");
+  };
+
+  const handleSave = () => {
+    if (!editing || !editName.trim()) return;
+    start(async () => {
+      const res = await updateSubject(editing.id, {
+        name: editName.trim(),
+        code: editCode.trim(),
+      });
+      if (!res.ok) {
+        toast({
+          title: "Could not save subject",
+          description: res.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: `${editName.trim()} updated` });
+      setEditing(null);
+    });
+  };
+
+  const handleDelete = () => {
+    if (!removing) return;
+    start(async () => {
+      const res = await deleteSubject(removing.id);
+      if (!res.ok) {
+        toast({
+          title: "Could not remove",
+          description: res.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: "Subject removed",
+        description: `${removing.name} is gone.`,
+      });
+      setRemoving(null);
+    });
   };
 
   const handleCreate = () => {
@@ -127,6 +190,7 @@ export function SubjectsClient({ subjects }: { subjects: Subject[] }) {
                 <TableRow>
                   <TableHead>Subject</TableHead>
                   <TableHead>Code</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -147,6 +211,25 @@ export function SubjectsClient({ subjects }: { subjects: Subject[] }) {
                         <span className="text-slate-400 text-sm">—</span>
                       )}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          onClick={() => openEdit(subject)}
+                          aria-label={`Edit ${subject.name}`}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-montessori-primary transition-colors px-2 py-1.5 rounded-md hover:bg-slate-100"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </button>
+                        <button
+                          onClick={() => setRemoving(subject)}
+                          aria-label={`Remove ${subject.name}`}
+                          className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -154,6 +237,83 @@ export function SubjectsClient({ subjects }: { subjects: Subject[] }) {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={Boolean(editing)} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Edit {editing?.name}</DialogTitle>
+            <DialogDescription>
+              Rename the subject or change its code. Scores, timetables and
+              teacher assignments keep pointing at it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="subject-name">Subject Name</Label>
+              <Input
+                id="subject-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="border-slate-200"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="subject-code">
+                Code{" "}
+                <span className="text-slate-400 font-normal">(optional)</span>
+              </Label>
+              <Input
+                id="subject-code"
+                value={editCode}
+                onChange={(e) => setEditCode(e.target.value)}
+                className="border-slate-200"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={pending || !editName.trim()}
+              className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+            >
+              {pending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(removing)}
+        onOpenChange={(o) => !o && setRemoving(null)}
+      >
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Remove {removing?.name}?</DialogTitle>
+            <DialogDescription>
+              Teachers assigned to teach it lose the assignment, and timetable
+              periods and homework keep their slot without a subject. A subject
+              with recorded scores can&apos;t be removed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemoving(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDelete}
+              disabled={pending}
+              className="bg-red-500 text-white hover:bg-red-600"
+            >
+              {pending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

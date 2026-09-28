@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Package, Download, Share2, Plus, FileText, Loader2 } from "lucide-react";
+import { Package, Download, Share2, Plus, FileText, Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -13,6 +13,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { downloadStructuredPdf } from "@/lib/pdf/download-pdf";
 import {
@@ -20,6 +27,7 @@ import {
   removeKitItem,
   toggleKitItemRequired,
   seedDefaultKitItems,
+  updateKitItem,
 } from "@/lib/actions/kits";
 import type { KitItem as PersistedKitItem } from "@/lib/db/resources";
 import type { SchoolClass, SchoolType } from "@/lib/db/types";
@@ -220,6 +228,11 @@ export function KitsClient({
   const [newItemName, setNewItemName] = useState("");
   const [newItemRequired, setNewItemRequired] = useState(true);
 
+  // Renaming / moving an existing item.
+  const [editingItem, setEditingItem] = useState<PersistedKitItem | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editSection, setEditSection] = useState("");
+
   const kitLabel = isRegular ? "School Supplies" : "Welcome Kit";
   const railHeading = isRegular ? "Classes" : "Programmes";
 
@@ -284,6 +297,34 @@ export function KitsClient({
         return;
       }
       toast({ title: "Item Removed", description: "The item has been removed from the list." });
+    });
+  };
+
+  const openEditItem = (item: PersistedKitItem) => {
+    setEditingItem(item);
+    setEditName(item.name);
+    setEditSection(item.section_key);
+  };
+
+  const handleSaveItem = () => {
+    if (!editingItem || !editName.trim() || !editSection) return;
+    const item = editingItem;
+    const name = editName.trim();
+    const sectionKey = editSection;
+    startTransition(async () => {
+      const res = await updateKitItem({ id: item.id, name, sectionKey });
+      if (!res.ok) {
+        toast({ title: "Could not update item", description: res.error, variant: "destructive" });
+        return;
+      }
+      setEditingItem(null);
+      const moved = sectionKey !== item.section_key;
+      toast({
+        title: "Item Updated",
+        description: moved
+          ? `${name} moved to ${sections.find((s) => s.id === sectionKey)?.label ?? "another list"}.`
+          : `${name} has been saved.`,
+      });
     });
   };
 
@@ -456,6 +497,14 @@ export function KitsClient({
                           {item.required ? "Required" : "Optional"}
                         </button>
                         <button
+                          onClick={() => openEditItem(item)}
+                          disabled={isPending}
+                          aria-label={`Edit ${item.name}`}
+                          className="text-slate-400 hover:text-montessori-primary opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => handleDeleteItem(item.id)}
                           disabled={isPending}
                           className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
@@ -560,6 +609,61 @@ export function KitsClient({
             >
               {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Add to List
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Item Dialog */}
+      <Dialog open={Boolean(editingItem)} onOpenChange={(open) => !open && setEditingItem(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Kit Item</DialogTitle>
+            <DialogDescription>
+              Rename this item, or move it to another {isRegular ? "class" : "programme"}&apos;s list.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="edit-kit-name" className="text-sm font-medium text-slate-700">
+                Item Name
+              </label>
+              <Input
+                id="edit-kit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="border-slate-200"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">
+                {isRegular ? "Class" : "Programme"}
+              </label>
+              <Select value={editSection} onValueChange={setEditSection}>
+                <SelectTrigger className="border-slate-200">
+                  <SelectValue placeholder="Choose a list" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sections.map((section) => (
+                    <SelectItem key={section.id} value={section.id}>
+                      {section.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingItem(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveItem}
+              disabled={isPending || !editName.trim() || !editSection}
+              className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+            >
+              {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>

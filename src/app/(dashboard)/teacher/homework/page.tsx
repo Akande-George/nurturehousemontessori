@@ -35,6 +35,7 @@ export default async function TeacherHomeworkPage() {
 
   return (
     <HomeworkClient
+      userId={user.id}
       classes={classes}
       subjects={subjects}
       subjectsByClass={subjectsByClass}

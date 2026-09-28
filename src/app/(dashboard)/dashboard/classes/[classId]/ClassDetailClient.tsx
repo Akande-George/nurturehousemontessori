@@ -29,7 +29,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { assignSubjectTeacher } from "@/lib/actions/academics";
 import type { SchoolClass, Student, Subject } from "@/lib/db/types";
-import { ageGroupLabel } from "@/lib/montessori/age-bands";
 
 type Staff = { id: string; name: string };
 
@@ -124,7 +123,7 @@ export function ClassDetailClient({
                         {student.name}
                       </p>
                       <p className="text-xs text-slate-500">
-                        {ageGroupLabel(student.age_group) ?? student.classroom ?? ""}
+                        {student.classroom ?? ""}
                       </p>
                     </div>
                   </div>

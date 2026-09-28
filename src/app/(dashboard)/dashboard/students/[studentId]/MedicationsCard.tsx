@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Pill, Plus, Trash2, Clock } from "lucide-react";
+import { Pill, Plus, Trash2, Clock, Pencil, Save } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -12,7 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { addMedication, removeMedication } from "@/lib/actions/students";
+import {
+  addMedication,
+  removeMedication,
+  updateMedication,
+} from "@/lib/actions/students";
 import type { Medication } from "@/lib/db/students";
 
 export function MedicationsCard({
@@ -28,26 +32,44 @@ export function MedicationsCard({
   const [dosage, setDosage] = useState("");
   const [time, setTime] = useState("");
   const [notes, setNotes] = useState("");
+  // When set, the form below edits this medication instead of adding a new one.
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const add = () => {
+  const resetForm = () => {
+    setEditingId(null);
+    setName("");
+    setDosage("");
+    setTime("");
+    setNotes("");
+  };
+
+  const startEdit = (m: Medication) => {
+    setEditingId(m.id);
+    setName(m.name);
+    setDosage(m.dosage ?? "");
+    setTime(m.time ?? "");
+    setNotes(m.notes ?? "");
+  };
+
+  const save = () => {
     if (!name.trim()) {
       toast({ title: "Add a medication name", variant: "destructive" });
       return;
     }
     start(async () => {
-      const res = await addMedication({
+      const fields = {
         studentId,
         name: name.trim(),
         dosage: dosage.trim() || undefined,
         time: time.trim() || undefined,
         notes: notes.trim() || undefined,
-      });
+      };
+      const res = editingId
+        ? await updateMedication({ medicationId: editingId, ...fields })
+        : await addMedication(fields);
       if (res.ok) {
-        setName("");
-        setDosage("");
-        setTime("");
-        setNotes("");
-        toast({ title: "Medication added" });
+        toast({ title: editingId ? "Medication updated" : "Medication added" });
+        resetForm();
       } else {
         toast({ title: res.error ?? "Failed", variant: "destructive" });
       }
@@ -57,8 +79,10 @@ export function MedicationsCard({
   const remove = (id: string) => {
     start(async () => {
       const res = await removeMedication(id, studentId);
-      if (res.ok) toast({ title: "Medication removed" });
-      else toast({ title: res.error ?? "Failed", variant: "destructive" });
+      if (res.ok) {
+        if (editingId === id) resetForm();
+        toast({ title: "Medication removed" });
+      } else toast({ title: res.error ?? "Failed", variant: "destructive" });
     });
   };
 
@@ -95,16 +119,28 @@ export function MedicationsCard({
                     {m.notes && <span>{m.notes}</span>}
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  disabled={pending}
-                  onClick={() => remove(m.id)}
-                  className="text-slate-400 hover:text-rose-600 shrink-0"
-                  aria-label={`Remove ${m.name}`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={pending}
+                    onClick={() => startEdit(m)}
+                    className="text-slate-400 hover:text-slate-900"
+                    aria-label={`Edit ${m.name}`}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={pending}
+                    onClick={() => remove(m.id)}
+                    className="text-slate-400 hover:text-rose-600"
+                    aria-label={`Remove ${m.name}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -112,7 +148,16 @@ export function MedicationsCard({
           <p className="text-sm text-slate-400">No medications on record.</p>
         )}
 
-        <div className="rounded-lg border border-dashed border-slate-200 p-4 space-y-3">
+        <div
+          className={`rounded-lg border border-dashed p-4 space-y-3 ${
+            editingId ? "border-montessori-primary/40 bg-montessori-primary/5" : "border-slate-200"
+          }`}
+        >
+          {editingId && (
+            <p className="text-xs font-medium text-montessori-primary">
+              Editing medication
+            </p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Name</Label>
@@ -147,13 +192,28 @@ export function MedicationsCard({
               />
             </div>
           </div>
-          <Button
-            onClick={add}
-            disabled={pending}
-            className="bg-montessori-primary text-white hover:bg-montessori-primary/90 gap-2"
-          >
-            <Plus className="w-4 h-4" /> Add medication
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={save}
+              disabled={pending}
+              className="bg-montessori-primary text-white hover:bg-montessori-primary/90 gap-2"
+            >
+              {editingId ? (
+                <>
+                  <Save className="w-4 h-4" /> Save changes
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" /> Add medication
+                </>
+              )}
+            </Button>
+            {editingId && (
+              <Button variant="outline" onClick={resetForm} disabled={pending}>
+                Cancel
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

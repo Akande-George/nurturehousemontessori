@@ -12,6 +12,8 @@ export type StaffRole = "admin" | "teacher";
 export type StaffMember = {
   userId: string;
   name: string;
+  // The profile's own name (null when unset — `name` then falls back to email).
+  fullName: string | null;
   email: string;
   role: StaffRole;
   status: "active" | "invited";
@@ -53,6 +55,7 @@ export async function getSchoolStaff(
       return {
         userId: m.user_id,
         name: p?.full_name || p?.email || "Staff member",
+        fullName: p?.full_name || null,
         email: p?.email ?? "",
         role: m.role as StaffRole,
         status: signInMap.get(m.user_id) ? ("active" as const) : ("invited" as const),

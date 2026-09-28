@@ -15,7 +15,7 @@
 // are plain `date`, so a school far from UTC can see an edge-day item land on
 // the neighbouring day.
 
-import { getLeafById } from "@/lib/curriculum/curriculum";
+import { CURRICULUM, getLeafById, type Area } from "@/lib/curriculum/curriculum";
 import type { AttendanceStatus, CurriculumStatus, Term } from "@/lib/db/types";
 import type {
   AttendanceTally,
@@ -70,6 +70,11 @@ export type SnapshotInput = {
   posts: SnapshotPost[];
   attendancePeriod: { status: AttendanceStatus }[];
   attendanceYear: { status: AttendanceStatus }[];
+  /**
+   * The school's FULL curriculum catalog (getSchoolCurriculum(...).all), so
+   * custom and renamed lessons report correctly. Defaults to the built-in album.
+   */
+  curriculum?: Area[];
 };
 
 const day = (iso: string) => iso.slice(0, 10);
@@ -113,14 +118,16 @@ export function buildConferenceSnapshot(
   input: SnapshotInput,
 ): ConferenceSnapshot {
   const { periodStart, periodEnd } = input;
+  const catalog = input.curriculum ?? CURRICULUM;
 
   // Lesson selection + grouping is shared with the daily report — see ./lessons.
   const periodLessons = selectLessonsInWindow(
     input.progressRows,
     periodStart,
     periodEnd,
+    catalog,
   );
-  const cumulativeLessons = selectAllLessons(input.progressRows);
+  const cumulativeLessons = selectAllLessons(input.progressRows, catalog);
 
   const fromTs = `${periodStart}T00:00:00.000Z`;
   const toTs = `${periodEnd}T23:59:59.999Z`;
@@ -128,7 +135,7 @@ export function buildConferenceSnapshot(
   const notes: ConferenceNote[] = input.observations
     .filter((o) => o.created_at >= fromTs && o.created_at <= toTs)
     .map((o) => {
-      const leaf = getLeafById(o.leaf_id);
+      const leaf = getLeafById(o.leaf_id, catalog);
       return {
         id: o.id,
         date: day(o.created_at),
@@ -149,7 +156,7 @@ export function buildConferenceSnapshot(
       imageUrl: p.image_url as string,
       caption: p.caption,
       date: day(p.created_at),
-      areaName: p.leaf_id ? getLeafById(p.leaf_id)?.areaName ?? null : null,
+      areaName: p.leaf_id ? getLeafById(p.leaf_id, catalog)?.areaName ?? null : null,
     }))
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 
@@ -170,8 +177,8 @@ export function buildConferenceSnapshot(
       periodEnd,
       parentNames: input.parentNames,
     },
-    areas: groupIntoAreas(periodLessons),
-    cumulativeAreas: groupIntoAreas(cumulativeLessons),
+    areas: groupIntoAreas(periodLessons, catalog),
+    cumulativeAreas: groupIntoAreas(cumulativeLessons, catalog),
     notes,
     pictures,
     attendance: {

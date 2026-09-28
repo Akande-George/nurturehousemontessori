@@ -16,7 +16,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { PrintButton } from "@/components/PrintButton";
-import { CURRICULUM, getLeafById, type Leaf } from "@/lib/curriculum/curriculum";
+import { getLeafById, type Area, type Leaf } from "@/lib/curriculum/curriculum";
 import {
   getCurriculumStats,
   getLeavesByStatus,
@@ -26,7 +26,6 @@ import {
   type ProgressMap,
 } from "@/lib/curriculum/progress-utils";
 import type { Student } from "@/lib/db/types";
-import { ageGroupLabel } from "@/lib/montessori/age-bands";
 import type { DailyReport, Progress } from "@/lib/db/montessori";
 
 export type ReportPost = {
@@ -60,12 +59,18 @@ export function ChildReportClient({
   academicByStudent,
   reportsByStudent,
   postsByStudent,
+  curriculum,
+  curriculumAll,
 }: {
   students: Student[];
   progressByStudent: Record<string, ProgressMap>;
   academicByStudent: Record<string, Progress | null>;
   reportsByStudent: Record<string, DailyReport[]>;
   postsByStudent: Record<string, ReportPost[]>;
+  /** The school's visible catalog — stats, charts and groupings. */
+  curriculum: Area[];
+  /** The full catalog (hidden nodes included) — resolving practised leaf ids. */
+  curriculumAll: Area[];
 }) {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(students[0]?.id ?? null);
   const selectedChild = selectedChildId ? students.find((c) => c.id === selectedChildId) ?? null : null;
@@ -75,11 +80,11 @@ export function ChildReportClient({
   const dailyReports = selectedChild ? reportsByStudent[selectedChild.id] ?? [] : [];
   const activities = selectedChild ? postsByStudent[selectedChild.id] ?? [] : [];
 
-  const curriculumStats = getCurriculumStats(progress);
-  const recentPractices = getRecentPresentations(progress, getLeafById, 8);
-  const introduced = getLeavesByStatus(progress, "introduced");
-  const developing = getLeavesByStatus(progress, "developing");
-  const proficient = getMasteredLeaves(progress);
+  const curriculumStats = getCurriculumStats(progress, curriculum);
+  const recentPractices = getRecentPresentations(progress, (id) => getLeafById(id, curriculumAll), 8);
+  const introduced = getLeavesByStatus(progress, "introduced", curriculum);
+  const developing = getLeavesByStatus(progress, "developing", curriculum);
+  const proficient = getMasteredLeaves(progress, curriculum);
 
   // Plain calls, not useMemo: groupByArea is a single cheap pass, and manually
   // memoizing it made the React Compiler skip optimizing this whole component.
@@ -148,10 +153,6 @@ export function ChildReportClient({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <ProfileField label="Classroom" value={selectedChild.classroom ?? "—"} />
                 <ProfileField
-                  label="Age Group"
-                  value={ageGroupLabel(selectedChild.age_group) ?? "—"}
-                />
-                <ProfileField
                   label="Enrolled"
                   value={
                     selectedChild.enrolled_at
@@ -208,7 +209,7 @@ export function ChildReportClient({
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {CURRICULUM.map((area) => {
+                {curriculum.map((area) => {
                   const s = curriculumStats.byArea[area.id];
                   const pct = touchedPercent(s);
                   return (
@@ -275,6 +276,7 @@ export function ChildReportClient({
                 emptyText="No activities have been presented yet."
                 byArea={introducedByArea}
                 total={introduced.length}
+                curriculum={curriculum}
               />
               <LeafGallery
                 title="Developing"
@@ -282,6 +284,7 @@ export function ChildReportClient({
                 emptyText="No activities are in active practice yet."
                 byArea={developingByArea}
                 total={developing.length}
+                curriculum={curriculum}
               />
               <LeafGallery
                 title="Proficient"
@@ -289,6 +292,7 @@ export function ChildReportClient({
                 emptyText="No activities marked proficient yet."
                 byArea={proficientByArea}
                 total={proficient.length}
+                curriculum={curriculum}
               />
             </CardContent>
           </Card>
@@ -412,9 +416,6 @@ export function ChildReportClient({
                             month: "short",
                           })}
                         </span>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          {ageGroupLabel(report.age_group)}
-                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-lg">
@@ -481,12 +482,14 @@ function LeafGallery({
   emptyText,
   byArea,
   total,
+  curriculum,
 }: {
   title: string;
   icon: React.ReactNode;
   emptyText: string;
   byArea: Record<string, Leaf[]>;
   total: number;
+  curriculum: Area[];
 }) {
   return (
     <div>
@@ -501,7 +504,7 @@ function LeafGallery({
         <p className="text-xs text-slate-500 italic">{emptyText}</p>
       ) : (
         <div className="space-y-2">
-          {CURRICULUM.map((area) => {
+          {curriculum.map((area) => {
             const items = byArea[area.id];
             if (!items || items.length === 0) return null;
             return (

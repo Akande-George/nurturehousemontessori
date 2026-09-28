@@ -5,6 +5,8 @@ import { createAdminClient } from "@/supabase/admin";
 import { createClient } from "@/supabase/server";
 import { requireRole } from "@/lib/auth/context";
 import { linkParentToStudent } from "@/lib/server/link-parent";
+import { placeByAge } from "@/lib/db/placement";
+import { ageBandFor, ageInMonths } from "@/lib/montessori/age-bands";
 import {
   sendApplicationReceived,
   sendNewApplicationAlert,
@@ -77,16 +79,30 @@ export async function acceptApplication(applicationId: string): Promise<Result> 
     .maybeSingle();
   if (!app) return { ok: false, error: "Application not found" };
 
+  // Carry the application's date of birth and preferred start date onto the
+  // student, so a Montessori child lands in the room for their age.
+  const details = (app.details ?? {}) as Record<string, unknown>;
+  const asDate = (v: unknown) =>
+    typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+  const dob = asDate(details.dateOfBirth);
+  const months = dob ? ageInMonths(dob) : null;
+
   const { data: student, error: stuErr } = await supabase
     .from("students")
     .insert({
       school_id: school.id,
       name: app.child_name,
+      date_of_birth: dob,
+      enrolled_at: asDate(details.preferredStartDate),
+      age_group: months != null && months >= 0 ? ageBandFor(months) : null,
     })
     .select("id")
     .single();
   if (stuErr || !student) {
     return { ok: false, error: stuErr?.message ?? "Could not create the student." };
+  }
+  if (dob && school.type !== "regular") {
+    await placeByAge(supabase, { studentId: student.id });
   }
 
   await supabase

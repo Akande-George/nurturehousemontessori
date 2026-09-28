@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Grid3x3, Search, Sparkles, Users } from "lucide-react";
-import { CURRICULUM } from "@/lib/curriculum/curriculum";
+import type { Area } from "@/lib/curriculum/curriculum";
 import {
   getCurriculumStats,
   touchedPercent,
@@ -17,9 +17,11 @@ import type { Student } from "@/lib/db/types";
 export function CurriculumIndexClient({
   students,
   progressByStudent,
+  curriculum,
 }: {
   students: Student[];
   progressByStudent: Record<string, ProgressMap>;
+  curriculum: Area[];
 }) {
   const [view, setView] = useState<"students" | "matrix">("matrix");
   const [search, setSearch] = useState("");
@@ -72,13 +74,13 @@ export function CurriculumIndexClient({
       </div>
 
       {view === "matrix" && (
-        <CurriculumMatrix students={matrixStudents} progressByStudent={progressByStudent} />
+        <CurriculumMatrix students={matrixStudents} progressByStudent={progressByStudent} curriculum={curriculum} />
       )}
 
       {view === "students" && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {CURRICULUM.map((area) => (
+            {curriculum.map((area) => (
               <div key={area.id} className={`rounded-lg p-2.5 border ${area.tone.border} ${area.tone.soft}`}>
                 <div className="flex items-center gap-1.5">
                   <span className={`w-1.5 h-1.5 rounded-full ${area.tone.accent}`} />
@@ -103,7 +105,7 @@ export function CurriculumIndexClient({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((student) => {
-              const stats = getCurriculumStats(progressByStudent[student.id] ?? {});
+              const stats = getCurriculumStats(progressByStudent[student.id] ?? {}, curriculum);
               const pct = touchedPercent(stats.overall);
               return (
                 <Link key={student.id} href={`/teacher/curriculum/${student.id}`} className="block group">
@@ -124,7 +126,7 @@ export function CurriculumIndexClient({
                       </div>
 
                       <div className="space-y-1.5">
-                        {CURRICULUM.map((area) => {
+                        {curriculum.map((area) => {
                           const s = stats.byArea[area.id];
                           const pa = touchedPercent(s);
                           return (

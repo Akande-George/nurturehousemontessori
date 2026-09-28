@@ -2,12 +2,28 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { PlusCircle, Users, ChevronRight, GraduationCap } from "lucide-react";
+import {
+  PlusCircle,
+  Users,
+  ChevronRight,
+  GraduationCap,
+  Loader2,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -24,10 +40,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { createClass } from "@/lib/actions/academics";
+import { createClass, deleteClass, updateClass } from "@/lib/actions/academics";
 import type { SchoolClass } from "@/lib/db/types";
 
 type Staff = { id: string; name: string };
+
+// Radix Select can't hold an empty value, so "no class teacher" gets a sentinel.
+const NO_TEACHER = "none";
 
 export function ClassesClient({
   classes,
@@ -54,6 +73,65 @@ export function ClassesClient({
     setLevel("");
     setClassTeacherId(staff[0]?.id ?? "");
     setShowForm(false);
+  };
+
+  const [editing, setEditing] = useState<SchoolClass | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editLevel, setEditLevel] = useState("");
+  const [editTeacherId, setEditTeacherId] = useState(NO_TEACHER);
+  const [removing, setRemoving] = useState<SchoolClass | null>(null);
+
+  const openEdit = (cls: SchoolClass) => {
+    setEditing(cls);
+    setEditName(cls.name);
+    setEditLevel(String(cls.level));
+    setEditTeacherId(cls.class_teacher_id ?? NO_TEACHER);
+  };
+
+  const handleSave = () => {
+    if (!editing) return;
+    const levelNum = Number(editLevel);
+    if (!editName.trim() || editLevel.trim() === "" || Number.isNaN(levelNum)) {
+      toast({
+        title: "Enter a name and a numeric level",
+        variant: "destructive",
+      });
+      return;
+    }
+    start(async () => {
+      const res = await updateClass(editing.id, {
+        name: editName.trim(),
+        level: levelNum,
+        classTeacherId: editTeacherId === NO_TEACHER ? null : editTeacherId,
+      });
+      if (!res.ok) {
+        toast({
+          title: "Could not save class",
+          description: res.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: `${editName.trim()} updated` });
+      setEditing(null);
+    });
+  };
+
+  const handleDelete = () => {
+    if (!removing) return;
+    start(async () => {
+      const res = await deleteClass(removing.id);
+      if (!res.ok) {
+        toast({
+          title: "Could not remove",
+          description: res.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: "Class removed", description: `${removing.name} is gone.` });
+      setRemoving(null);
+    });
   };
 
   const handleCreate = () => {
@@ -211,16 +289,33 @@ export function ClassesClient({
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          asChild
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 gap-1.5"
-                        >
-                          <Link href={`/dashboard/classes/${cls.id}`}>
-                            Manage <ChevronRight className="w-3.5 h-3.5" />
-                          </Link>
-                        </Button>
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => openEdit(cls)}
+                            aria-label={`Edit ${cls.name}`}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-montessori-primary transition-colors px-2 py-1.5 rounded-md hover:bg-slate-100"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Edit</span>
+                          </button>
+                          <button
+                            onClick={() => setRemoving(cls)}
+                            aria-label={`Remove ${cls.name}`}
+                            className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <Button
+                            asChild
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 gap-1.5"
+                          >
+                            <Link href={`/dashboard/classes/${cls.id}`}>
+                              Manage <ChevronRight className="w-3.5 h-3.5" />
+                            </Link>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -230,6 +325,97 @@ export function ClassesClient({
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={Boolean(editing)} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Edit {editing?.name}</DialogTitle>
+            <DialogDescription>
+              Change the class name, its promotion level, or its class teacher.
+              Students stay in the class.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="class-name">Class Name</Label>
+              <Input
+                id="class-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="border-slate-200"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="class-level">Level (ordinal for promotion)</Label>
+              <Input
+                id="class-level"
+                type="number"
+                value={editLevel}
+                onChange={(e) => setEditLevel(e.target.value)}
+                className="border-slate-200"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Class Teacher</Label>
+              <Select value={editTeacherId} onValueChange={setEditTeacherId}>
+                <SelectTrigger className="bg-white border-slate-200">
+                  <SelectValue placeholder="Select teacher" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_TEACHER}>No class teacher</SelectItem>
+                  {staff.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={pending || !editName.trim()}
+              className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+            >
+              {pending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(removing)}
+        onOpenChange={(o) => !o && setRemoving(null)}
+      >
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Remove {removing?.name}?</DialogTitle>
+            <DialogDescription>
+              Its timetable, homework and subject-teacher assignments are
+              removed with it. A class with students in it, or with recorded
+              scores, can&apos;t be removed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemoving(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDelete}
+              disabled={pending}
+              className="bg-red-500 text-white hover:bg-red-600"
+            >
+              {pending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

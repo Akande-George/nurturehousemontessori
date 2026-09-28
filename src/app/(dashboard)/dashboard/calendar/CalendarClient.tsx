@@ -10,6 +10,7 @@ import {
   Clock,
   MapPin,
   Plus,
+  Trash2,
   Users,
 } from "lucide-react";
 import {
@@ -21,8 +22,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { createCalendarEvent } from "@/lib/actions/operations";
+import {
+  createCalendarEvent,
+  deleteCalendarEvent,
+  updateCalendarEvent,
+} from "@/lib/actions/operations";
 import type { CalendarEvent } from "@/lib/db/operations";
 
 function sameMonth(date: Date, other: Date) {
@@ -41,6 +47,21 @@ function formatTimeLabel(event: CalendarEvent) {
 }
 
 const EVENT_TYPES = ["academic", "activity", "holiday"] as const;
+type EventType = (typeof EVENT_TYPES)[number];
+
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+// Local YYYY-MM-DD / HH:MM for the date and time inputs (the form builds
+// starts_at from local time, so it must be read back the same way).
+function toDateInput(date: Date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function toTimeInput(date: Date) {
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 export function CalendarClient({ events }: { events: CalendarEvent[] }) {
   const { toast } = useToast();
@@ -50,12 +71,15 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
     new Date(events[0]?.starts_at ?? new Date().toISOString()),
   );
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  // The event being edited; null while the dialog is creating a new one.
+  const [editing, setEditing] = useState<CalendarEvent | null>(null);
 
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
-  const [type, setType] = useState<(typeof EVENT_TYPES)[number]>("academic");
+  const [description, setDescription] = useState("");
+  const [type, setType] = useState<EventType>("academic");
 
   const currentMonthEvents = events.filter((event) =>
     sameMonth(new Date(event.starts_at), currentMonth),
@@ -73,11 +97,35 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
   const trailingDays = (7 - ((firstDayOffset + daysInMonth) % 7)) % 7;
 
   const resetForm = () => {
+    setEditing(null);
     setTitle("");
     setDate("");
     setTime("");
     setLocation("");
+    setDescription("");
     setType("academic");
+  };
+
+  const openCreate = (day?: Date) => {
+    resetForm();
+    if (day) setDate(toDateInput(day));
+    setIsAddEventOpen(true);
+  };
+
+  const openEdit = (event: CalendarEvent) => {
+    const startsAt = new Date(event.starts_at);
+    setEditing(event);
+    setTitle(event.title);
+    setDate(toDateInput(startsAt));
+    setTime(event.all_day ? "" : toTimeInput(startsAt));
+    setLocation(event.location ?? "");
+    setDescription(event.description ?? "");
+    setType(
+      (EVENT_TYPES as readonly string[]).includes(event.type)
+        ? (event.type as EventType)
+        : "academic",
+    );
+    setIsAddEventOpen(true);
   };
 
   const handleSave = () => {
@@ -92,20 +140,60 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
       ? new Date(`${date}T${time}`).toISOString()
       : new Date(`${date}T00:00:00`).toISOString();
     start(async () => {
-      const res = await createCalendarEvent({
-        title: title.trim(),
-        location: location.trim() || undefined,
-        startsAt,
-        type,
-        allDay: !time,
-      });
+      let res: { ok: boolean; error?: string };
+      if (editing) {
+        // The form has no end time: keep an existing event's duration by
+        // moving its end along with the new start.
+        const endsAt = editing.ends_at
+          ? new Date(
+              new Date(startsAt).getTime() +
+                (new Date(editing.ends_at).getTime() -
+                  new Date(editing.starts_at).getTime()),
+            ).toISOString()
+          : null;
+        res = await updateCalendarEvent(editing.id, {
+          title: title.trim(),
+          description: description.trim() || null,
+          location: location.trim() || null,
+          startsAt,
+          endsAt,
+          type,
+          allDay: !time,
+        });
+      } else {
+        res = await createCalendarEvent({
+          title: title.trim(),
+          description: description.trim() || undefined,
+          location: location.trim() || undefined,
+          startsAt,
+          type,
+          allDay: !time,
+        });
+      }
+      if (res.ok) {
+        setIsAddEventOpen(false);
+        toast({
+          title: editing ? "Event Updated" : "Event Created",
+          description: "Calendar has been updated successfully.",
+        });
+        resetForm();
+      } else {
+        toast({ title: res.error ?? "Failed", variant: "destructive" });
+      }
+    });
+  };
+
+  const handleDelete = () => {
+    if (!editing) return;
+    if (!window.confirm(`Delete "${editing.title}"? This can't be undone.`))
+      return;
+    const eventId = editing.id;
+    start(async () => {
+      const res = await deleteCalendarEvent(eventId);
       if (res.ok) {
         setIsAddEventOpen(false);
         resetForm();
-        toast({
-          title: "Event Created",
-          description: "Calendar has been updated successfully.",
-        });
+        toast({ title: "Event Deleted" });
       } else {
         toast({ title: res.error ?? "Failed", variant: "destructive" });
       }
@@ -125,7 +213,7 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
         </div>
 
         <Button
-          onClick={() => setIsAddEventOpen(true)}
+          onClick={() => openCreate()}
           className="bg-montessori-primary text-white hover:bg-montessori-primary/90 shadow-sm gap-2"
         >
           <Plus className="w-4 h-4" /> Add Event
@@ -234,21 +322,31 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
                         {day}
                       </div>
 
-                      {dayEvents.slice(0, 2).map((event) => (
-                        <div
-                          key={event.id}
-                          className="mt-2 truncate rounded-md px-1.5 py-1 text-[10px] font-medium bg-montessori-primary/10 text-montessori-primary"
-                        >
-                          {event.title}
-                        </div>
-                      ))}
-
                       <button
-                        onClick={() => setIsAddEventOpen(true)}
+                        onClick={() => openCreate(calendarDate)}
+                        aria-label="Add event on this day"
                         className="absolute inset-0 w-full h-full opacity-0 group-hover:opacity-100 flex items-center justify-center bg-black/5 hover:bg-black/10 transition-colors"
                       >
                         <Plus className="w-5 h-5 text-slate-600" />
                       </button>
+
+                      {/* Event chips sit above the add-overlay; click to edit. */}
+                      {dayEvents.slice(0, 2).map((event) => (
+                        <button
+                          key={event.id}
+                          type="button"
+                          onClick={() => openEdit(event)}
+                          title={`Edit ${event.title}`}
+                          className="relative z-10 mt-2 block w-full truncate text-left rounded-md px-1.5 py-1 text-[10px] font-medium bg-montessori-primary/10 text-montessori-primary hover:bg-montessori-primary/20"
+                        >
+                          {event.title}
+                        </button>
+                      ))}
+                      {dayEvents.length > 2 && (
+                        <p className="relative z-10 mt-1 text-[10px] text-slate-500 pointer-events-none">
+                          +{dayEvents.length - 2} more
+                        </p>
+                      )}
                     </div>
                   );
                 })}
@@ -279,9 +377,11 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
               ) : (
                 <div className="divide-y divide-slate-100">
                   {events.map((event) => (
-                    <div
+                    <button
                       key={event.id}
-                      className="p-4 hover:bg-slate-50 transition-colors cursor-pointer group"
+                      type="button"
+                      onClick={() => openEdit(event)}
+                      className="block w-full text-left p-4 hover:bg-slate-50 transition-colors cursor-pointer group"
                     >
                       <div className="flex items-start gap-4">
                         <div className="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-slate-100 text-slate-700 shrink-0">
@@ -315,7 +415,7 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -342,12 +442,22 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
         </div>
       </div>
 
-      <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
+      <Dialog
+        open={isAddEventOpen}
+        onOpenChange={(open) => {
+          setIsAddEventOpen(open);
+          if (!open) resetForm();
+        }}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Add Calendar Event</DialogTitle>
+            <DialogTitle>
+              {editing ? "Edit Event" : "Add Calendar Event"}
+            </DialogTitle>
             <DialogDescription>
-              Create a new event, field trip, or holiday block.
+              {editing
+                ? "Update the details or remove this event from the calendar."
+                : "Create a new event, field trip, or holiday block."}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -398,6 +508,17 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
               />
             </div>
             <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">
+                Description
+              </label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Optional details for staff and parents"
+                className="border-slate-200 min-h-20"
+              />
+            </div>
+            <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700 block">
                 Event Type
               </label>
@@ -416,8 +537,24 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddEventOpen(false)}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            {editing && (
+              <Button
+                variant="outline"
+                onClick={handleDelete}
+                disabled={pending}
+                className="sm:mr-auto gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+              >
+                <Trash2 className="w-4 h-4" /> Delete
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddEventOpen(false);
+                resetForm();
+              }}
+            >
               Cancel
             </Button>
             <Button
@@ -425,7 +562,7 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
               disabled={pending}
               className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
             >
-              Save Event
+              {editing ? "Save Changes" : "Save Event"}
             </Button>
           </DialogFooter>
         </DialogContent>

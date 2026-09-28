@@ -50,7 +50,7 @@ export async function inviteStaff(input: {
       .from("profiles")
       .update({ full_name: input.name.trim() })
       .eq("id", user.id)
-      .is("full_name", null);
+      .eq("full_name", ""); // only fill an unset name (column defaults to '')
   }
 
   // A person can hold only one role per school (unique user_id + school_id).
@@ -97,6 +97,15 @@ export async function removeStaff(userId: string): Promise<Result> {
     return { ok: false, error: "You can't remove your own access." };
   }
   const admin = createAdminClient();
+  const { data: membership } = await admin
+    .from("memberships")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("school_id", school.id)
+    .maybeSingle();
+  if (membership?.role === "admin" && (await countAdmins(admin, school.id)) <= 1) {
+    return { ok: false, error: "A school needs at least one admin." };
+  }
   const { error } = await admin
     .from("memberships")
     .delete()
@@ -189,6 +198,94 @@ export async function setTeacherClassrooms(
     classrooms,
   );
   if (!saved.ok) return saved;
+
+  revalidatePath("/dashboard/settings");
+  return { ok: true };
+}
+
+async function countAdmins(
+  admin: ReturnType<typeof createAdminClient>,
+  schoolId: string,
+): Promise<number> {
+  const { count } = await admin
+    .from("memberships")
+    .select("user_id", { count: "exact", head: true })
+    .eq("school_id", schoolId)
+    .eq("role", "admin");
+  return count ?? 0;
+}
+
+// Edit a staff member from the directory: display name, role (admin <->
+// teacher) and, for Montessori teachers, their classrooms. An admin can't change
+// their own role, and the school's last admin can't be demoted.
+export async function updateStaffMember(input: {
+  userId: string;
+  name: string;
+  role: "admin" | "teacher";
+  // Only applied when the member ends up a teacher; omit to leave as-is.
+  classrooms?: string[];
+}): Promise<Result> {
+  const { school, user } = await requireRole("admin");
+  if (!school) return { ok: false, error: "No school context." };
+  if (input.role !== "admin" && input.role !== "teacher") {
+    return { ok: false, error: "Choose a valid role." };
+  }
+
+  const admin = createAdminClient();
+  const { data: membership } = await admin
+    .from("memberships")
+    .select("role")
+    .eq("user_id", input.userId)
+    .eq("school_id", school.id)
+    .maybeSingle();
+  if (!membership || (membership.role !== "admin" && membership.role !== "teacher")) {
+    return { ok: false, error: "That person is not on your staff." };
+  }
+
+  if (input.role !== membership.role) {
+    if (input.userId === user.id) {
+      return { ok: false, error: "You can't change your own role." };
+    }
+    if (membership.role === "admin" && (await countAdmins(admin, school.id)) <= 1) {
+      return { ok: false, error: "A school needs at least one admin." };
+    }
+  }
+
+  // The name lives on the shared profile (service role: profiles_update_self
+  // only lets people edit their own). Blank clears it, so the email shows.
+  const { error: pErr } = await admin
+    .from("profiles")
+    .update({ full_name: input.name.trim() })
+    .eq("id", input.userId);
+  if (pErr) return { ok: false, error: pErr.message };
+
+  if (input.role !== membership.role) {
+    const { error } = await admin
+      .from("memberships")
+      .update({ role: input.role })
+      .eq("user_id", input.userId)
+      .eq("school_id", school.id);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  // Classroom assignments are teacher-only (see setTeacherClassrooms), so a
+  // promotion to admin clears them.
+  if (input.role === "admin" && membership.role === "teacher") {
+    const { error } = await admin
+      .from("teacher_classroom_assignments")
+      .delete()
+      .eq("school_id", school.id)
+      .eq("teacher_id", input.userId);
+    if (error) return { ok: false, error: error.message };
+  } else if (input.role === "teacher" && input.classrooms) {
+    const saved = await replaceTeacherClassrooms(
+      admin,
+      school.id,
+      input.userId,
+      input.classrooms,
+    );
+    if (!saved.ok) return saved;
+  }
 
   revalidatePath("/dashboard/settings");
   return { ok: true };

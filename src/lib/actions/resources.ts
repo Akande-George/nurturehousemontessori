@@ -29,6 +29,40 @@ export async function createResource(input: {
   return { ok: true };
 }
 
+export async function updateResource(input: {
+  id: string;
+  title: string;
+  description?: string;
+  type: "article" | "video" | "policy";
+  url?: string;
+}): Promise<Result> {
+  const ctx = await getActiveContext();
+  const supabase = await createClient();
+  if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
+  const title = input.title.trim();
+  if (!title) return { ok: false, error: "Add a title." };
+  if (!["article", "video", "policy"].includes(input.type)) {
+    return { ok: false, error: "Choose a valid type." };
+  }
+  // Scoped to the caller's school; RLS (resources_write) also limits it to staff.
+  const { data, error } = await supabase
+    .from("resources")
+    .update({
+      title,
+      description: input.description?.trim() || null,
+      type: input.type,
+      url: input.url?.trim() || null,
+    })
+    .eq("id", input.id)
+    .eq("school_id", ctx.school.id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data?.length) return { ok: false, error: "Resource not found." };
+  revalidatePath("/dashboard/resources");
+  revalidatePath("/parent/resources");
+  return { ok: true };
+}
+
 export async function deleteResource(id: string): Promise<Result> {
   const supabase = await createClient();
   if (!supabase) return { ok: false, error: "Not configured" };
