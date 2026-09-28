@@ -36,10 +36,10 @@ const STATUS_LABEL: Record<CurriculumStatus, string> = {
 };
 
 const STATUS_TONE: Record<CurriculumStatus, string> = {
-  not_started: "bg-white text-slate-400 border-slate-100",
-  introduced: "bg-sky-100 text-sky-800 border-sky-200 font-semibold",
-  developing: "bg-amber-200 text-amber-900 border-amber-300 font-bold",
-  proficient: "bg-emerald-600 text-white border-emerald-700 font-bold",
+  not_started: "bg-white text-slate-400 border-slate-300",
+  introduced: "bg-sky-100 text-sky-800 border-sky-400 font-semibold",
+  developing: "bg-amber-200 text-amber-900 border-amber-500 font-bold",
+  proficient: "bg-emerald-600 text-white border-emerald-800 font-bold",
 };
 
 function todayIso() {
@@ -117,18 +117,18 @@ export function CurriculumMatrix({
         </div>
       </div>
 
-      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+      <div className="border border-slate-300 rounded-xl overflow-hidden bg-white">
         <div className="overflow-x-auto overflow-y-visible">
           <table className="border-collapse text-[12px] min-w-full" style={{ borderSpacing: 0 }}>
             <thead>
               <tr>
-                <th className={`sticky left-0 z-20 ${activeArea.tone.soft} ${activeArea.tone.text} border-b border-r border-slate-200 text-left px-4 py-3 align-bottom min-w-[280px]`}>
+                <th className={`sticky left-0 z-20 ${activeArea.tone.soft} ${activeArea.tone.text} border-b border-r border-slate-300 text-left px-4 py-3 align-bottom min-w-[280px]`}>
                   <span className="text-sm font-semibold uppercase tracking-wide">{activeArea.name}</span>
                 </th>
                 {students.map((s) => (
                   <th
                     key={s.id}
-                    className="border-b border-l border-slate-200 px-1 pt-3 pb-2 align-bottom bg-white"
+                    className="border-b border-l border-slate-300 px-1 pt-3 pb-2 align-bottom bg-white"
                     style={{ minWidth: 40, width: 40, height: 132 }}
                   >
                     <div className="flex flex-col items-center gap-1.5">
@@ -209,7 +209,7 @@ function SubcategoryRows(props: SubProps) {
 
   return (
     <>
-      <tr className="bg-slate-50/70 border-t border-slate-200">
+      <tr className="bg-slate-50/70 border-t border-slate-300">
         <td colSpan={students.length + 1} className="sticky left-0 z-10 bg-slate-50/70">
           <button onClick={onToggleSub} className="w-full flex items-center gap-2 px-4 py-2 text-left">
             {isOpen ? (
@@ -274,7 +274,7 @@ function ActivityRows(props: ActProps) {
 
   return (
     <>
-      <tr className="border-t border-slate-100">
+      <tr className="border-t border-slate-300">
         <td className="sticky left-0 z-10 bg-white">
           <button
             onClick={() => setOpenActivities((prev) => ({ ...prev, [activity.id]: !expanded }))}
@@ -289,7 +289,7 @@ function ActivityRows(props: ActProps) {
           </button>
         </td>
         {students.map((s) => (
-          <td key={s.id} className="border-l border-slate-100" style={{ minWidth: 40, width: 40 }} />
+          <td key={s.id} className="border-l border-slate-300" style={{ minWidth: 40, width: 40 }} />
         ))}
       </tr>
       {expanded &&
@@ -330,7 +330,7 @@ function LeafRow({
   setOpenCell: (cell: OpenCell) => void;
 }) {
   return (
-    <tr className="border-t border-slate-100 hover:bg-slate-50/50 group">
+    <tr className="border-t border-slate-300 hover:bg-slate-50/50 group">
       <td className={`sticky left-0 z-10 bg-white group-hover:bg-slate-50/50 px-4 py-1.5 ${indented ? "pl-12" : "pl-8"}`}>
         <span className="text-[12px] text-slate-700">{leafName}</span>
       </td>
@@ -341,13 +341,13 @@ function LeafRow({
         return (
           <td
             key={s.id}
-            className="border-l border-slate-100 relative"
+            className="border-l border-slate-300 relative"
             style={{ minWidth: 40, width: 40, height: 30, padding: 0 }}
           >
             <button
               onClick={() => setOpenCell(isOpen ? null : { studentId: s.id, leafId })}
               className={`w-full h-full text-[11px] flex items-center justify-center transition-colors border ${
-                status === "not_started" ? `border-transparent ${area.tone.soft}` : STATUS_TONE[status]
+                status === "not_started" ? `border-slate-200 ${area.tone.soft}` : STATUS_TONE[status]
               } ${isOpen ? "ring-2 ring-offset-1 ring-montessori-primary z-30 relative" : ""}`}
               title={`${s.name} · ${leafName}`}
             >
