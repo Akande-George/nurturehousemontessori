@@ -32,7 +32,7 @@ export function BulkObservationClient({
   const { toast } = useToast();
   const router = useRouter();
   const [pending, start] = useTransition();
-  const picker = useCurriculumLeaf(curriculum);
+  const picker = useCurriculumLeaf(curriculum, null, { multiple: true });
   const [content, setContent] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -70,7 +70,7 @@ export function BulkObservationClient({
     start(async () => {
       const res = await createBulkObservations({
         studentIds: [...selected],
-        leafId: picker.leafId,
+        leafIds: picker.leafIds,
         content,
       });
       if (!res.ok) {
@@ -202,7 +202,7 @@ export function BulkObservationClient({
                 </p>
                 <Button
                   onClick={handleSubmit}
-                  disabled={pending || count === 0 || !content.trim() || !picker.leafId}
+                  disabled={pending || count === 0 || !content.trim() || picker.leafIds.length === 0}
                   className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
                 >
                   {pending

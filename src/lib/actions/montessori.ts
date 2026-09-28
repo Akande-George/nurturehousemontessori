@@ -22,32 +22,47 @@ async function ctxClient() {
 // mirrors each published report's narrative onto the row that /parent/progress
 // and the teacher child-report still read.
 
-export async function createObservation(input: {
-  studentId: string;
-  leafId: string;
-  content: string;
-}): Promise<Result> {
-  const { ctx, supabase } = await ctxClient();
-  if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
-  const { error } = await supabase.from("observations").insert({
-    school_id: ctx.school.id,
-    student_id: input.studentId,
-    teacher_id: ctx.user.id,
-    leaf_id: input.leafId,
-    content: input.content,
-  });
-  if (error) return { ok: false, error: error.message };
-  revalidatePath("/teacher/observations");
-  return { ok: true };
+const MAX_LEAVES = 50;
+
+// The curriculum leaves an observation is filed under — one row is written per
+// leaf (several variations can be picked at once). Deduped; null when invalid.
+function cleanLeafIds(leafIds: string[]): string[] | null {
+  const ids = [...new Set(leafIds.filter(Boolean))];
+  return ids.length === 0 || ids.length > MAX_LEAVES ? null : ids;
 }
 
-// One observation logged against several children at once (a group
+export async function createObservation(input: {
+  studentId: string;
+  leafIds: string[];
+  content: string;
+}): Promise<Result & { count?: number }> {
+  const { ctx, supabase } = await ctxClient();
+  if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
+  const schoolId = ctx.school.id;
+  const leafIds = cleanLeafIds(input.leafIds);
+  if (!leafIds) return { ok: false, error: "Choose a curriculum activity." };
+  const { error } = await supabase.from("observations").insert(
+    leafIds.map((leafId) => ({
+      school_id: schoolId,
+      student_id: input.studentId,
+      teacher_id: ctx.user.id,
+      leaf_id: leafId,
+      content: input.content,
+    })),
+  );
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/teacher/observations");
+  return { ok: true, count: leafIds.length };
+}
+
+// One observation logged against several children (and optionally several
+// variations) at once (a group
 // presentation, a shared activity). Each child gets their own row, so it shows
 // in every journal exactly as a single observation would. A teacher can only
 // log for children assigned to them — the same rule as the journal pages.
 export async function createBulkObservations(input: {
   studentIds: string[];
-  leafId: string;
+  leafIds: string[];
   content: string;
 }): Promise<Result & { count?: number }> {
   const { ctx, supabase } = await ctxClient();
@@ -57,7 +72,8 @@ export async function createBulkObservations(input: {
   const schoolId = ctx.school.id;
   const content = input.content.trim();
   if (!content) return { ok: false, error: "Add a note before saving." };
-  if (!input.leafId) return { ok: false, error: "Choose a curriculum activity." };
+  const leafIds = cleanLeafIds(input.leafIds);
+  if (!leafIds) return { ok: false, error: "Choose a curriculum activity." };
 
   const studentIds = [...new Set(input.studentIds)];
   if (studentIds.length === 0) return { ok: false, error: "Select at least one child." };
@@ -73,13 +89,15 @@ export async function createBulkObservations(input: {
   }
 
   const { error } = await supabase.from("observations").insert(
-    studentIds.map((studentId) => ({
-      school_id: schoolId,
-      student_id: studentId,
-      teacher_id: ctx.user.id,
-      leaf_id: input.leafId,
-      content,
-    })),
+    studentIds.flatMap((studentId) =>
+      leafIds.map((leafId) => ({
+        school_id: schoolId,
+        student_id: studentId,
+        teacher_id: ctx.user.id,
+        leaf_id: leafId,
+        content,
+      })),
+    ),
   );
   if (error) return { ok: false, error: error.message };
 

@@ -44,8 +44,8 @@ export function StudentObservationClient({
   const router = useRouter();
   const [pending, start] = useTransition();
 
-  const picker = useCurriculumLeaf(curriculum);
-  const leafId = picker.leafId;
+  const picker = useCurriculumLeaf(curriculum, null, { multiple: true });
+  const leafIds = picker.leafIds;
   const [content, setContent] = useState("");
 
   const handleSubmit = () => {
@@ -53,16 +53,16 @@ export function StudentObservationClient({
       toast({ title: "Observation is empty", description: "Add a note before saving." });
       return;
     }
-    if (!leafId) {
-      toast({ title: "Select a curriculum activity", description: "Choose an area and activity before saving." });
+    if (leafIds.length === 0) {
+      toast({ title: "Select a curriculum activity", description: "Choose an area, activity and at least one variation before saving." });
       return;
     }
     start(async () => {
-      const res = await createObservation({ studentId: student.id, leafId, content: content.trim() });
+      const res = await createObservation({ studentId: student.id, leafIds, content: content.trim() });
       if (res.ok) {
         setContent("");
         toast({
-          title: "Observation saved",
+          title: res.count && res.count > 1 ? `${res.count} observations saved` : "Observation saved",
           description: `${student.name}'s observation journal has been updated.`,
         });
         router.refresh();
@@ -125,7 +125,7 @@ export function StudentObservationClient({
           <div className="flex justify-end">
             <Button
               onClick={handleSubmit}
-              disabled={!content.trim() || !leafId || pending}
+              disabled={!content.trim() || leafIds.length === 0 || pending}
               className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
             >
               {pending ? "Saving…" : "Save Observation"}
