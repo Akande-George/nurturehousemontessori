@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Grid3x3, Search, Sparkles, Users } from "lucide-react";
+import { ArrowRight, Grid3x3, Pencil, Search, Sparkles, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { Area } from "@/lib/curriculum/curriculum";
 import {
   getCurriculumStats,
@@ -48,9 +49,16 @@ export function CurriculumIndexClient({
             Record book — track presentations across the five Montessori areas.
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Tracking</p>
-          <p className="text-sm font-semibold text-slate-700">{students.length} students</p>
+        <div className="flex items-center gap-4">
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <Link href="/teacher/curriculum/edit">
+              <Pencil className="w-3.5 h-3.5" /> Edit curriculum
+            </Link>
+          </Button>
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Tracking</p>
+            <p className="text-sm font-semibold text-slate-700">{students.length} students</p>
+          </div>
         </div>
       </div>
 

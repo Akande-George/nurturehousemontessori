@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import {
+  ArrowLeft,
   ChevronRight,
   Eye,
   EyeOff,
@@ -109,7 +111,16 @@ type FormState =
   | { mode: "add"; kind: CurriculumNodeKind; parent: TreeNode | null }
   | { mode: "edit"; node: TreeNode };
 
-export function CurriculumEditorClient({ curriculum }: { curriculum: Area[] }) {
+export function CurriculumEditorClient({
+  curriculum,
+  canManage = true,
+  backHref,
+}: {
+  curriculum: Area[];
+  /** Hide / show / delete — admins only. Teachers can add and rename. */
+  canManage?: boolean;
+  backHref?: string;
+}) {
   const { toast } = useToast();
   const [pending, start] = useTransition();
   const tree = useMemo(() => toTree(curriculum), [curriculum]);
@@ -281,6 +292,7 @@ export function CurriculumEditorClient({ curriculum }: { curriculum: Area[] }) {
             >
               <Pencil className="w-4 h-4" />
             </button>
+            {canManage && (
             <button
               onClick={() => handleHidden(node)}
               disabled={pending}
@@ -290,7 +302,8 @@ export function CurriculumEditorClient({ curriculum }: { curriculum: Area[] }) {
             >
               {node.hidden ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
             </button>
-            {node.custom && (
+            )}
+            {canManage && node.custom && (
               <button
                 onClick={() => setRemoving(node)}
                 disabled={pending}
@@ -322,13 +335,21 @@ export function CurriculumEditorClient({ curriculum }: { curriculum: Area[] }) {
 
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {backHref && (
+        <Link
+          href={backHref}
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-montessori-primary mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to curriculum
+        </Link>
+      )}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-serif text-slate-900 mb-1">Curriculum</h1>
           <p className="text-sm text-slate-500">
-            Rename, describe, hide or add to the areas, sections, activities and
-            variations teachers record against. Built-in items can be hidden but
-            not deleted.
+            {canManage
+              ? "Rename, describe, hide or add to the areas, sections, activities and variations teachers record against. Built-in items can be hidden but not deleted."
+              : "Add areas, sections, activities and variations, or rename them. Changes apply to everyone at your school."}
           </p>
         </div>
         <Button

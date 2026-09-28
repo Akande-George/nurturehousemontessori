@@ -24,7 +24,7 @@ async function staffCtx() {
   const supabase = await createClient();
   if (!ctx?.school || !supabase) return null;
   if (ctx.role !== "admin" && ctx.role !== "teacher") return null;
-  return { schoolId: ctx.school.id, supabase };
+  return { schoolId: ctx.school.id, supabase, isAdmin: ctx.role === "admin" };
 }
 
 // Every screen that renders the catalog — pickers, matrices, feeds, reports.
@@ -121,14 +121,15 @@ export async function updateCurriculumNode(input: {
   return { ok: true };
 }
 
-// Hide or unhide any node. Hidden nodes drop out of pickers, matrices and
-// stats, but records already filed against them keep resolving.
+// Hide or unhide any node (admins only — it changes what the whole school
+// sees). Hidden nodes drop out of pickers, matrices and stats, but records
+// already filed against them keep resolving.
 export async function setCurriculumNodeHidden(input: {
   nodeId: string;
   hidden: boolean;
 }): Promise<Result> {
   const c = await staffCtx();
-  if (!c) return { ok: false, error: "Not authorized" };
+  if (!c?.isAdmin) return { ok: false, error: "Only an admin can hide curriculum items." };
 
   const { all } = await getSchoolCurriculum(c.supabase, c.schoolId);
   const found = findCurriculumNode(all, input.nodeId);
@@ -149,13 +150,13 @@ export async function setCurriculumNodeHidden(input: {
   return { ok: true };
 }
 
-// Delete a school-added node and everything under it. Built-in nodes can only
-// be hidden. Refuses when any observation, progress row or activity post is
+// Delete a school-added node and everything under it (admins only). Built-in
+// nodes can only be hidden. Refuses when any observation, progress row or activity post is
 // filed under the subtree — those would lose their lesson name — and points
 // the user at Hide instead.
 export async function deleteCurriculumNode(nodeId: string): Promise<Result> {
   const c = await staffCtx();
-  if (!c) return { ok: false, error: "Not authorized" };
+  if (!c?.isAdmin) return { ok: false, error: "Only an admin can delete curriculum items." };
   if (findCurriculumNode(CURRICULUM, nodeId)) {
     return { ok: false, error: "Built-in items can't be deleted — hide them instead." };
   }
