@@ -5,7 +5,14 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Filter, Heart } from "lucide-react";
+import { CalendarDays, Heart } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { Area, Leaf } from "@/lib/curriculum/curriculum";
 import { toggleActivityLike } from "@/lib/actions/montessori";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +44,23 @@ function formatDateLabel(iso: string) {
   if (same(d, yesterday)) return "Yesterday";
   return d.toLocaleDateString("en-NG", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
+
+// Compact label for the date picker: "Today", "Yesterday", "Sat, 26 Sep"
+// (with the year only when it isn't this year).
+function formatShortDate(d: Date) {
+  const long = formatDateLabel(d.toISOString());
+  if (long === "Today" || long === "Yesterday") return long;
+  return d.toLocaleDateString("en-NG", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    ...(d.getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}),
+  });
+}
+
+// Horizontal chip rows scroll without showing a scrollbar.
+const CHIP_ROW =
+  "flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 function groupByDate(posts: FeedPost[]) {
   const groups: { label: string; key: string; posts: FeedPost[] }[] = [];
@@ -118,7 +142,7 @@ export function ParentFeedClient({
       </div>
 
       {children.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className={CHIP_ROW}>
           <button
             onClick={() => setActiveChildId("__all__")}
             className={`flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-all whitespace-nowrap ${
@@ -149,25 +173,46 @@ export function ParentFeedClient({
       )}
 
       <div>
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-5">
-          <h2 className="text-xl font-serif text-slate-900">Activity Timeline</h2>
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="mb-6 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-serif text-slate-900">Activity Timeline</h2>
+            {availableDates.length > 1 && (
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger
+                  aria-label="Filter by date"
+                  className="h-9 w-auto min-w-[9.5rem] gap-2 rounded-full border-slate-200 bg-white text-xs font-medium text-slate-600"
+                >
+                  <CalendarDays className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectItem value="all">All dates</SelectItem>
+                  {availableDates.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {formatShortDate(new Date(d))}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          {feedAreas.length > 0 && (
+            <div className={CHIP_ROW}>
               <button
                 onClick={() => setFeedFilter("All")}
-                className={`px-3 py-1 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
                   feedFilter === "All"
-                    ? "bg-montessori-primary/10 text-montessori-primary border-montessori-primary/20"
+                    ? "bg-montessori-primary text-white border-montessori-primary"
                     : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
                 }`}
               >
-                All
+                All areas
               </button>
               {feedAreas.map((a) => (
                 <button
                   key={a.id}
                   onClick={() => setFeedFilter(a.name)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
                     feedFilter === a.name
                       ? `${a.tone.soft} ${a.tone.text} ${a.tone.border}`
                       : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
@@ -177,35 +222,7 @@ export function ParentFeedClient({
                 </button>
               ))}
             </div>
-            {availableDates.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1 items-center">
-                <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <button
-                  onClick={() => setDateFilter("all")}
-                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
-                    dateFilter === "all"
-                      ? "bg-montessori-primary/10 text-montessori-primary border-montessori-primary/20"
-                      : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                  }`}
-                >
-                  All dates
-                </button>
-                {availableDates.map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setDateFilter(d)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
-                      dateFilter === d
-                        ? "bg-montessori-primary/10 text-montessori-primary border-montessori-primary/20"
-                        : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    {formatDateLabel(new Date(d).toISOString())}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {filteredPosts.length === 0 ? (
