@@ -73,15 +73,22 @@ export function DailyReportDocument({
     >
       {/* ---- Header ---------------------------------------------------- */}
       <header className="mb-8 break-inside-avoid print:break-inside-avoid">
-        <div className="flex items-start justify-between gap-6">
-          <div className="flex min-w-0 items-start gap-4">
-            <div
-              className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-bold text-white ${h.avatarColor || "bg-slate-300"}`}
-            >
-              {initials}
+        {/* Phones: logo on top, then avatar + title, then the details at full
+            width. From sm up: details beside the avatar, logo on the right. */}
+        <div className="flex flex-col-reverse gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="min-w-0 sm:flex sm:items-start sm:gap-4">
+            <div className="flex items-center gap-3 sm:block">
+              <div
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-bold text-white sm:h-16 sm:w-16 sm:text-xl ${h.avatarColor || "bg-slate-300"}`}
+              >
+                {initials}
+              </div>
+              <h1 className="min-w-0 font-serif text-2xl leading-tight text-slate-900 sm:hidden">
+                {firstName}&apos;s Daily Report
+              </h1>
             </div>
-            <div className="min-w-0">
-              <h1 className="mb-3 font-serif text-3xl text-slate-900">
+            <div className="mt-4 min-w-0 sm:mt-0">
+              <h1 className="mb-3 hidden font-serif text-3xl text-slate-900 sm:block">
                 {firstName}&apos;s Daily Report
               </h1>
               <Field label="Child name" value={h.childName} />
@@ -95,13 +102,13 @@ export function DailyReportDocument({
             </div>
           </div>
 
-          <div className="shrink-0 text-right">
+          <div className="shrink-0 sm:text-right">
             {h.schoolLogoUrl ? (
               <img
                 src={h.schoolLogoUrl}
                 alt={h.schoolName}
                 crossOrigin="anonymous"
-                className="ml-auto max-h-20 w-auto object-contain"
+                className="max-h-14 w-auto object-contain sm:ml-auto sm:max-h-20"
               />
             ) : (
               <p className="font-serif text-lg text-slate-700">{h.schoolName}</p>

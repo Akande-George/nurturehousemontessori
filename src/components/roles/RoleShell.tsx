@@ -61,6 +61,7 @@ const montessoriAdminNav: NavSection[] = [
       { href: "/dashboard", label: "Overview", icon: Home },
       { href: "/dashboard/students", label: "Students", icon: Users },
       { href: "/dashboard/calendar", label: "Calendar", icon: Calendar },
+      { href: "/dashboard/notices", label: "Notice Board", icon: Megaphone },
     ],
   },
   {
@@ -126,6 +127,7 @@ const montessoriTeacherNav: NavSection[] = [
     label: "Today",
     items: [
       { href: "/teacher", label: "My Classroom", icon: Home },
+      { href: "/teacher/notices", label: "Notice Board", icon: Megaphone },
       { href: "/teacher/attendance", label: "Attendance", icon: Users },
     ],
   },
@@ -212,6 +214,7 @@ const regularAdminNav: NavSection[] = [
       { href: "/dashboard", label: "Overview", icon: Home },
       { href: "/dashboard/students", label: "Students", icon: Users },
       { href: "/dashboard/calendar", label: "Calendar", icon: Calendar },
+      { href: "/dashboard/notices", label: "Notice Board", icon: Megaphone },
     ],
   },
   {
@@ -261,6 +264,7 @@ const regularTeacherNav: NavSection[] = [
     label: "Today",
     items: [
       { href: "/teacher", label: "My Classes", icon: Home },
+      { href: "/teacher/notices", label: "Notice Board", icon: Megaphone },
       {
         href: "/teacher/attendance",
         label: "Class Register",
@@ -484,7 +488,15 @@ export function RoleShell({
   // Mobile bottom bar (parent only) mirrors the resolved parent nav's first section.
   const bottomBarItems = sections[0]?.items.slice(0, 3) ?? [];
   const anyBadge = Object.values(badges).some((n) => n > 0);
-  const unreadNotices = badges["/parent/notices"] ?? 0;
+  const noticesHref =
+    role === "parent"
+      ? "/parent/notices"
+      : role === "teacher"
+        ? "/teacher/notices"
+        : role === "admin"
+          ? "/dashboard/notices"
+          : null;
+  const unreadNotices = noticesHref ? badges[noticesHref] ?? 0 : 0;
 
   return (
     <div className="font-tight flex min-h-screen bg-slate-50 pb-16 md:pb-0">
@@ -611,7 +623,7 @@ export function RoleShell({
           )}
 
           <div className="flex items-center gap-2">
-            {role === "parent" ? (
+            {noticesHref ? (
               <Button
                 asChild
                 variant="ghost"
@@ -619,7 +631,7 @@ export function RoleShell({
                 className="relative rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900"
               >
                 <Link
-                  href="/parent/notices"
+                  href={noticesHref}
                   aria-label={
                     unreadNotices > 0
                       ? `Notice board, ${unreadNotices} new`

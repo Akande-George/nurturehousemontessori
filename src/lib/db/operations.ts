@@ -18,8 +18,9 @@ export async function getSchoolNotices(
   return data ?? [];
 }
 
-// How many of the school's notices this parent hasn't opened yet — the badge
-// on the Notice Board nav item. Reads are recorded when the board is viewed.
+// How many of the school's notices this user (parent, teacher or admin) hasn't
+// opened yet — the badge on the Notice Board nav item. Their own posts don't
+// count. Reads are recorded when the board is viewed.
 export async function countUnreadNotices(
   db: DB,
   schoolId: string,
@@ -28,7 +29,8 @@ export async function countUnreadNotices(
   const { data: notices } = await db
     .from("notices")
     .select("id")
-    .eq("school_id", schoolId);
+    .eq("school_id", schoolId)
+    .or(`author_id.is.null,author_id.neq.${parentId}`);
   const ids = (notices ?? []).map((n) => n.id);
   if (ids.length === 0) return 0;
   const { data: reads } = await db

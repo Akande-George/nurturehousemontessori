@@ -58,6 +58,8 @@ export async function createNotice(input: {
   });
   revalidatePath("/dashboard");
   revalidatePath("/parent/notices");
+  revalidatePath("/teacher/notices");
+  revalidatePath("/dashboard/notices");
   return { ok: true };
 }
 
@@ -83,6 +85,8 @@ export async function updateNotice(
   if (!data?.length) return { ok: false, error: "Notice not found" };
   revalidatePath("/dashboard");
   revalidatePath("/parent/notices");
+  revalidatePath("/teacher/notices");
+  revalidatePath("/dashboard/notices");
   return { ok: true };
 }
 
@@ -100,6 +104,8 @@ export async function deleteNotice(noticeId: string): Promise<Result> {
   if (!data?.length) return { ok: false, error: "Notice not found" };
   revalidatePath("/dashboard");
   revalidatePath("/parent/notices");
+  revalidatePath("/teacher/notices");
+  revalidatePath("/dashboard/notices");
   return { ok: true };
 }
 
