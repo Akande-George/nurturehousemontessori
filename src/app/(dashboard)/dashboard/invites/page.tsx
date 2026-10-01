@@ -4,8 +4,7 @@ import { createClient } from "@/supabase/server";
 import { getSchoolStudents } from "@/lib/db/students";
 import { getPortalRoster } from "@/lib/db/invites";
 import { InvitesClient } from "./InvitesClient";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+import { PORTAL_URL } from "@/lib/site-url";
 
 export default async function PortalInvitesPage() {
   const { school } = await requireRole("admin");
@@ -22,7 +21,7 @@ export default async function PortalInvitesPage() {
     <InvitesClient
       roster={roster}
       students={students.map((s) => ({ id: s.id, name: s.name }))}
-      loginUrl={`${APP_URL}/login`}
+      loginUrl={PORTAL_URL}
     />
   );
 }

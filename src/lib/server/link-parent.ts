@@ -1,8 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/supabase/admin";
 import { sendParentPortalInvite } from "@/lib/email/notifications";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+import { PORTAL_URL } from "@/lib/site-url";
 
 // Ensure a parent has a portal account, is a member of the school, is linked to
 // the given student, and has been emailed a sign-in link. Idempotent: safe to
@@ -68,6 +67,6 @@ export async function linkParentToStudent(input: {
     invited_by: input.invitedBy ?? null,
   });
 
-  await sendParentPortalInvite(email, input.schoolName, `${APP_URL}/login`);
+  await sendParentPortalInvite(email, input.schoolName, PORTAL_URL);
   return { ok: true };
 }

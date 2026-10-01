@@ -1,9 +1,6 @@
 import "server-only";
 import { sendHtmlEmail } from "./send";
-
-const APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  "https://nurturehousemontessori.netlify.app/";
+import { APP_URL, PORTAL_URL } from "@/lib/site-url";
 
 // Minimal branded email shell.
 function shell(schoolName: string, body: string): string {
@@ -13,7 +10,7 @@ function shell(schoolName: string, body: string): string {
       <div style="background:#0c5c4c;color:#ffffff;padding:20px 28px;font-size:18px;font-weight:600">${schoolName}</div>
       <div style="padding:28px;color:#1e293b;font-size:15px;line-height:1.6">${body}</div>
       <div style="padding:16px 28px;color:#94a3b8;font-size:12px;border-top:1px solid #eef0f2">
-        Sent via Nurturehouse School Hub · <a href="${APP_URL}/login" style="color:#0c5c4c">Open your portal</a>
+        Sent via Nurturehouse School Hub · <a href="${PORTAL_URL}" style="color:#0c5c4c">Open your portal</a>
       </div>
     </div>
   </div>`;

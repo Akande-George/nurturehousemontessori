@@ -4,10 +4,10 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/context";
 import { createAdminClient } from "@/supabase/admin";
 import { sendStaffInvite } from "@/lib/email/notifications";
+import { PORTAL_URL } from "@/lib/site-url";
 
 type Result = { ok: boolean; error?: string };
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 const ROLE_LABEL: Record<"admin" | "teacher", string> = {
   admin: "an administrator",
   teacher: "a teacher",
@@ -82,7 +82,7 @@ export async function inviteStaff(input: {
     status: "pending",
   });
 
-  await sendStaffInvite(email, school.name, ROLE_LABEL[input.role], `${APP_URL}/login`);
+  await sendStaffInvite(email, school.name, ROLE_LABEL[input.role], PORTAL_URL);
 
   revalidatePath("/dashboard/settings");
   return { ok: true };

@@ -5,10 +5,9 @@ import { requireRole } from "@/lib/auth/context";
 import { createAdminClient } from "@/supabase/admin";
 import { sendParentPortalInvite } from "@/lib/email/notifications";
 import { linkParentToStudent } from "@/lib/server/link-parent";
+import { PORTAL_URL } from "@/lib/site-url";
 
 type Result = { ok: boolean; error?: string };
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 // Grant a family portal access: ensure their auth account + parent membership +
 // link to the child, record the invitation, and email them a sign-in link.
@@ -53,7 +52,7 @@ export async function resendParentInvite(email: string): Promise<Result> {
   if (!school) return { ok: false, error: "No school context." };
   const clean = email.trim().toLowerCase();
   if (!clean) return { ok: false, error: "Missing email." };
-  await sendParentPortalInvite(clean, school.name, `${APP_URL}/login`);
+  await sendParentPortalInvite(clean, school.name, PORTAL_URL);
   return { ok: true };
 }
 
