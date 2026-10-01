@@ -18,6 +18,27 @@ export async function getSchoolNotices(
   return data ?? [];
 }
 
+// How many of the school's notices this parent hasn't opened yet — the badge
+// on the Notice Board nav item. Reads are recorded when the board is viewed.
+export async function countUnreadNotices(
+  db: DB,
+  schoolId: string,
+  parentId: string,
+): Promise<number> {
+  const { data: notices } = await db
+    .from("notices")
+    .select("id")
+    .eq("school_id", schoolId);
+  const ids = (notices ?? []).map((n) => n.id);
+  if (ids.length === 0) return 0;
+  const { data: reads } = await db
+    .from("notice_reads")
+    .select("notice_id")
+    .eq("parent_id", parentId)
+    .in("notice_id", ids);
+  return ids.length - new Set((reads ?? []).map((r) => r.notice_id)).size;
+}
+
 // ---- Invoices ----
 export async function getStudentInvoices(
   db: DB,

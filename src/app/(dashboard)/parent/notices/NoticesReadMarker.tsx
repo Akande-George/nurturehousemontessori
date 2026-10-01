@@ -1,12 +1,23 @@
 "use client";
 
 import { useEffect } from "react";
-import { markNoticeRead } from "@/lib/actions/operations";
+import { useRouter } from "next/navigation";
+import { markNoticesRead } from "@/lib/actions/operations";
 
-export function NoticesReadMarker({ noticeIds }: { noticeIds: string[] }) {
+// Viewing the board marks its notices read, then refreshes so the unread badge
+// on the Notice Board nav item clears.
+export function NoticesReadMarker({
+  noticeIds,
+  unread,
+}: {
+  noticeIds: string[];
+  unread: number;
+}) {
+  const router = useRouter();
   useEffect(() => {
-    noticeIds.forEach((id) => {
-      void markNoticeRead(id);
+    if (unread === 0) return;
+    void markNoticesRead(noticeIds).then((res) => {
+      if (res.ok) router.refresh();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

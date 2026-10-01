@@ -1,18 +1,24 @@
 import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
-import { getSchoolNotices } from "@/lib/db/operations";
+import { countUnreadNotices, getSchoolNotices } from "@/lib/db/operations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Bell } from "lucide-react";
 import { NoticesReadMarker } from "./NoticesReadMarker";
 
 export default async function NoticeBoardPage() {
-  const { school } = await requireRole("parent");
+  const { user, school } = await requireRole("parent");
   const supabase = await createClient();
-  const notices = school ? await getSchoolNotices(supabase!, school.id) : [];
+  const [notices, unread] =
+    school && supabase
+      ? await Promise.all([
+          getSchoolNotices(supabase, school.id),
+          countUnreadNotices(supabase, school.id, user.id),
+        ])
+      : [[], 0];
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-      <NoticesReadMarker noticeIds={notices.map((n) => n.id)} />
+      <NoticesReadMarker noticeIds={notices.map((n) => n.id)} unread={unread} />
 
       <div>
         <h1 className="text-2xl font-serif text-slate-900">Announcements</h1>

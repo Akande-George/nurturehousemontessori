@@ -103,6 +103,19 @@ export async function deleteNotice(noticeId: string): Promise<Result> {
   return { ok: true };
 }
 
+// Mark every notice on the board read at once (the parent opened it).
+export async function markNoticesRead(noticeIds: string[]): Promise<Result> {
+  const { ctx, supabase } = await ctxClient();
+  if (!ctx || !supabase) return { ok: false, error: "Not authorized" };
+  if (noticeIds.length === 0) return { ok: true };
+  const { error } = await supabase.from("notice_reads").upsert(
+    noticeIds.map((id) => ({ notice_id: id, parent_id: ctx.user.id })),
+    { onConflict: "notice_id,parent_id", ignoreDuplicates: true },
+  );
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 export async function markNoticeRead(noticeId: string): Promise<Result> {
   const { ctx, supabase } = await ctxClient();
   if (!ctx || !supabase) return { ok: false, error: "Not authorized" };

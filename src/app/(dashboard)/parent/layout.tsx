@@ -4,6 +4,8 @@ import { SchoolThemeProvider } from "@/components/theme/SchoolThemeProvider";
 import { requireRole } from "@/lib/auth/context";
 import { readTheme } from "@/lib/db/types";
 import { shellUserFrom } from "@/lib/auth/shell";
+import { createClient } from "@/supabase/server";
+import { countUnreadNotices } from "@/lib/db/operations";
 
 export default async function ParentLayout({
   children,
@@ -20,12 +22,16 @@ export default async function ParentLayout({
       />
     );
   }
+  const supabase = await createClient();
+  const unreadNotices =
+    school && supabase ? await countUnreadNotices(supabase, school.id, user.id) : 0;
   return (
     <SchoolThemeProvider theme={school ? readTheme(school.theme) : null}>
       <RoleShell
         role="parent"
         user={shellUserFrom(user)}
         school={school ? { name: school.name, type: school.type } : null}
+        badges={{ "/parent/notices": unreadNotices }}
       >
         {children}
       </RoleShell>

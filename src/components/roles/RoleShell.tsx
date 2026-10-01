@@ -384,13 +384,20 @@ function isItemActive(href: string, pathname: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+// "9+" past nine so the pill stays small.
+function badgeText(count: number) {
+  return count > 9 ? "9+" : String(count);
+}
+
 function SidebarNav({
   pathname,
   sections,
+  badges,
   onNavigate,
 }: {
   pathname: string;
   sections: NavSection[];
+  badges: Record<string, number>;
   onNavigate?: () => void;
 }) {
   return (
@@ -427,6 +434,14 @@ function SidebarNav({
                       strokeWidth={active ? 2.25 : 1.75}
                     />
                     <span className="truncate">{item.label}</span>
+                    {(badges[item.href] ?? 0) > 0 && (
+                      <span
+                        aria-label={`${badges[item.href]} new`}
+                        className="ml-auto min-w-5 rounded-full bg-rose-500 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-white"
+                      >
+                        {badgeText(badges[item.href])}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );
@@ -442,11 +457,14 @@ export function RoleShell({
   role,
   user,
   school,
+  badges = {},
   children,
 }: {
   role: Role;
   user: ShellUser;
   school: ShellSchool;
+  /** Unread counts keyed by nav href, e.g. { "/parent/notices": 2 }. */
+  badges?: Record<string, number>;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -465,6 +483,8 @@ export function RoleShell({
   const showSearch = role === "admin" || role === "teacher";
   // Mobile bottom bar (parent only) mirrors the resolved parent nav's first section.
   const bottomBarItems = sections[0]?.items.slice(0, 3) ?? [];
+  const anyBadge = Object.values(badges).some((n) => n > 0);
+  const unreadNotices = badges["/parent/notices"] ?? 0;
 
   return (
     <div className="font-tight flex min-h-screen bg-slate-50 pb-16 md:pb-0">
@@ -477,7 +497,7 @@ export function RoleShell({
             <BrandMark name={brandName} />
           </Link>
         </div>
-        <SidebarNav pathname={pathname} sections={sections} />
+        <SidebarNav pathname={pathname} sections={sections} badges={badges} />
         <div className="border-t border-slate-100 p-3">
           <div className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-montessori-primary text-sm font-medium text-white shadow-sm">
@@ -523,6 +543,7 @@ export function RoleShell({
             <SidebarNav
               pathname={pathname}
               sections={sections}
+              badges={badges}
               onNavigate={() => setMobileOpen(false)}
             />
             <div className="border-t border-slate-100 p-3">
@@ -559,9 +580,12 @@ export function RoleShell({
             <button
               aria-label="Open menu"
               onClick={() => setMobileOpen(true)}
-              className="rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100"
+              className="relative rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100"
             >
               <Menu className="h-5 w-5" />
+              {anyBadge && (
+                <span aria-hidden className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500" />
+              )}
             </button>
             <BrandMark name={brandName} compact />
           </div>
@@ -587,14 +611,40 @@ export function RoleShell({
           )}
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Notifications"
-              className="relative rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-            >
-              <Bell className="h-[18px] w-[18px]" />
-            </Button>
+            {role === "parent" ? (
+              <Button
+                asChild
+                variant="ghost"
+                size="icon"
+                className="relative rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+              >
+                <Link
+                  href="/parent/notices"
+                  aria-label={
+                    unreadNotices > 0
+                      ? `Notice board, ${unreadNotices} new`
+                      : "Notice board"
+                  }
+                >
+                  <Bell className="h-[18px] w-[18px]" />
+                  {unreadNotices > 0 && (
+                    <span
+                      aria-hidden
+                      className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white"
+                    />
+                  )}
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Notifications"
+                className="relative rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+              >
+                <Bell className="h-[18px] w-[18px]" />
+              </Button>
+            )}
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-montessori-primary text-xs font-medium text-white md:hidden">
               {user.initial}
             </div>
@@ -613,14 +663,19 @@ export function RoleShell({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium ${
+                    className={`relative flex flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium ${
                       active ? "text-montessori-primary" : "text-slate-500"
                     }`}
                   >
-                    <Icon
-                      className="h-4 w-4"
-                      strokeWidth={active ? 2.25 : 1.75}
-                    />
+                    <span className="relative">
+                      <Icon
+                        className="h-4 w-4"
+                        strokeWidth={active ? 2.25 : 1.75}
+                      />
+                      {(badges[item.href] ?? 0) > 0 && (
+                        <span aria-hidden className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-rose-500" />
+                      )}
+                    </span>
                     {item.label}
                   </Link>
                 );
