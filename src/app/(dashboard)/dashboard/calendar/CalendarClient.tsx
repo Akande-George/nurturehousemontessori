@@ -67,9 +67,7 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
   const { toast } = useToast();
   const [pending, start] = useTransition();
 
-  const [currentMonth, setCurrentMonth] = useState(
-    new Date(events[0]?.starts_at ?? new Date().toISOString()),
-  );
+  const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   // The event being edited; null while the dialog is creating a new one.
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
@@ -80,6 +78,12 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<EventType>("academic");
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const upcomingEvents = events.filter(
+    (event) => new Date(event.starts_at) >= startOfToday,
+  );
 
   const currentMonthEvents = events.filter((event) =>
     sameMonth(new Date(event.starts_at), currentMonth),
@@ -370,13 +374,13 @@ export function CalendarClient({ events }: { events: CalendarEvent[] }) {
               </h3>
             </div>
             <CardContent className="p-0">
-              {events.length === 0 ? (
+              {upcomingEvents.length === 0 ? (
                 <p className="p-6 text-sm text-slate-500 text-center">
-                  No events scheduled yet.
+                  No upcoming events.
                 </p>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {events.map((event) => (
+                  {upcomingEvents.map((event) => (
                     <button
                       key={event.id}
                       type="button"
