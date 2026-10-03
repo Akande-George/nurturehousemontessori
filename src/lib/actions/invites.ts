@@ -43,6 +43,7 @@ export async function inviteParent(input: {
   if (!res.ok) return res;
 
   revalidatePath("/dashboard/invites");
+  revalidatePath(`/dashboard/students/${student.id}`);
   return { ok: true };
 }
 
@@ -124,6 +125,7 @@ export async function unlinkParent(input: {
   }
 
   revalidatePath("/dashboard/invites");
+  revalidatePath(`/dashboard/students/${student.id}`);
   return { ok: true };
 }
 

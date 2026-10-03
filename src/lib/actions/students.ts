@@ -84,7 +84,7 @@ export async function updateChildParameters(input: ParamsInput): Promise<Result>
 }
 
 // Add a student directly (the admin-typed path, alongside enrolment acceptance).
-// Optionally links a parent — creating their portal account + invite in one go.
+// Optionally links one or more parents — creating each portal account + invite.
 export async function createStudent(input: {
   name: string;
   ageGroup?: AgeGroup;
@@ -92,8 +92,7 @@ export async function createStudent(input: {
   enrolledAt?: string;
   classroom?: string; // montessori
   classId?: string; // regular
-  parentEmail?: string;
-  parentName?: string;
+  parents?: { email: string; name?: string }[];
 }): Promise<{ ok: boolean; error?: string; warning?: string }> {
   const { school } = await requireRole("admin");
   const supabase = await createClient();
@@ -169,22 +168,25 @@ export async function createStudent(input: {
     }
   }
 
-  // Optional parent link + portal invite.
-  if (input.parentEmail?.trim()) {
+  // Optional parent links + portal invites (a child may have several parents).
+  const failed: string[] = [];
+  for (const p of input.parents ?? []) {
+    if (!p.email.trim()) continue;
     const res = await linkParentToStudent({
       schoolId: school.id,
       schoolName: school.name,
       studentId: student.id,
-      email: input.parentEmail,
-      name: input.parentName,
+      email: p.email,
+      name: p.name,
     });
-    if (!res.ok) {
-      revalidatePath("/dashboard/students");
-      return {
-        ok: true,
-        warning: `Student added, but the parent invite failed: ${res.error}`,
-      };
-    }
+    if (!res.ok) failed.push(`${p.email.trim()} (${res.error})`);
+  }
+  if (failed.length) {
+    revalidatePath("/dashboard/students");
+    return {
+      ok: true,
+      warning: `Student added, but the parent invite failed for ${failed.join(", ")}`,
+    };
   }
 
   revalidatePath("/dashboard/students");

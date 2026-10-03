@@ -21,6 +21,24 @@ export async function getStudentsForParent(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+export type StudentParent = { id: string; fullName: string; email: string };
+
+// Every parent account linked to one child — a child may have several.
+export async function getStudentParents(
+  db: DB,
+  studentId: string,
+): Promise<StudentParent[]> {
+  const { data } = await db
+    .from("student_parents")
+    .select("parent:profiles(id,full_name,email)")
+    .eq("student_id", studentId);
+  return (data ?? [])
+    .map((r) => r.parent as { id: string; full_name: string | null; email: string | null } | null)
+    .filter((p): p is NonNullable<typeof p> => Boolean(p))
+    .map((p) => ({ id: p.id, fullName: p.full_name ?? "", email: p.email ?? "" }))
+    .sort((a, b) => (a.fullName || a.email).localeCompare(b.fullName || b.email));
+}
+
 export async function getStudentById(
   db: DB,
   id: string,

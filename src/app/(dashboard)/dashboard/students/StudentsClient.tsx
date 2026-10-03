@@ -9,6 +9,7 @@ import {
   UserPlus,
   Loader2,
   ArrowRightLeft,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,16 +72,17 @@ export function StudentsClient({
   const [sAge, setSAge] = useState<AgeGroup | "">("");
   const [sClassId, setSClassId] = useState("");
   const [sClassroom, setSClassroom] = useState("");
-  const [sParentEmail, setSParentEmail] = useState("");
-  const [sParentName, setSParentName] = useState("");
+  // A child may have several parents — one row per parent to invite.
+  const [sParents, setSParents] = useState([{ email: "", name: "" }]);
+  const setParentField = (i: number, field: "email" | "name", value: string) =>
+    setSParents((rows) => rows.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
 
   const resetAdd = () => {
     setSName("");
     setSAge("");
     setSClassId("");
     setSClassroom("");
-    setSParentEmail("");
-    setSParentName("");
+    setSParents([{ email: "", name: "" }]);
   };
 
   const handleAddStudent = () => {
@@ -90,8 +92,9 @@ export function StudentsClient({
       ageGroup: sAge || undefined,
       classId: isRegular ? sClassId || undefined : undefined,
       classroom: !isRegular ? sClassroom.trim() || undefined : undefined,
-      parentEmail: sParentEmail.trim() || undefined,
-      parentName: sParentName.trim() || undefined,
+      parents: sParents
+        .filter((p) => p.email.trim())
+        .map((p) => ({ email: p.email.trim(), name: p.name.trim() || undefined })),
     };
     startTransition(async () => {
       const res = await createStudent(payload);
@@ -105,8 +108,8 @@ export function StudentsClient({
         title: res.warning ? "Student added — with a warning" : "Student added",
         description:
           res.warning ??
-          (payload.parentEmail
-            ? `${payload.name} added and a portal invite was sent to ${payload.parentEmail}.`
+          (payload.parents.length
+            ? `${payload.name} added and a portal invite was sent to ${payload.parents.map((p) => p.email).join(", ")}.`
             : `${payload.name} was added to your school.`),
         variant: res.warning ? "destructive" : undefined,
       });
@@ -513,35 +516,62 @@ export function StudentsClient({
               <p className="text-xs font-medium uppercase tracking-wider text-slate-400 mt-3 mb-3">
                 Parent portal (optional)
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label htmlFor="s-pemail" className="text-sm font-medium text-slate-700">
-                    Parent email
-                  </label>
-                  <Input
-                    id="s-pemail"
-                    type="email"
-                    value={sParentEmail}
-                    onChange={(e) => setSParentEmail(e.target.value)}
-                    placeholder="parent@example.com"
-                    className="border-slate-200"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="s-pname" className="text-sm font-medium text-slate-700">
-                    Parent name
-                  </label>
-                  <Input
-                    id="s-pname"
-                    value={sParentName}
-                    onChange={(e) => setSParentName(e.target.value)}
-                    placeholder="e.g. Amanda Wong"
-                    className="border-slate-200"
-                  />
-                </div>
+              <div className="space-y-4">
+                {sParents.map((p, i) => (
+                  <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-4 items-end">
+                    <div className="space-y-2">
+                      <label htmlFor={`s-pemail-${i}`} className="text-sm font-medium text-slate-700">
+                        {sParents.length > 1 ? `Parent ${i + 1} email` : "Parent email"}
+                      </label>
+                      <Input
+                        id={`s-pemail-${i}`}
+                        type="email"
+                        value={p.email}
+                        onChange={(e) => setParentField(i, "email", e.target.value)}
+                        placeholder="parent@example.com"
+                        className="border-slate-200"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor={`s-pname-${i}`} className="text-sm font-medium text-slate-700">
+                        {sParents.length > 1 ? `Parent ${i + 1} name` : "Parent name"}
+                      </label>
+                      <Input
+                        id={`s-pname-${i}`}
+                        value={p.name}
+                        onChange={(e) => setParentField(i, "name", e.target.value)}
+                        placeholder="e.g. Amanda Wong"
+                        className="border-slate-200"
+                      />
+                    </div>
+                    {sParents.length > 1 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setSParents((rows) => rows.filter((_, j) => j !== i))}
+                        className="text-slate-400 hover:text-rose-600"
+                        aria-label={`Remove parent ${i + 1}`}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    ) : (
+                      <span className="hidden sm:block w-9" />
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSParents((rows) => [...rows, { email: "", name: "" }])}
+                  className="gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add another parent
+                </Button>
               </div>
               <p className="text-xs text-slate-400 mt-2">
-                If provided, the parent gets an account linked to this child and an
+                Each parent you add gets their own account linked to this child and an
                 email invite to sign in.
               </p>
             </div>

@@ -17,11 +17,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
-import { getStudentById, getStudentMedications } from "@/lib/db/students";
+import {
+  getStudentById,
+  getStudentMedications,
+  getStudentParents,
+} from "@/lib/db/students";
 import { getClassById, getClasses } from "@/lib/db/classes";
 import { getClassrooms } from "@/lib/db/classrooms";
 import { ageInMonths, formatAge } from "@/lib/montessori/age-bands";
 import { MedicationsCard } from "./MedicationsCard";
+import { ParentsCard } from "./ParentsCard";
 import { EditParametersButton } from "./EditParametersButton";
 import { ClassroomPinNotice, EditDetailsButton } from "./EditDetailsButton";
 import { MoveClassroomButton } from "../MoveClassroomDialog";
@@ -81,9 +86,10 @@ export default async function StudentProfilePage({
   }
 
   const isMontessori = school.type !== "regular";
-  const [cls, medications, classrooms, classes] = await Promise.all([
+  const [cls, medications, parents, classrooms, classes] = await Promise.all([
     student.class_id ? getClassById(supabase, student.class_id) : null,
     getStudentMedications(supabase, student.id),
+    getStudentParents(supabase, student.id),
     isMontessori ? getClassrooms(supabase, school.id) : [],
     isMontessori ? [] : getClasses(supabase, school.id),
   ]);
@@ -246,6 +252,12 @@ export default async function StudentProfilePage({
           </CardContent>
         </Card>
       )}
+
+      <ParentsCard
+        studentId={student.id}
+        studentName={student.name}
+        parents={parents}
+      />
 
       <MedicationsCard studentId={student.id} medications={medications} />
 
