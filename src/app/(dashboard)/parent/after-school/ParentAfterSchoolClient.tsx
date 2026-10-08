@@ -63,7 +63,7 @@ export function ParentAfterSchoolClient({
       <div>
         <h1 className="text-2xl font-serif text-slate-900">After School Care</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Enrol your child in the After School programme (3:15 PM – 6:00 PM).
+          Enrol your child in the After School programme (3:00 PM – 5:00 PM).
         </p>
       </div>
 
@@ -80,13 +80,17 @@ export function ParentAfterSchoolClient({
             <ul className="space-y-1.5 text-sm text-slate-700">
               <li className="flex items-start gap-2">
                 <span className="text-montessori-primary font-bold mt-0.5">·</span>
-                <span>Available Monday to Friday, 3:15 PM – 6:00 PM</span>
+                <span>Available Monday to Friday, 3:00 PM – 5:00 PM</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-montessori-primary font-bold mt-0.5">·</span>
+                <span>Supervised free play and guided activities</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-montessori-primary font-bold mt-0.5">·</span>
                 <span>
-                  Supervised free play, guided activities, and light snack
-                  provided
+                  Please pack a snack for your child — snacks are not
+                  provided for this period
                 </span>
               </li>
               <li className="flex items-start gap-2">
@@ -99,7 +103,7 @@ export function ParentAfterSchoolClient({
           </div>
           <div className="flex items-center gap-2 text-sm shrink-0">
             <Clock className="w-4 h-4 text-montessori-primary" />
-            <span className="text-slate-600">3:15 PM – 6:00 PM</span>
+            <span className="text-slate-600">3:00 PM – 5:00 PM</span>
           </div>
         </CardContent>
       </Card>
