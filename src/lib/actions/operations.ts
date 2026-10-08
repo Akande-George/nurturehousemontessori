@@ -232,10 +232,14 @@ export async function updateInvoice(
     .eq("id", invoiceId)
     .eq("school_id", admin.school.id)
     .eq("status", "unpaid")
+    .eq("amount_paid_cents", 0)
     .select("id");
   if (error) return { ok: false, error: error.message };
   if (!data?.length)
-    return { ok: false, error: "Only unpaid invoices can be edited" };
+    return {
+      ok: false,
+      error: "Only invoices with no payment recorded can be edited",
+    };
   revalidatePath("/dashboard/accounting");
   revalidatePath("/parent/invoices");
   revalidatePath(`/invoice/${invoiceId}`);
@@ -253,26 +257,83 @@ export async function deleteInvoice(invoiceId: string): Promise<Result> {
     .eq("id", invoiceId)
     .eq("school_id", admin.school.id)
     .eq("status", "unpaid")
+    .eq("amount_paid_cents", 0)
     .select("id");
   if (error) return { ok: false, error: error.message };
   if (!data?.length)
-    return { ok: false, error: "Only unpaid invoices can be deleted" };
+    return {
+      ok: false,
+      error: "Only invoices with no payment recorded can be deleted",
+    };
   revalidatePath("/dashboard/accounting");
   revalidatePath("/parent/invoices");
   revalidatePath("/dashboard");
   return { ok: true };
 }
 
-export async function markInvoicePaid(invoiceId: string): Promise<Result> {
-  const { supabase } = await ctxClient();
-  if (!supabase) return { ok: false, error: "Not configured" };
-  const { error } = await supabase
+/**
+ * Record money received against an invoice. Additive: each call is "we took
+ * delivery of this much today", so part-payments accumulate.
+ *
+ * The invoice only becomes `paid` once the running total covers the full
+ * amount; until then it stays `unpaid` and carries the balance-due date and
+ * remark that the receipt prints. Overpayment is clamped to the invoice total
+ * (the DB enforces the same bound).
+ */
+export async function recordPayment(input: {
+  invoiceId: string;
+  amountCents: number;
+  balanceDueDate?: string | null;
+  note?: string | null;
+}): Promise<Result> {
+  const admin = await adminClient();
+  if (!admin) return { ok: false, error: "Not authorized" };
+
+  const amount = Math.round(input.amountCents);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { ok: false, error: "Enter an amount greater than zero" };
+  }
+
+  const { data: invoice, error: readError } = await admin.supabase
     .from("invoices")
-    .update({ status: "paid", paid_at: new Date().toISOString() })
-    .eq("id", invoiceId);
+    .select("id, amount_cents, amount_paid_cents, status")
+    .eq("id", input.invoiceId)
+    .eq("school_id", admin.school.id)
+    .maybeSingle();
+  if (readError) return { ok: false, error: readError.message };
+  if (!invoice) return { ok: false, error: "Invoice not found" };
+
+  const total = Math.max(0, invoice.amount_cents ?? 0);
+  const already =
+    invoice.status === "paid"
+      ? total
+      : Math.max(0, Math.min(invoice.amount_paid_cents ?? 0, total));
+  if (already >= total) {
+    return { ok: false, error: "This invoice is already fully paid" };
+  }
+
+  const paid = Math.min(already + amount, total);
+  const settled = paid >= total;
+  const note = input.note?.trim() || null;
+
+  const { error } = await admin.supabase
+    .from("invoices")
+    .update({
+      amount_paid_cents: paid,
+      status: settled ? "paid" : "unpaid",
+      paid_at: settled ? new Date().toISOString() : null,
+      // A settled invoice has no balance left to fall due.
+      balance_due_date: settled ? null : input.balanceDueDate || null,
+      payment_note: note,
+    })
+    .eq("id", input.invoiceId)
+    .eq("school_id", admin.school.id);
   if (error) return { ok: false, error: error.message };
+
   revalidatePath("/dashboard/accounting");
   revalidatePath("/parent/invoices");
+  revalidatePath(`/invoice/${input.invoiceId}`);
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 

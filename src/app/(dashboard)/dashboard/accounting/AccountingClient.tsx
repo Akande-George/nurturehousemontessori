@@ -26,10 +26,15 @@ import { useToast } from "@/hooks/use-toast";
 import {
   createInvoice,
   deleteInvoice,
-  markInvoicePaid,
+  recordPayment,
   updateInvoice,
 } from "@/lib/actions/operations";
-import { invoiceLineItems, type Invoice } from "@/lib/db/types";
+import {
+  invoiceLineItems,
+  invoicePayment,
+  INVOICE_STATE_LABEL,
+  type Invoice,
+} from "@/lib/db/types";
 
 type StudentOption = { id: string; name: string };
 
@@ -58,6 +63,82 @@ export function AccountingClient({
   const [dueDate, setDueDate] = useState("");
   // Unpaid invoice being edited; null while the dialog issues a new one.
   const [editing, setEditing] = useState<Invoice | null>(null);
+
+  // Invoice having a payment recorded against it; null when the dialog is shut.
+  const [paying, setPaying] = useState<Invoice | null>(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payBalanceDue, setPayBalanceDue] = useState("");
+  const [payNote, setPayNote] = useState("");
+
+  const payingPosition = paying ? invoicePayment(paying) : null;
+  const payEntered = Number(payAmount);
+  const payCents =
+    Number.isFinite(payEntered) && payEntered > 0
+      ? Math.round(payEntered * 100)
+      : 0;
+  // Only ask for a deadline when this payment leaves something owing.
+  const leavesBalance =
+    !!payingPosition && payCents > 0 && payCents < payingPosition.balance;
+
+  const openPayment = (invoice: Invoice) => {
+    const position = invoicePayment(invoice);
+    setPaying(invoice);
+    // Default to settling the invoice; the office edits down for a part-payment.
+    setPayAmount(String(position.balance / 100));
+    setPayBalanceDue(invoice.balance_due_date ?? "");
+    setPayNote(invoice.payment_note ?? "");
+  };
+
+  const closePayment = () => {
+    setPaying(null);
+    setPayAmount("");
+    setPayBalanceDue("");
+    setPayNote("");
+  };
+
+  const handleRecordPayment = () => {
+    if (!paying || !payingPosition) return;
+    if (payCents <= 0) {
+      toast({
+        title: "Enter an amount",
+        description: "The amount received must be greater than zero.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (leavesBalance && !payBalanceDue) {
+      toast({
+        title: "Balance due date required",
+        description:
+          "This leaves a balance outstanding — set the date it falls due.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const invoiceId = paying.id;
+    start(async () => {
+      const res = await recordPayment({
+        invoiceId,
+        amountCents: payCents,
+        balanceDueDate: leavesBalance ? payBalanceDue : null,
+        note: payNote,
+      });
+      if (res.ok) {
+        closePayment();
+        toast({
+          title: "Payment recorded",
+          description:
+            payCents >= payingPosition.balance
+              ? "The invoice is now fully paid."
+              : `${formatCurrency(
+                  payingPosition.balance - payCents,
+                )} still outstanding.`,
+        });
+      } else {
+        toast({ title: res.error ?? "Failed", variant: "destructive" });
+      }
+    });
+  };
 
   const resetForm = () => {
     setEditing(null);
@@ -104,13 +185,16 @@ export function AccountingClient({
   const studentName = (id: string) =>
     students.find((s) => s.id === id)?.name ?? "Unknown Student";
 
+  // Sum the money actually received and actually outstanding. Counting whole
+  // invoices by status would misreport every part-paid invoice.
   const totals = useMemo(() => {
-    const paid = invoices
-      .filter((invoice) => invoice.status === "paid")
-      .reduce((sum, invoice) => sum + invoice.amount_cents, 0);
-    const unpaid = invoices
-      .filter((invoice) => invoice.status === "unpaid")
-      .reduce((sum, invoice) => sum + invoice.amount_cents, 0);
+    let paid = 0;
+    let unpaid = 0;
+    for (const invoice of invoices) {
+      const position = invoicePayment(invoice);
+      paid += position.paid;
+      unpaid += position.balance;
+    }
     return { paid, unpaid, count: invoices.length };
   }, [invoices]);
 
@@ -176,14 +260,6 @@ export function AccountingClient({
     });
   };
 
-  const handleMarkPaid = (invoiceId: string) => {
-    start(async () => {
-      const res = await markInvoicePaid(invoiceId);
-      if (res.ok) toast({ title: "Invoice marked paid" });
-      else toast({ title: res.error ?? "Failed", variant: "destructive" });
-    });
-  };
-
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -244,7 +320,9 @@ export function AccountingClient({
               No invoices issued yet.
             </p>
           ) : (
-            invoices.map((invoice) => (
+            invoices.map((invoice) => {
+              const position = invoicePayment(invoice);
+              return (
               <div
                 key={invoice.id}
                 className="flex flex-col gap-3 rounded-lg border border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -266,26 +344,42 @@ export function AccountingClient({
                   <Badge
                     variant="outline"
                     className={
-                      invoice.status === "paid"
+                      position.state === "paid"
                         ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                        : "bg-amber-50 border-amber-200 text-amber-700"
+                        : position.state === "part_paid"
+                          ? "bg-sky-50 border-sky-200 text-sky-700"
+                          : "bg-amber-50 border-amber-200 text-amber-700"
                     }
                   >
-                    {invoice.status}
+                    {INVOICE_STATE_LABEL[position.state]}
                   </Badge>
-                  <p className="font-medium text-slate-900">
-                    {formatCurrency(invoice.amount_cents)}
-                  </p>
-                  {invoice.status !== "paid" && (
+                  <div className="text-right">
+                    <p className="font-medium text-slate-900">
+                      {formatCurrency(position.total)}
+                    </p>
+                    {position.state === "part_paid" && (
+                      <p className="text-xs text-slate-500">
+                        {formatCurrency(position.paid)} paid ·{" "}
+                        <span className="text-amber-700">
+                          {formatCurrency(position.balance)} due
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                  {position.state !== "paid" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => openPayment(invoice)}
+                    >
+                      Record payment
+                    </Button>
+                  )}
+                  {/* Once money is recorded the invoice is the payment record,
+                      so it can no longer be edited away or deleted. */}
+                  {position.paid === 0 && (
                     <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={pending}
-                        onClick={() => handleMarkPaid(invoice.id)}
-                      >
-                        Mark paid
-                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -306,14 +400,92 @@ export function AccountingClient({
                     </>
                   )}
                   <Button asChild variant="outline" size="sm">
-                    <Link href={`/invoice/${invoice.id}`}>Open</Link>
+                    <Link href={`/invoice/${invoice.id}`}>
+                      {position.paid > 0 ? "Receipt" : "Open"}
+                    </Link>
                   </Button>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={!!paying}
+        onOpenChange={(open) => {
+          if (!open) closePayment();
+        }}
+      >
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle>Record payment</DialogTitle>
+            <DialogDescription>
+              {paying && payingPosition
+                ? `${studentName(paying.student_id)} — ${formatCurrency(
+                    payingPosition.balance,
+                  )} outstanding of ${formatCurrency(payingPosition.total)}.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="pay-amount">Amount received (₦)</Label>
+              <Input
+                id="pay-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={payAmount}
+                onChange={(event) => setPayAmount(event.target.value)}
+                placeholder="0.00"
+              />
+              {leavesBalance && payingPosition && (
+                <p className="text-xs text-amber-700">
+                  Leaves {formatCurrency(payingPosition.balance - payCents)}{" "}
+                  outstanding.
+                </p>
+              )}
+            </div>
+            {leavesBalance && (
+              <div className="space-y-1">
+                <Label htmlFor="pay-balance-due">Balance due by</Label>
+                <Input
+                  id="pay-balance-due"
+                  type="date"
+                  value={payBalanceDue}
+                  onChange={(event) => setPayBalanceDue(event.target.value)}
+                />
+              </div>
+            )}
+            <div className="space-y-1">
+              <Label htmlFor="pay-note">Remarks (optional)</Label>
+              <Input
+                id="pay-note"
+                value={payNote}
+                onChange={(event) => setPayNote(event.target.value)}
+                placeholder="e.g. Part payment, bank transfer"
+              />
+              <p className="text-xs text-slate-500">
+                Printed on the receipt the family sees.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closePayment} disabled={pending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRecordPayment}
+              disabled={pending}
+              className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+            >
+              Record payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={isCreateOpen}

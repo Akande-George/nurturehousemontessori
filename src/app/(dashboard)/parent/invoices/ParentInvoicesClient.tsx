@@ -5,7 +5,12 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileText, Filter } from "lucide-react";
-import type { Invoice, Student } from "@/lib/db/types";
+import {
+  invoicePayment,
+  INVOICE_STATE_LABEL,
+  type Invoice,
+  type Student,
+} from "@/lib/db/types";
 
 function formatCurrency(amountCents: number) {
   return `₦${(amountCents / 100).toLocaleString("en-NG", {
@@ -40,21 +45,33 @@ export function ParentInvoicesClient({
 
   const filteredInvoices = useMemo(() => {
     if (statusFilter === "all") return allInvoices;
-    return allInvoices.filter((inv) => inv.status === statusFilter);
+    // A part-paid invoice still owes money, so it belongs under "unpaid".
+    return allInvoices.filter((inv) =>
+      statusFilter === "paid"
+        ? invoicePayment(inv).state === "paid"
+        : invoicePayment(inv).balance > 0,
+    );
   }, [allInvoices, statusFilter]);
 
+  // Real money owed and received, so a part-paid invoice is not counted whole
+  // on either side.
   const summary = useMemo(() => {
-    const unpaid = allInvoices
-      .filter((inv) => inv.status === "unpaid")
-      .reduce((sum, inv) => sum + inv.amount_cents, 0);
-    const paid = allInvoices
-      .filter((inv) => inv.status === "paid")
-      .reduce((sum, inv) => sum + inv.amount_cents, 0);
+    let unpaid = 0;
+    let paid = 0;
+    for (const inv of allInvoices) {
+      const position = invoicePayment(inv);
+      unpaid += position.balance;
+      paid += position.paid;
+    }
     return { unpaid, paid, total: unpaid + paid };
   }, [allInvoices]);
 
-  const unpaidCount = allInvoices.filter((i) => i.status === "unpaid").length;
-  const paidCount = allInvoices.filter((i) => i.status === "paid").length;
+  const unpaidCount = allInvoices.filter(
+    (i) => invoicePayment(i).balance > 0,
+  ).length;
+  const paidCount = allInvoices.filter(
+    (i) => invoicePayment(i).paid > 0,
+  ).length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
@@ -169,7 +186,9 @@ export function ParentInvoicesClient({
             </Card>
           ) : (
             <div className="space-y-3">
-              {filteredInvoices.map((invoice) => (
+              {filteredInvoices.map((invoice) => {
+                const position = invoicePayment(invoice);
+                return (
                 <Card
                   key={invoice.id}
                   className="border-slate-100 shadow-sm hover:shadow-md transition-shadow"
@@ -188,12 +207,14 @@ export function ParentInvoicesClient({
                             <Badge
                               variant="outline"
                               className={`text-xs font-medium shrink-0 ${
-                                invoice.status === "paid"
+                                position.state === "paid"
                                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : "bg-amber-50 text-amber-700 border-amber-200"
+                                  : position.state === "part_paid"
+                                    ? "bg-sky-50 text-sky-700 border-sky-200"
+                                    : "bg-amber-50 text-amber-700 border-amber-200"
                               }`}
                             >
-                              {invoice.status.toUpperCase()}
+                              {INVOICE_STATE_LABEL[position.state].toUpperCase()}
                             </Badge>
                           </div>
                           <p className="text-xs text-slate-500 mt-1">
@@ -211,27 +232,36 @@ export function ParentInvoicesClient({
                                 year: "numeric",
                               },
                             )}
-                            {invoice.status === "unpaid" &&
-                              invoice.due_date &&
-                              ` · Due: ${new Date(invoice.due_date).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}`}
+                            {position.balance > 0 &&
+                              (position.balanceDueDate ?? invoice.due_date) &&
+                              ` · Due: ${new Date((position.balanceDueDate ?? invoice.due_date) as string).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}`}
                           </p>
+                          {position.state === "part_paid" && (
+                            <p className="text-xs text-slate-600 mt-1">
+                              {formatCurrency(position.paid)} paid ·{" "}
+                              <span className="font-medium text-amber-700">
+                                {formatCurrency(position.balance)} balance
+                              </span>
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2 shrink-0">
                         <p className="text-lg font-serif text-slate-900">
-                          {formatCurrency(invoice.amount_cents)}
+                          {formatCurrency(position.total)}
                         </p>
                         <Link
                           href={`/invoice/${invoice.id}`}
                           className="text-xs font-medium text-montessori-primary hover:underline"
                         >
-                          View {invoice.status === "paid" ? "receipt" : "invoice"}
+                          View {position.paid > 0 ? "receipt" : "invoice"}
                         </Link>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </>

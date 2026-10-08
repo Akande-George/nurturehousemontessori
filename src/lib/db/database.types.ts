@@ -1156,6 +1156,8 @@ export type Database = {
       invoices: {
         Row: {
           amount_cents: number
+          amount_paid_cents: number
+          balance_due_date: string | null
           description: string
           due_date: string | null
           id: string
@@ -1164,6 +1166,7 @@ export type Database = {
           line_items: Json
           paid_at: string | null
           parent_id: string | null
+          payment_note: string | null
           school_id: string
           status: Database["public"]["Enums"]["invoice_status"]
           student_id: string
@@ -1171,6 +1174,8 @@ export type Database = {
         }
         Insert: {
           amount_cents?: number
+          amount_paid_cents?: number
+          balance_due_date?: string | null
           description: string
           due_date?: string | null
           id?: string
@@ -1179,6 +1184,7 @@ export type Database = {
           line_items?: Json
           paid_at?: string | null
           parent_id?: string | null
+          payment_note?: string | null
           school_id: string
           status?: Database["public"]["Enums"]["invoice_status"]
           student_id: string
@@ -1186,6 +1192,8 @@ export type Database = {
         }
         Update: {
           amount_cents?: number
+          amount_paid_cents?: number
+          balance_due_date?: string | null
           description?: string
           due_date?: string | null
           id?: string
@@ -1194,6 +1202,7 @@ export type Database = {
           line_items?: Json
           paid_at?: string | null
           parent_id?: string | null
+          payment_note?: string | null
           school_id?: string
           status?: Database["public"]["Enums"]["invoice_status"]
           student_id?: string

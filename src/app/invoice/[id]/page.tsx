@@ -5,7 +5,7 @@ import { getInvoiceById } from "@/lib/db/operations";
 import { getStudentById } from "@/lib/db/students";
 import { getSchoolById } from "@/lib/db/schools";
 import { getStudentParentProfiles } from "@/lib/db/people";
-import { invoiceLineItems } from "@/lib/db/types";
+import { invoiceLineItems, invoicePayment } from "@/lib/db/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -63,7 +63,11 @@ export default async function InvoicePage({
     getStudentParentProfiles(supabase, invoice.student_id),
   ]);
 
-  const isPaid = invoice.status === "paid";
+  const payment = invoicePayment(invoice);
+  const isPaid = payment.state === "paid";
+  // Any money received turns the document into a receipt, not just full payment.
+  const isReceipt = payment.paid > 0;
+  const docLabel = isReceipt ? "receipt" : "invoice";
   const items = invoiceLineItems(invoice);
   const taxCents = invoice.tax_cents ?? 0;
   const subtotalCents = items.reduce((sum, item) => sum + item.amount_cents, 0);
@@ -90,19 +94,25 @@ export default async function InvoicePage({
               variant="outline"
               className={
                 isPaid
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-700 capitalize"
-                  : "bg-amber-50 border-amber-200 text-amber-700 capitalize"
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                  : payment.state === "part_paid"
+                    ? "bg-sky-50 border-sky-200 text-sky-700"
+                    : "bg-amber-50 border-amber-200 text-amber-700"
               }
             >
-              {invoice.status}
+              {isPaid
+                ? "Paid"
+                : payment.state === "part_paid"
+                  ? "Part paid"
+                  : "Unpaid"}
             </Badge>
           </div>
           <div className="flex gap-3">
             <DownloadPdfButton
               targetId="invoice"
-              filename={`${invoiceNo.replace(/\//g, "-")}.pdf`}
+              filename={`${invoiceNo.replace(/\//g, "-")}-${docLabel}.pdf`}
             />
-            <PrintButton label={isPaid ? "Print receipt" : "Print invoice"} />
+            <PrintButton label={isReceipt ? "Print receipt" : "Print invoice"} />
           </div>
         </div>
 
@@ -125,7 +135,7 @@ export default async function InvoicePage({
                 </p>
               </div>
               <h1 className="text-4xl sm:text-5xl font-bold tracking-wide text-slate-500">
-                {isPaid ? "RECEIPT" : "INVOICE"}
+                {isReceipt ? "RECEIPT" : "INVOICE"}
               </h1>
             </div>
 
@@ -223,11 +233,43 @@ export default async function InvoicePage({
                   <p>{fmtAmount(taxCents)}</p>
                 </div>
                 <div className="flex justify-between px-3 py-2 border border-slate-300 border-t-0 font-bold">
-                  <p>Total Payment Due</p>
+                  <p>Total</p>
                   <p>₦{fmtAmount(subtotalCents + taxCents)}</p>
+                </div>
+                {isReceipt && (
+                  <div className="flex justify-between px-3 py-2 border border-slate-300 border-t-0 text-emerald-700">
+                    <p>Amount Paid</p>
+                    <p>₦{fmtAmount(payment.paid)}</p>
+                  </div>
+                )}
+                <div
+                  className={`flex justify-between px-3 py-2 border border-slate-300 border-t-0 font-bold ${
+                    payment.balance > 0 ? "bg-amber-50" : "bg-emerald-50"
+                  }`}
+                >
+                  <p>{payment.balance > 0 ? "Balance Due" : "Balance"}</p>
+                  <p>₦{fmtAmount(payment.balance)}</p>
                 </div>
               </div>
             </div>
+
+            {/* Balance deadline + remarks */}
+            {(payment.balanceDueDate || payment.note) && (
+              <div className="mt-6 space-y-3 text-sm text-slate-800">
+                {payment.balanceDueDate && (
+                  <p className="font-medium">
+                    Balance of ₦{fmtAmount(payment.balance)} is due by{" "}
+                    {fmtDate(payment.balanceDueDate)}.
+                  </p>
+                )}
+                {payment.note && (
+                  <div className="border border-slate-300 px-3 py-2">
+                    <p className="font-bold">Remarks</p>
+                    <p className="whitespace-pre-line">{payment.note}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Payment instructions */}
             <div className="mt-10 text-center text-sm text-slate-800 space-y-0.5">
