@@ -30,6 +30,7 @@ export type Notice = Tables["notices"]["Row"];
 export type Invoice = Tables["invoices"]["Row"];
 export type Attendance = Tables["attendance"]["Row"];
 export type ConferenceReport = Tables["conference_reports"]["Row"];
+export type ChildMaterial = Tables["child_materials"]["Row"];
 
 export const CURRENT_ACADEMIC_YEAR = "2025-2026";
 

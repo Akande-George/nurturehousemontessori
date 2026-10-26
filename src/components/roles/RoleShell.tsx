@@ -22,6 +22,7 @@ import {
   LogOut,
   Megaphone,
   Menu,
+  Paperclip,
   PlusCircle,
   Search,
   Settings,
@@ -155,6 +156,11 @@ const montessoriTeacherNav: NavSection[] = [
       },
       { href: "/teacher/log", label: "Bulk Logging", icon: FileText },
       { href: "/teacher/gallery", label: "Media Gallery", icon: ImageIcon },
+      {
+        href: "/teacher/materials",
+        label: "Child Materials",
+        icon: Paperclip,
+      },
     ],
   },
 ];
@@ -193,6 +199,11 @@ const montessoriParentNav: NavSection[] = [
         href: "/parent/parameters",
         label: "Child Parameters",
         icon: Settings,
+      },
+      {
+        href: "/parent/materials",
+        label: "Child Materials",
+        icon: Paperclip,
       },
       {
         href: "/parent/after-school",
@@ -280,6 +291,11 @@ const regularTeacherNav: NavSection[] = [
       { href: "/teacher/timetable", label: "Timetable", icon: CalendarClock },
       { href: "/teacher/homework", label: "Homework", icon: FileText },
       { href: "/teacher/students", label: "Students", icon: Users },
+      {
+        href: "/teacher/materials",
+        label: "Child Materials",
+        icon: Paperclip,
+      },
     ],
   },
 ];
@@ -304,6 +320,11 @@ const regularParentNav: NavSection[] = [
       { href: "/parent/grades", label: "Subject Grades", icon: GraduationCap },
       { href: "/parent/timetable", label: "Timetable", icon: CalendarClock },
       { href: "/parent/homework", label: "Homework", icon: FileText },
+      {
+        href: "/parent/materials",
+        label: "Child Materials",
+        icon: Paperclip,
+      },
     ],
   },
   {

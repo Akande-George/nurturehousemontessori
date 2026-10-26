@@ -38,6 +38,8 @@ import {
 import {
   PROFICIENCY_HIGHLIGHT,
   PROFICIENCY_LABELS,
+  REPORT_KIND_LABELS,
+  REPORT_KIND_SHORT,
   SECTION_LABELS,
   TERM_LABELS,
   formatReportDate,
@@ -239,6 +241,16 @@ export function ProgressReportEditorClient({
           <Badge
             variant="outline"
             className={
+              snapshot.header.reportType === "midterm"
+                ? "border-amber-200 bg-amber-50 text-amber-700"
+                : "border-slate-200 bg-slate-50 text-slate-600"
+            }
+          >
+            {REPORT_KIND_SHORT[snapshot.header.reportType]}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={
               published
                 ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                 : "border-slate-200 bg-slate-50 text-slate-600"
@@ -324,7 +336,10 @@ export function ProgressReportEditorClient({
       ) : (
         <div className="space-y-5">
           {/* ---- Title + who it's for ---------------------------------- */}
-          <Card title="Report" hint={`${h.childName} · ${TERM_LABELS[h.term]} · ${h.academicYear}`}>
+          <Card
+            title={REPORT_KIND_LABELS[h.reportType]}
+            hint={`${h.childName} · ${TERM_LABELS[h.term]} · ${h.academicYear}`}
+          >
             <div className="space-y-3">
               <Input
                 value={title}
@@ -363,6 +378,33 @@ export function ProgressReportEditorClient({
                 </label>
               ))}
             </div>
+          </Card>
+
+          {/* ---- What the snapshot collected --------------------------- */}
+          <Card
+            title="Collected for this report"
+            hint="Everything recorded for this child between the two dates, frozen when the report was generated. Use Refresh data to re-collect it."
+          >
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
+              {[
+                ["Lessons worked on", snapshot.highlights.lessonsTouched],
+                ["Practice sessions", snapshot.highlights.practiceSessions],
+                ["Observations", snapshot.notes.length],
+                ["Photographs", snapshot.pictures.length],
+                ["Days not present", snapshot.attendance.days.length],
+                [
+                  "Care log entries",
+                  snapshot.care.reduce((sum, g) => sum + g.count, 0),
+                ],
+                ["Daily reports", snapshot.dailyLog.total],
+                ["Documents shared", snapshot.materials.length],
+              ].map(([label, value]) => (
+                <div key={label as string} className="flex justify-between gap-2">
+                  <dt className="text-slate-500">{label}</dt>
+                  <dd className="font-medium text-slate-800">{value}</dd>
+                </div>
+              ))}
+            </dl>
           </Card>
 
           {/* ---- Lessons + per-area comment ---------------------------- */}

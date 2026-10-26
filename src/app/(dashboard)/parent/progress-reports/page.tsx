@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
 import { getStudentsForParent } from "@/lib/db/students";
 import { getStudentConferenceReports } from "@/lib/db/conferenceReports";
+import { readReportKind } from "@/lib/montessori/conference";
 import { ProgressReportsClient } from "./ProgressReportsClient";
 
 export default async function ParentProgressReportsPage() {
@@ -29,6 +30,7 @@ export default async function ParentProgressReportsPage() {
         id: r.id,
         studentId: r.student_id,
         title: r.title,
+        reportType: readReportKind(r.report_type),
         term: r.term,
         academicYear: r.academic_year,
         periodStart: r.period_start,

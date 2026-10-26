@@ -276,16 +276,24 @@ export function sendDailyReportPublished(
 export function sendProgressReportPublished(
   recipients: string[],
   schoolName: string,
-  info: { studentName: string; term: string; period: string },
+  // `reportLabel` already reads as a sentence fragment — "First Term mid-term
+  // report" or "First Term progress report" — so the two kinds of report need
+  // no branching here.
+  info: {
+    studentName: string;
+    reportLabel: string;
+    term: string;
+    period: string;
+  },
 ) {
   return sendHtmlEmail({
     to: recipients,
-    subject: `${schoolName}: ${info.studentName}'s ${info.term} progress report`,
+    subject: `${schoolName}: ${info.studentName}'s ${info.reportLabel}`,
     html: shell(
       schoolName,
-      `<h2 style="margin:0 0 12px;font-size:18px">${info.studentName}'s progress report is ready</h2>
+      `<h2 style="margin:0 0 12px;font-size:18px">${info.studentName}'s ${info.reportLabel} is ready</h2>
        <p style="margin:0 0 4px">${info.term} · ${info.period}</p>
-       <p style="margin:0 0 4px;color:#64748b">It covers attendance, the lessons ${info.studentName} worked on, observations, photographs and your guide's summary. You can read it online or download a PDF.</p>
+       <p style="margin:0 0 4px;color:#64748b">It covers attendance, the lessons ${info.studentName} worked on, their care and routine, observations, photographs and your guide's summary. You can read it online or download a PDF.</p>
        <a href="${APP_URL}/parent/progress-reports" style="display:inline-block;margin-top:12px;background:#0c5c4c;color:#fff;text-decoration:none;padding:10px 18px;border-radius:10px">View progress report</a>`,
     ),
   });
@@ -309,6 +317,26 @@ export function sendReportCardPublished(
       `<h2 style="margin:0 0 12px;font-size:18px">${info.studentName}'s report card is ready</h2>
        <p style="margin:0 0 4px">${info.term} · Average ${info.average} · Position ${info.position}</p>
        <a href="${APP_URL}/parent/results" style="display:inline-block;margin-top:12px;background:#0c5c4c;color:#fff;text-decoration:none;padding:10px 18px;border-radius:10px">View report card</a>`,
+    ),
+  });
+}
+
+// A teacher has shared a document on one child's materials shelf. Only that
+// child's parents are ever on this recipient list.
+export function sendChildMaterialShared(
+  recipients: string[],
+  schoolName: string,
+  info: { studentName: string; title: string; category: string },
+) {
+  return sendHtmlEmail({
+    to: recipients,
+    subject: `${schoolName}: a new document for ${info.studentName}`,
+    html: shell(
+      schoolName,
+      `<h2 style="margin:0 0 12px;font-size:18px">${info.title}</h2>
+       <p style="margin:0 0 4px">${info.category} · for ${info.studentName}</p>
+       <p style="margin:0 0 4px;color:#64748b">${info.studentName}'s teacher has shared a document on their materials shelf. Open the portal to read or download it.</p>
+       <a href="${APP_URL}/parent/materials" style="display:inline-block;margin-top:12px;background:#0c5c4c;color:#fff;text-decoration:none;padding:10px 18px;border-radius:10px">View child materials</a>`,
     ),
   });
 }

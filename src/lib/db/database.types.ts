@@ -462,6 +462,76 @@ export type Database = {
           },
         ]
       }
+      child_materials: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          file_ext: string
+          file_name: string
+          file_size_bytes: number | null
+          file_url: string
+          id: string
+          school_id: string
+          storage_public_id: string | null
+          student_id: string
+          title: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          file_ext?: string
+          file_name: string
+          file_size_bytes?: number | null
+          file_url: string
+          id?: string
+          school_id: string
+          storage_public_id?: string | null
+          student_id: string
+          title: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          file_ext?: string
+          file_name?: string
+          file_size_bytes?: number | null
+          file_url?: string
+          id?: string
+          school_id?: string
+          storage_public_id?: string | null
+          student_id?: string
+          title?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_materials_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "child_materials_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "child_materials_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_subject_teachers: {
         Row: {
           class_id: string
@@ -790,6 +860,7 @@ export type Database = {
           period_end: string
           period_start: string
           published_at: string | null
+          report_type: string
           school_id: string
           sections: Json
           snapshot: Json
@@ -808,6 +879,7 @@ export type Database = {
           period_end: string
           period_start: string
           published_at?: string | null
+          report_type?: string
           school_id: string
           sections?: Json
           snapshot?: Json
@@ -826,6 +898,7 @@ export type Database = {
           period_end?: string
           period_start?: string
           published_at?: string | null
+          report_type?: string
           school_id?: string
           sections?: Json
           snapshot?: Json

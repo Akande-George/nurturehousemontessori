@@ -8,6 +8,7 @@
 
 import { CHARACTER_TRAITS, RATING_LABELS } from "@/lib/montessori/character";
 import {
+  REPORT_KIND_LABELS,
   TERM_LABELS,
   formatReportDate,
   type ConferenceNarrative,
@@ -15,10 +16,16 @@ import {
   type ConferenceSnapshot,
 } from "@/lib/montessori/conference";
 import {
+  AttendanceDaysTable,
   AttendanceTable,
+  CareLogBlock,
+  DailyLogBlock,
   DevelopmentMatrix,
+  HighlightsBand,
   LessonAreaBlock,
+  MaterialsBlock,
   ProficiencyKey,
+  ProfileBlock,
   SignatureBlock,
 } from "./ProgressReportSections";
 
@@ -101,6 +108,7 @@ export function ProgressReportDocument({
                 label="Term"
                 value={`${TERM_LABELS[h.term]} · ${h.academicYear}`}
               />
+              <Field label="Report" value={REPORT_KIND_LABELS[h.reportType]} />
               {h.parentNames.length > 0 && (
                 <Field label="Parents" value={h.parentNames.join(", ")} />
               )}
@@ -122,12 +130,24 @@ export function ProgressReportDocument({
         </div>
       </header>
 
+      {/* ---- Child details on record ------------------------------------ */}
+      {sections.profile && <ProfileBlock profile={snapshot.profile} />}
+
+      {/* ---- Work at a glance -------------------------------------------- */}
+      {sections.highlights && (
+        <HighlightsBand highlights={snapshot.highlights} />
+      )}
+
       {/* ---- Attendance ------------------------------------------------ */}
       {sections.attendance && (
         <AttendanceTable
           attendance={snapshot.attendance}
           academicYear={h.academicYear}
         />
+      )}
+
+      {sections.attendanceDays && (
+        <AttendanceDaysTable attendance={snapshot.attendance} />
       )}
 
       {/* ---- Lessons this period --------------------------------------- */}
@@ -172,6 +192,12 @@ export function ProgressReportDocument({
           </div>
         </section>
       )}
+
+      {/* ---- Care & routine --------------------------------------------- */}
+      {sections.careLog && <CareLogBlock care={snapshot.care} />}
+
+      {/* ---- Daily reports ---------------------------------------------- */}
+      {sections.dailyLog && <DailyLogBlock dailyLog={snapshot.dailyLog} />}
 
       {/* ---- Observation notes ----------------------------------------- */}
       {sections.notes && notes.length > 0 && (
@@ -232,6 +258,9 @@ export function ProgressReportDocument({
           )}
         </section>
       )}
+
+      {/* ---- Documents shared with home ---------------------------------- */}
+      {sections.materials && <MaterialsBlock materials={snapshot.materials} />}
 
       {/* ---- Guide's summary -------------------------------------------- */}
       {sections.narrative && hasNarrative && (

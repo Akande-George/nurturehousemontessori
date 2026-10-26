@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
 import { getTeacherStudents } from "@/lib/db/students";
 import { getSchoolConferenceReports } from "@/lib/db/conferenceReports";
+import { readReportKind } from "@/lib/montessori/conference";
 import { ProgressReportsListClient } from "./ProgressReportsListClient";
 
 export default async function TeacherProgressReportsPage() {
@@ -29,6 +30,7 @@ export default async function TeacherProgressReportsPage() {
         id: r.id,
         studentName: nameById.get(r.student_id) ?? "Unknown child",
         title: r.title,
+        reportType: readReportKind(r.report_type),
         term: r.term,
         academicYear: r.academic_year,
         periodStart: r.period_start,

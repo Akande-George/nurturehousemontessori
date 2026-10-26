@@ -4,7 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { TERM_LABELS, formatReportDate } from "@/lib/montessori/conference";
+import {
+  REPORT_KIND_LABELS,
+  REPORT_KIND_SHORT,
+  TERM_LABELS,
+  formatReportDate,
+  type ReportKind,
+} from "@/lib/montessori/conference";
 import type { Term } from "@/lib/db/types";
 
 type ChildLite = { id: string; name: string; avatar_color: string };
@@ -13,6 +19,7 @@ type ReportLite = {
   id: string;
   studentId: string;
   title: string;
+  reportType: ReportKind;
   term: Term;
   academicYear: string;
   periodStart: string;
@@ -44,8 +51,9 @@ export function ProgressReportsClient({
       <div>
         <h1 className="font-serif text-2xl text-slate-900">Progress Reports</h1>
         <p className="text-sm text-slate-500">
-          Your child&apos;s termly report — attendance, the lessons they worked
-          on, observations, photographs and their guide&apos;s summary.
+          Your child&apos;s mid-term and end-of-term reports — attendance, the
+          lessons they worked on, their care and routine, observations,
+          photographs and their guide&apos;s summary.
         </p>
       </div>
 
@@ -98,7 +106,8 @@ export function ProgressReportsClient({
                 <div className="min-w-0">
                   <p className="font-medium text-slate-900">{r.title}</p>
                   <p className="text-sm text-slate-500">
-                    {TERM_LABELS[r.term]} · {r.academicYear}
+                    {REPORT_KIND_LABELS[r.reportType]} · {TERM_LABELS[r.term]} ·{" "}
+                    {r.academicYear}
                   </p>
                   <p className="mt-0.5 text-xs text-slate-400">
                     {formatReportDate(r.periodStart)} –{" "}
@@ -108,9 +117,13 @@ export function ProgressReportsClient({
                 <div className="flex shrink-0 items-center gap-3">
                   <Badge
                     variant="outline"
-                    className="hidden border-emerald-200 bg-emerald-50 text-emerald-700 sm:inline-flex"
+                    className={`hidden sm:inline-flex ${
+                      r.reportType === "midterm"
+                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    }`}
                   >
-                    Published
+                    {REPORT_KIND_SHORT[r.reportType]}
                   </Badge>
                   <ChevronRight className="h-5 w-5 text-slate-300" />
                 </div>

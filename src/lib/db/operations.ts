@@ -165,6 +165,19 @@ export async function getAfterSchoolEnrollments(
   return data ?? [];
 }
 
+/** Whether this one child is currently signed up for after-school care. */
+export async function isStudentInAfterSchool(
+  db: DB,
+  studentId: string,
+): Promise<boolean> {
+  const { data } = await db
+    .from("after_school_enrollments")
+    .select("id")
+    .eq("student_id", studentId)
+    .maybeSingle();
+  return Boolean(data);
+}
+
 // ---- Timetable ----
 export async function getTimetable(
   db: DB,

@@ -117,6 +117,48 @@ export async function getSchoolDailyReports(
   return data ?? [];
 }
 
+export type DailyActivityLog =
+  Database["public"]["Tables"]["daily_activity_logs"]["Row"];
+
+/**
+ * One child's care logs (meals, nap, nappy/toileting, temperature) inside a
+ * date window. Filtered in SQL because care logs grow several rows per school
+ * day — the progress report reads a whole marking period at once.
+ */
+export async function getStudentCareLogsRange(
+  db: DB,
+  studentId: string,
+  from: string,
+  to: string,
+): Promise<DailyActivityLog[]> {
+  const { data } = await db
+    .from("daily_activity_logs")
+    .select("*")
+    .eq("student_id", studentId)
+    .gte("log_date", from)
+    .lte("log_date", to)
+    .order("log_date")
+    .order("log_time");
+  return data ?? [];
+}
+
+/** The daily reports written for one child inside a date window. */
+export async function getStudentDailyReportsRange(
+  db: DB,
+  studentId: string,
+  from: string,
+  to: string,
+): Promise<DailyReport[]> {
+  const { data } = await db
+    .from("daily_reports")
+    .select("*")
+    .eq("student_id", studentId)
+    .gte("report_date", from)
+    .lte("report_date", to)
+    .order("report_date", { ascending: false });
+  return data ?? [];
+}
+
 // ---- Activity feed ----
 export type ActivityPostWithMeta = ActivityPost & {
   leaf: Leaf | null;

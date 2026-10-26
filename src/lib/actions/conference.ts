@@ -12,14 +12,18 @@ import {
 import { buildConferenceSnapshot } from "@/lib/montessori/conference-snapshot";
 import {
   DEFAULT_SECTIONS,
+  REPORT_KIND_LABELS,
   TERM_LABELS,
   defaultNarrative,
+  defaultReportTitle,
   formatReportDate,
   readNarrative,
+  readReportKind,
   readSections,
   readSnapshot,
   type ConferenceNarrative,
   type ConferenceSections,
+  type ReportKind,
 } from "@/lib/montessori/conference";
 import { sendProgressReportPublished } from "@/lib/email/notifications";
 import type { Term } from "@/lib/db/types";
@@ -58,6 +62,8 @@ function revalidateAll(id?: string) {
 
 export async function generateConferenceReport(input: {
   studentId: string;
+  /** Defaults to the end-of-term report; "midterm" is the halfway checkpoint. */
+  reportType?: ReportKind;
   term: Term;
   academicYear: string;
   periodStart: string;
@@ -76,18 +82,23 @@ export async function generateConferenceReport(input: {
     return { ok: false, error: "Student not found" };
   }
 
+  const reportType: ReportKind = input.reportType ?? "termly";
+
   // A published report is a finished document — don't silently replace it.
+  // Mid-term and end-of-term are separate documents, so the lookup is keyed on
+  // the kind too: generating one never disturbs the other.
   const { data: existing } = await supabase
     .from("conference_reports")
     .select("id, status")
     .eq("student_id", input.studentId)
     .eq("academic_year", input.academicYear)
     .eq("term", input.term)
+    .eq("report_type", reportType)
     .maybeSingle();
   if (existing?.status === "published") {
     return {
       ok: false,
-      error: "A published report already exists for this term — unpublish it first.",
+      error: `A published ${REPORT_KIND_LABELS[reportType].toLowerCase()} already exists for this term — unpublish it first.`,
     };
   }
 
@@ -95,6 +106,7 @@ export async function generateConferenceReport(input: {
     school: ctx.school,
     student,
     teacherName: ctx.user.full_name ?? "",
+    reportType,
     term: input.term,
     academicYear: input.academicYear,
     periodStart: input.periodStart,
@@ -102,12 +114,12 @@ export async function generateConferenceReport(input: {
   });
   const snapshot = buildConferenceSnapshot(snapshotInput);
 
-  const firstName = student.name.split(" ")[0] || student.name;
   const payload = {
     school_id: ctx.school.id,
     student_id: input.studentId,
     author_id: ctx.user.id,
-    title: `${firstName}'s Progress Report`,
+    title: defaultReportTitle(student.name, reportType),
+    report_type: reportType,
     term: input.term,
     academic_year: input.academicYear,
     period_start: input.periodStart,
@@ -123,7 +135,9 @@ export async function generateConferenceReport(input: {
 
   const { data, error: dbError } = await supabase
     .from("conference_reports")
-    .upsert(payload, { onConflict: "student_id,academic_year,term" })
+    .upsert(payload, {
+      onConflict: "student_id,academic_year,term,report_type",
+    })
     .select("id")
     .single();
   if (dbError) return { ok: false, error: dbError.message };
@@ -198,6 +212,7 @@ export async function regenerateConferenceSnapshot(id: string): Promise<Result> 
     school: ctx.school,
     student,
     teacherName: readSnapshot(report.snapshot)?.header.teacherName ?? ctx.user.full_name ?? "",
+    reportType: readReportKind(report.report_type),
     term: report.term,
     academicYear: report.academic_year,
     periodStart: report.period_start,
@@ -272,15 +287,21 @@ export async function publishConferenceReport(id: string): Promise<Result> {
 
   const narrative = readNarrative(report.narrative);
   const snapshot = readSnapshot(report.snapshot);
+  const reportType = readReportKind(report.report_type);
 
   // `progress` is still read by /parent/progress and the teacher child-report,
   // and this is now its only writer — mirror the narrative across so those
-  // screens don't go blank.
+  // screens don't go blank. It holds ONE row per child, so publishing a
+  // mid-term report after an end-of-term one (or the other way round) replaces
+  // what those two screens show; `term` says which report they are looking at.
   await supabase.from("progress").upsert(
     {
       school_id: ctx.school.id,
       student_id: report.student_id,
-      term: TERM_LABELS[report.term],
+      term:
+        reportType === "midterm"
+          ? `${TERM_LABELS[report.term]} (Mid-Term)`
+          : TERM_LABELS[report.term],
       academic_year: report.academic_year,
       teacher_name: snapshot?.header.teacherName ?? ctx.user.full_name ?? null,
       teacher_comments: narrative.summary || null,
@@ -300,6 +321,9 @@ export async function publishConferenceReport(id: string): Promise<Result> {
     if (emails.length > 0) {
       await sendProgressReportPublished(emails, ctx.school.name, {
         studentName: snapshot?.header.childName ?? "Your child",
+        reportLabel: `${TERM_LABELS[report.term]} ${
+          reportType === "midterm" ? "mid-term report" : "progress report"
+        }`,
         term: TERM_LABELS[report.term],
         period: `${formatReportDate(report.period_start)} – ${formatReportDate(report.period_end)}`,
       });

@@ -36,12 +36,18 @@ import {
   generateConferenceReport,
 } from "@/lib/actions/conference";
 import {
+  DEFAULT_PERIOD_DAYS,
   DEFAULT_SECTIONS,
+  REPORT_KINDS,
+  REPORT_KIND_BLURB,
+  REPORT_KIND_LABELS,
+  REPORT_KIND_SHORT,
   SECTION_LABELS,
   TERM_LABELS,
   academicYearFor,
   formatReportDate,
   type ConferenceSections,
+  type ReportKind,
 } from "@/lib/montessori/conference";
 import type { ConferenceReportStatus, Term } from "@/lib/db/types";
 
@@ -49,6 +55,7 @@ type ReportLite = {
   id: string;
   studentName: string;
   title: string;
+  reportType: ReportKind;
   term: Term;
   academicYear: string;
   periodStart: string;
@@ -59,10 +66,13 @@ type ReportLite = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-/** Default the marking period to the last ~10 weeks, ending today. */
-function defaultStart(): string {
+/**
+ * Default the marking period to a whole term for the end-of-term report and
+ * roughly its first half for the mid-term one, both ending today.
+ */
+function defaultStart(kind: ReportKind): string {
   const d = new Date();
-  d.setDate(d.getDate() - 70);
+  d.setDate(d.getDate() - DEFAULT_PERIOD_DAYS[kind]);
   return d.toISOString().slice(0, 10);
 }
 
@@ -86,11 +96,20 @@ export function ProgressReportsListClient({
   const [open, setOpen] = useState(false);
 
   const [studentId, setStudentId] = useState(students[0]?.id ?? "");
+  const [reportType, setReportType] = useState<ReportKind>("termly");
   const [term, setTerm] = useState<Term>("first");
   const [academicYear, setAcademicYear] = useState(() => academicYearFor());
-  const [periodStart, setPeriodStart] = useState(defaultStart);
+  const [periodStart, setPeriodStart] = useState(() => defaultStart("termly"));
   const [periodEnd, setPeriodEnd] = useState(today);
   const [sections, setSections] = useState<ConferenceSections>(DEFAULT_SECTIONS);
+
+  // Switching the kind re-suggests the window, since a mid-term report covers
+  // about half of what an end-of-term one does. The teacher can still edit it.
+  const chooseKind = (kind: ReportKind) => {
+    setReportType(kind);
+    setPeriodStart(defaultStart(kind));
+    setPeriodEnd(today());
+  };
 
   // Lesson levels are recorded as "current status", not history — so a period
   // ending well in the past prints today's levels. Warn rather than block.
@@ -113,6 +132,7 @@ export function ProgressReportsListClient({
     start(async () => {
       const res = await generateConferenceReport({
         studentId,
+        reportType,
         term,
         academicYear: academicYear.trim(),
         periodStart,
@@ -150,7 +170,8 @@ export function ProgressReportsListClient({
         <div>
           <h1 className="font-serif text-2xl text-slate-900">Progress Reports</h1>
           <p className="text-sm text-slate-500">
-            Generate a child&apos;s termly report, write your commentary, then
+            Generate a child&apos;s mid-term or end-of-term report — everything
+            recorded for them over the period — write your commentary, then
             publish it to their parents.
           </p>
         </div>
@@ -166,10 +187,36 @@ export function ProgressReportsListClient({
           </DialogTrigger>
           <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>New progress report</DialogTitle>
+              <DialogTitle>New {REPORT_KIND_LABELS[reportType].toLowerCase()}</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">
+                  Kind of report
+                </label>
+                <div className="flex gap-2">
+                  {REPORT_KINDS.map((kind) => (
+                    <Button
+                      key={kind}
+                      type="button"
+                      variant={reportType === kind ? "default" : "outline"}
+                      onClick={() => chooseKind(kind)}
+                      className={`flex-1 ${
+                        reportType === kind
+                          ? "bg-montessori-primary text-white hover:bg-montessori-primary/90"
+                          : "text-slate-600"
+                      }`}
+                    >
+                      {REPORT_KIND_LABELS[kind]}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-400">
+                  {REPORT_KIND_BLURB[reportType]}
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Child</label>
                 <Select value={studentId} onValueChange={setStudentId}>
@@ -311,6 +358,7 @@ export function ProgressReportsListClient({
             <TableHeader>
               <TableRow>
                 <TableHead>Child</TableHead>
+                <TableHead>Report</TableHead>
                 <TableHead>Term</TableHead>
                 <TableHead>Marking period</TableHead>
                 <TableHead>Status</TableHead>
@@ -322,6 +370,18 @@ export function ProgressReportsListClient({
                 <TableRow key={r.id}>
                   <TableCell className="font-medium text-slate-900">
                     {r.studentName}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={
+                        r.reportType === "midterm"
+                          ? "border-amber-200 bg-amber-50 text-amber-700"
+                          : "border-slate-200 bg-slate-50 text-slate-600"
+                      }
+                    >
+                      {REPORT_KIND_SHORT[r.reportType]}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-slate-600">
                     {TERM_LABELS[r.term]} · {r.academicYear}

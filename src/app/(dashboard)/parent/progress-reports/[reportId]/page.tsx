@@ -36,7 +36,8 @@ export default async function ParentProgressReportPage({
     );
   }
 
-  const filename = `${slugify(report.snapshot.header.childName)}-progress-report-${report.term}-${slugify(report.academic_year)}.pdf`;
+  const kind = report.snapshot.header.reportType === "midterm" ? "mid-term" : "progress";
+  const filename = `${slugify(report.snapshot.header.childName)}-${kind}-report-${report.term}-${slugify(report.academic_year)}.pdf`;
 
   return (
     <div className="mx-auto max-w-4xl pb-20 duration-500 animate-in fade-in slide-in-from-bottom-4">
