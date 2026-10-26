@@ -26,8 +26,8 @@ import { CurriculumMatrix, type MatrixStudent } from "./CurriculumMatrix";
 import type { Student } from "@/lib/db/types";
 import type { ObservationWithLeaf } from "@/lib/db/montessori";
 
-/** How many notes one child has, and the most recent of them. */
-export type NotesSummary = { count: number; latest: ObservationWithLeaf | null };
+/** How many observations one child has, and the most recent of them. */
+export type ObservationsSummary = { count: number; latest: ObservationWithLeaf | null };
 
 function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("");
@@ -46,20 +46,20 @@ export function CurriculumIndexClient({
   students,
   progressByStudent,
   curriculum,
-  notesByStudent,
-  recentNotes,
+  observationsByStudent,
+  recentObservations,
 }: {
   students: Student[];
   progressByStudent: Record<string, ProgressMap>;
   curriculum: Area[];
-  notesByStudent: Record<string, NotesSummary>;
-  /** The school's latest notes, newest first, for the Recent notes tab. */
-  recentNotes: ObservationWithLeaf[];
+  observationsByStudent: Record<string, ObservationsSummary>;
+  /** The school's latest observations, newest first, for the Recent observations tab. */
+  recentObservations: ObservationWithLeaf[];
 }) {
   const [view, setView] = useState<"students" | "matrix" | "recent">("matrix");
   const [search, setSearch] = useState("");
   const studentMap = new Map(students.map((s) => [s.id, s]));
-  const totalNotes = Object.values(notesByStudent).reduce((a, r) => a + r.count, 0);
+  const totalObservations = Object.values(observationsByStudent).reduce((a, r) => a + r.count, 0);
 
   const matrixStudents: MatrixStudent[] = students.map((s) => ({
     id: s.id,
@@ -80,7 +80,7 @@ export function CurriculumIndexClient({
         <div>
           <h1 className="text-2xl font-serif text-slate-900">Curriculum</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Record book — presentations and notes across the five Montessori areas.
+            Record book — presentations and observations across the five Montessori areas.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -91,7 +91,7 @@ export function CurriculumIndexClient({
               className="bg-montessori-primary text-white hover:bg-montessori-primary/90 shadow-sm gap-2"
             >
               <Link href="/teacher/curriculum/bulk">
-                <Users className="w-3.5 h-3.5" /> Bulk note
+                <Users className="w-3.5 h-3.5" /> Bulk observation
               </Link>
             </Button>
           )}
@@ -103,7 +103,7 @@ export function CurriculumIndexClient({
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Tracking</p>
             <p className="text-sm font-semibold text-slate-700">
-              {students.length} students · {totalNotes} notes
+              {students.length} students · {totalObservations} observations
             </p>
           </div>
         </div>
@@ -132,7 +132,7 @@ export function CurriculumIndexClient({
             view === "recent" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <NotebookPen className="h-3.5 w-3.5" /> Recent notes
+          <NotebookPen className="h-3.5 w-3.5" /> Recent observations
         </button>
       </div>
 
@@ -170,9 +170,9 @@ export function CurriculumIndexClient({
             {filtered.map((student) => {
               const stats = getCurriculumStats(progressByStudent[student.id] ?? {}, curriculum);
               const pct = touchedPercent(stats.overall);
-              const notes = notesByStudent[student.id];
-              const noteCount = notes?.count ?? 0;
-              const latestNote = notes?.latest ?? null;
+              const summary = observationsByStudent[student.id];
+              const obsCount = summary?.count ?? 0;
+              const latestObs = summary?.latest ?? null;
               return (
                 <Link key={student.id} href={`/teacher/curriculum/${student.id}`} className="block group">
                   <Card className="border-slate-100 shadow-sm hover:shadow-md hover:border-montessori-primary/30 transition-all h-full">
@@ -188,10 +188,10 @@ export function CurriculumIndexClient({
                         <div className="flex items-center gap-2 shrink-0">
                           <span
                             className="flex items-center gap-1 text-xs font-semibold text-montessori-primary bg-montessori-primary/10 rounded-full px-2 py-0.5"
-                            title={`${noteCount} ${noteCount === 1 ? "note" : "notes"}`}
+                            title={`${obsCount} ${obsCount === 1 ? "observation" : "observations"}`}
                           >
                             <NotebookPen className="h-3 w-3" />
-                            {noteCount}
+                            {obsCount}
                           </span>
                           <div className="text-right">
                             <p className="text-lg font-bold text-montessori-primary leading-none">{pct}%</p>
@@ -216,26 +216,26 @@ export function CurriculumIndexClient({
                         })}
                       </div>
 
-                      {latestNote && (
+                      {latestObs && (
                         <div className="mt-4 rounded-lg bg-slate-50 border border-slate-100 p-3 space-y-1.5">
                           <div className="flex items-center justify-between gap-2">
-                            {latestNote.leaf && (
+                            {latestObs.leaf && (
                               <Badge
                                 variant="outline"
-                                className={`text-[11px] py-0 ${latestNote.leaf.areaTone.soft} ${latestNote.leaf.areaTone.text} ${latestNote.leaf.areaTone.border}`}
+                                className={`text-[11px] py-0 ${latestObs.leaf.areaTone.soft} ${latestObs.leaf.areaTone.text} ${latestObs.leaf.areaTone.border}`}
                               >
-                                {latestNote.leaf.areaName} · {latestNote.leaf.activityName}
+                                {latestObs.leaf.areaName} · {latestObs.leaf.activityName}
                               </Badge>
                             )}
                             <span className="text-[10px] text-slate-400 shrink-0">
-                              {new Date(latestNote.created_at).toLocaleDateString("en-NG", {
+                              {new Date(latestObs.created_at).toLocaleDateString("en-NG", {
                                 day: "numeric",
                                 month: "short",
                               })}
                             </span>
                           </div>
                           <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                            {latestNote.content}
+                            {latestObs.content}
                           </p>
                         </div>
                       )}
@@ -269,7 +269,7 @@ export function CurriculumIndexClient({
 
       {view === "recent" && (
         <div className="space-y-3">
-          {recentNotes.map((obs) => {
+          {recentObservations.map((obs) => {
             const student = studentMap.get(obs.student_id);
             return (
               <Card key={obs.id} className="border-slate-100 shadow-sm">
@@ -313,8 +313,8 @@ export function CurriculumIndexClient({
               </Card>
             );
           })}
-          {recentNotes.length === 0 && (
-            <p className="text-sm text-slate-500 py-8 text-center">No notes logged yet.</p>
+          {recentObservations.length === 0 && (
+            <p className="text-sm text-slate-500 py-8 text-center">No observations logged yet.</p>
           )}
         </div>
       )}

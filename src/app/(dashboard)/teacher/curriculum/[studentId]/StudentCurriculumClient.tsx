@@ -26,15 +26,15 @@ import {
 } from "@/lib/curriculum/progress-utils";
 import { setCurriculumStatus, addPractice } from "@/lib/actions/montessori";
 import { RecordWorkDialog } from "@/components/montessori/RecordWorkDialog";
-import { StudentNotesPanel } from "@/components/montessori/StudentNotesPanel";
+import { StudentObservationsPanel } from "@/components/montessori/StudentObservationsPanel";
 import { useToast } from "@/hooks/use-toast";
 import type { CurriculumStatus, Student } from "@/lib/db/types";
 import type { ObservationWithLeaf } from "@/lib/db/montessori";
 
 type Filter = "all" | "in-progress" | "proficient" | "not-started";
 
-/** The record book's two halves — lessons and statuses, or the note journal. */
-type View = "record" | "notes";
+/** The record book's two halves — lessons and statuses, or the observation journal. */
+type View = "record" | "observations";
 
 const STATUS_LABEL: Record<CurriculumStatus, string> = {
   not_started: "Not started",
@@ -178,7 +178,7 @@ export function StudentCurriculumClient({
       </div>
 
       {/* One child, two halves: the lessons and statuses, and the journal of
-          notes written against them. These used to be two separate screens. */}
+          observations written against them. These used to be two separate screens. */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
         <button
           onClick={() => setView("record")}
@@ -189,17 +189,17 @@ export function StudentCurriculumClient({
           <BookOpen className="h-3.5 w-3.5" /> Record book
         </button>
         <button
-          onClick={() => setView("notes")}
+          onClick={() => setView("observations")}
           className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-            view === "notes" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+            view === "observations" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <NotebookPen className="h-3.5 w-3.5" /> Notes ({observations.length})
+          <NotebookPen className="h-3.5 w-3.5" /> Observations ({observations.length})
         </button>
       </div>
 
-      {view === "notes" && (
-        <StudentNotesPanel
+      {view === "observations" && (
+        <StudentObservationsPanel
           student={{ id: student.id, name: student.name }}
           observations={observations}
           catalog={catalog}

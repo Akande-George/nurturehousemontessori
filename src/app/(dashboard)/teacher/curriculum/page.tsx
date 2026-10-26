@@ -8,10 +8,10 @@ import {
 import { getSchoolCurriculum } from "@/lib/db/curriculum";
 import { CURRICULUM } from "@/lib/curriculum/curriculum";
 import { buildProgressMap, type ProgressMap } from "@/lib/curriculum/progress-utils";
-import { CurriculumIndexClient, type NotesSummary } from "./CurriculumIndexClient";
+import { CurriculumIndexClient, type ObservationsSummary } from "./CurriculumIndexClient";
 
-/** How many notes the Recent notes tab shows. */
-const RECENT_NOTES_LIMIT = 20;
+/** How many observations the Recent observations tab shows. */
+const RECENT_OBSERVATIONS_LIMIT = 20;
 
 export default async function TeacherCurriculumIndexPage() {
   const { user, school } = await requireRole("teacher");
@@ -22,8 +22,8 @@ export default async function TeacherCurriculumIndexPage() {
         students={[]}
         progressByStudent={{}}
         curriculum={CURRICULUM}
-        notesByStudent={{}}
-        recentNotes={[]}
+        observationsByStudent={{}}
+        recentObservations={[]}
       />
     );
   }
@@ -42,14 +42,14 @@ export default async function TeacherCurriculumIndexPage() {
   const observations = await getSchoolObservations(supabase, school.id, catalog);
 
   const progressByStudent: Record<string, ProgressMap> = {};
-  const notesByStudent: Record<string, NotesSummary> = {};
+  const observationsByStudent: Record<string, ObservationsSummary> = {};
   students.forEach((s, i) => {
     progressByStudent[s.id] = buildProgressMap(progressRows[i]);
-    notesByStudent[s.id] = { count: 0, latest: null };
+    observationsByStudent[s.id] = { count: 0, latest: null };
   });
   // Rows arrive newest first, so the first one seen for a child is its latest.
   for (const o of observations) {
-    const rec = notesByStudent[o.student_id];
+    const rec = observationsByStudent[o.student_id];
     if (!rec) continue;
     rec.count += 1;
     if (!rec.latest) rec.latest = o;
@@ -60,8 +60,8 @@ export default async function TeacherCurriculumIndexPage() {
       students={students}
       progressByStudent={progressByStudent}
       curriculum={curriculum}
-      notesByStudent={notesByStudent}
-      recentNotes={observations.slice(0, RECENT_NOTES_LIMIT)}
+      observationsByStudent={observationsByStudent}
+      recentObservations={observations.slice(0, RECENT_OBSERVATIONS_LIMIT)}
     />
   );
 }

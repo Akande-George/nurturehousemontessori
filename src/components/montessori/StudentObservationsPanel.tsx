@@ -17,11 +17,11 @@ import type { Area } from "@/lib/curriculum/curriculum";
 import type { ObservationWithLeaf } from "@/lib/db/montessori";
 
 /**
- * The notes half of a child's record book: write a note against one or more
- * curriculum leaves, then read the whole journal back. Lifted out of the old
- * standalone observations screen so the record book can host it in a tab.
+ * The observations half of a child's record book: log an observation against
+ * one or more curriculum leaves, then read the journal back. Lifted out of the
+ * old standalone observations screen so the record book can host it in a tab.
  */
-export function StudentNotesPanel({
+export function StudentObservationsPanel({
   student,
   observations,
   catalog,
@@ -58,8 +58,8 @@ export function StudentNotesPanel({
       if (res.ok) {
         setContent("");
         toast({
-          title: res.count && res.count > 1 ? `${res.count} notes saved` : "Note saved",
-          description: `${student.name}'s journal has been updated.`,
+          title: res.count && res.count > 1 ? `${res.count} observations saved` : "Observation saved",
+          description: `${student.name}'s observation journal has been updated.`,
         });
         router.refresh();
       } else {
@@ -72,7 +72,7 @@ export function StudentNotesPanel({
     <div className="space-y-6">
       <Card className="border-slate-100 shadow-sm">
         <CardHeader>
-          <CardTitle>Write a note</CardTitle>
+          <CardTitle>Log new observation</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <CurriculumLeafFields picker={picker} />
@@ -93,7 +93,7 @@ export function StudentNotesPanel({
               disabled={leafIds.length === 0 || pending}
               className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
             >
-              {pending ? "Saving…" : "Save note"}
+              {pending ? "Saving…" : "Save observation"}
             </Button>
           </div>
         </CardContent>
@@ -101,11 +101,11 @@ export function StudentNotesPanel({
 
       <Card className="border-slate-100 shadow-sm">
         <CardHeader>
-          <CardTitle>Journal ({observations.length})</CardTitle>
+          <CardTitle>Observation timeline ({observations.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {observations.length === 0 ? (
-            <p className="text-sm text-slate-500 py-6 text-center">No notes logged yet.</p>
+            <p className="text-sm text-slate-500 py-6 text-center">No observations logged yet.</p>
           ) : (
             <div className="relative">
               <div className="absolute left-3.5 top-0 bottom-0 w-px bg-slate-100" />
