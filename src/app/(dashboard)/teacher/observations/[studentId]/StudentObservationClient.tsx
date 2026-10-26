@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, NotebookPen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,12 +70,21 @@ export function StudentObservationClient({
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/teacher/observations"
           className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-montessori-primary"
         >
           <ArrowLeft className="w-4 h-4" /> All Observations
+        </Link>
+        {/* The record book files the level, the practice, this note and a
+            photo home in one save; this page stays the place to read them
+            back and to write a note on its own. */}
+        <Link
+          href={`/teacher/curriculum/${student.id}`}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-montessori-primary hover:underline"
+        >
+          <NotebookPen className="w-4 h-4" /> Record work in one go
         </Link>
       </div>
 

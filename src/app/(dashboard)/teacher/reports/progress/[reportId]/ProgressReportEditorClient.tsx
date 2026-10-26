@@ -47,7 +47,10 @@ import {
   type ConferenceSections,
   type ConferenceSnapshot,
 } from "@/lib/montessori/conference";
-import { ProgressReportDocument } from "@/components/montessori/ProgressReportDocument";
+import {
+  ProgressReportDocument,
+  type ParentComment,
+} from "@/components/montessori/ProgressReportDocument";
 import { AreaHeading } from "@/components/montessori/ProgressReportSections";
 import type { ConferenceReportStatus } from "@/lib/db/types";
 
@@ -113,6 +116,7 @@ export function ProgressReportEditorClient({
   snapshot,
   narrative: initialNarrative,
   sections: initialSections,
+  parentComment,
 }: {
   id: string;
   title: string;
@@ -120,6 +124,7 @@ export function ProgressReportEditorClient({
   snapshot: ConferenceSnapshot;
   narrative: ConferenceNarrative;
   sections: ConferenceSections;
+  parentComment: ParentComment;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -332,6 +337,7 @@ export function ProgressReportEditorClient({
           snapshot={snapshot}
           narrative={currentNarrative()}
           sections={sections}
+          parentComment={parentComment}
         />
       ) : (
         <div className="space-y-5">
@@ -708,17 +714,41 @@ export function ProgressReportEditorClient({
             </Card>
           )}
 
-          {/* ---- Final comment ------------------------------------------ */}
+          {/* ---- The family's comment (read-only) ------------------------ */}
           {sections.signature && (
             <Card
-              title="Comments"
-              hint="Printed above the parent signature line."
+              title="Parent's comment"
+              hint="The family writes this from their portal once the report is published. It prints above the signature line."
             >
-              <Textarea
-                value={narrative.finalComment}
-                onChange={(e) => patch({ finalComment: e.target.value })}
-                className="min-h-24 border-slate-200 focus-visible:ring-montessori-primary"
-              />
+              {parentComment.text?.trim() ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                  <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
+                    {parentComment.text}
+                  </p>
+                  <p className="mt-2 text-xs text-slate-400">
+                    — {parentComment.author || "Parent"}
+                    {parentComment.at
+                      ? `, ${formatReportDate(parentComment.at.slice(0, 10))}`
+                      : ""}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm italic text-slate-400">
+                  {published
+                    ? "Nothing from the family yet."
+                    : "Publish the report and the family can write their comment here."}
+                </p>
+              )}
+              {narrative.finalComment.trim() && (
+                <div className="mt-3">
+                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Teacher&apos;s note (written before comments moved to parents)
+                  </p>
+                  <p className="whitespace-pre-line rounded-lg border border-slate-200 p-3 text-sm text-slate-600">
+                    {narrative.finalComment}
+                  </p>
+                </div>
+              )}
             </Card>
           )}
 

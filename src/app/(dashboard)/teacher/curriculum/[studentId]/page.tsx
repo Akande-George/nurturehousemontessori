@@ -2,7 +2,10 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
 import { getStudentById, getTeacherStudents } from "@/lib/db/students";
-import { getStudentCurriculumProgress } from "@/lib/db/montessori";
+import {
+  getStudentCurriculumProgress,
+  getStudentObservations,
+} from "@/lib/db/montessori";
 import { getSchoolCurriculum } from "@/lib/db/curriculum";
 import { buildProgressMap } from "@/lib/curriculum/progress-utils";
 import { StudentCurriculumClient } from "./StudentCurriculumClient";
@@ -44,11 +47,27 @@ export default async function StudentCurriculumPage({
     );
   }
 
-  const [rows, { visible: curriculum }] = await Promise.all([
+  const [rows, { visible: curriculum, all: catalog }] = await Promise.all([
     getStudentCurriculumProgress(supabase, student.id),
     getSchoolCurriculum(supabase, school.id),
   ]);
   const progress = buildProgressMap(rows);
+  // Notes resolve their leaf against the full catalog so a note filed against
+  // a since-hidden lesson still names it.
+  const observations = await getStudentObservations(supabase, student.id, catalog);
 
-  return <StudentCurriculumClient student={student} progress={progress} curriculum={curriculum} />;
+  // `curriculum` drives the browsable tree; `catalog` (hidden nodes included)
+  // backs the record dialog's picker, so a lesson that has since been hidden
+  // can still be found when a record is being filed against it.
+  return (
+    <StudentCurriculumClient
+      student={student}
+      teacherStudents={assigned}
+      progress={progress}
+      curriculum={curriculum}
+      catalog={catalog}
+      observations={observations}
+      currentUserId={user.id}
+    />
+  );
 }

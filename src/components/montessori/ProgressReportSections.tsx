@@ -669,15 +669,63 @@ export function MaterialsBlock({
   );
 }
 
-/** Blank ruled lines the parent signs on the printed copy. */
-export function SignatureBlock({ comment }: { comment: string }) {
+/**
+ * The family's comment, then the lines they sign on the printed copy.
+ *
+ * The comment is the PARENT's — they write it from their portal after the
+ * report is published, so it arrives as its own columns rather than through
+ * the frozen snapshot. `teacherNote` is the legacy teacher-written comment
+ * from reports made before that changed; it still prints, clearly attributed,
+ * so nothing written in the old model is lost.
+ */
+export function SignatureBlock({
+  parentComment,
+  parentCommentBy,
+  parentCommentAt,
+  teacherNote,
+}: {
+  parentComment?: string | null;
+  parentCommentBy?: string | null;
+  parentCommentAt?: string | null;
+  teacherNote?: string;
+}) {
+  const comment = parentComment?.trim();
   return (
     <section className="mt-10 break-inside-avoid print:break-inside-avoid">
-      <h2 className="mb-2 text-base font-semibold text-slate-800">Comments</h2>
+      {teacherNote?.trim() && (
+        <div className="mb-5">
+          <h2 className="mb-2 text-base font-semibold text-slate-800">
+            Teacher&apos;s note
+          </h2>
+          <div className="rounded-lg border border-slate-200 p-3">
+            <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
+              {teacherNote}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <h2 className="mb-2 text-base font-semibold text-slate-800">
+        Parent&apos;s comment
+      </h2>
+      {/* Left deliberately blank when unwritten, so a printed copy has room
+          for it to be filled in by hand. */}
       <div className="min-h-20 rounded-lg border border-slate-200 p-3">
-        <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
-          {comment}
-        </p>
+        {comment ? (
+          <>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">
+              {comment}
+            </p>
+            {(parentCommentBy || parentCommentAt) && (
+              <p className="mt-2 text-xs text-slate-400">
+                — {parentCommentBy || "Parent"}
+                {parentCommentAt
+                  ? `, ${formatReportDate(parentCommentAt.slice(0, 10))}`
+                  : ""}
+              </p>
+            )}
+          </>
+        ) : null}
       </div>
       <div className="mt-6 space-y-4 text-sm text-slate-600">
         <div className="flex items-end gap-2">

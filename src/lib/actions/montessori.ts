@@ -7,6 +7,7 @@ import { getStudentParentEmails } from "@/lib/db/people";
 import { getTeacherStudents } from "@/lib/db/students";
 import { sendFeverAlert } from "@/lib/email/notifications";
 import { FEVER_THRESHOLD_C } from "@/lib/montessori/daily";
+import { isGeneralLeafId } from "@/lib/curriculum/curriculum";
 import type { CurriculumStatus } from "@/lib/db/types";
 
 type Result = { ok: boolean; error?: string };
@@ -51,7 +52,7 @@ export async function createObservation(input: {
     })),
   );
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/teacher/observations");
+  revalidatePath("/teacher/curriculum");
   return { ok: true, count: leafIds.length };
 }
 
@@ -101,7 +102,7 @@ export async function createBulkObservations(input: {
   );
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/teacher/observations", "layout");
+  revalidatePath("/teacher/curriculum", "layout");
   return { ok: true, count: studentIds.length };
 }
 
@@ -131,8 +132,8 @@ async function authorOrAdmin(
 }
 
 function revalidateObservations(studentId: string) {
-  revalidatePath("/teacher/observations");
-  revalidatePath(`/teacher/observations/${studentId}`);
+  revalidatePath("/teacher/curriculum");
+  revalidatePath(`/teacher/curriculum/${studentId}`);
   revalidatePath("/teacher");
   revalidatePath("/parent/progress");
 }
@@ -224,6 +225,137 @@ export async function addPractice(input: {
   if (error) return { ok: false, error: error.message };
   revalidatePath("/teacher/curriculum");
   return { ok: true };
+}
+
+/**
+ * One lesson, one save: level, practice, observation and a photo for the
+ * family, all recorded together.
+ *
+ * Curriculum, Observations and the Activity Feed are three views of the same
+ * moment — a child worked on something — and filling them in meant three
+ * screens and three lookups of the same child and lesson. This does the lot in
+ * one round trip. Every part is optional; the teacher fills in whatever
+ * actually happened.
+ *
+ * Unlike setCurriculumStatus/addPractice (which the record book calls inline,
+ * already behind a page that checked), this is a single entry point that takes
+ * a studentId, so it enforces the same deny-by-default scope as
+ * createBulkObservations: a teacher records only for children in their own
+ * classrooms or classes.
+ */
+export async function recordCurriculumWork(input: {
+  studentId: string;
+  leafId: string;
+  /** Omitted leaves the level untouched. */
+  status?: CurriculumStatus;
+  /** YYYY-MM-DD, or omitted for no practice. */
+  practiceDate?: string;
+  observation?: string;
+  imageUrl?: string;
+  caption?: string;
+}): Promise<Result & { recorded?: string[] }> {
+  const { ctx, supabase } = await ctxClient();
+  if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
+  if (ctx.role !== "admin" && ctx.role !== "teacher") {
+    return { ok: false, error: "Not authorized" };
+  }
+  const schoolId = ctx.school.id;
+
+  if (!input.leafId) return { ok: false, error: "Choose a curriculum activity." };
+
+  if (ctx.role === "teacher") {
+    const assigned = await getTeacherStudents(supabase, {
+      teacherId: ctx.user.id,
+      schoolId,
+      schoolType: ctx.school.type,
+    });
+    if (!assigned.some((s) => s.id === input.studentId)) {
+      return { ok: false, error: "That child isn't in your classrooms." };
+    }
+  } else {
+    const { data: student } = await supabase
+      .from("students")
+      .select("id, school_id")
+      .eq("id", input.studentId)
+      .maybeSingle();
+    if (!student || student.school_id !== schoolId) {
+      return { ok: false, error: "That child isn't in your school." };
+    }
+  }
+
+  const observation = input.observation?.trim() ?? "";
+  const caption = input.caption?.trim() ?? "";
+  const imageUrl = input.imageUrl?.trim() ?? "";
+
+  // A general marker ("anything in Practical Life") is a place to hang an
+  // observation, not a lesson — it has no level and can't be practised, and
+  // the report's lesson lists skip it. Silently ignore those two fields
+  // rather than writing progress rows that nothing will ever read.
+  const isGeneral = isGeneralLeafId(input.leafId);
+  const wantsStatus = !isGeneral && !!input.status;
+  const wantsPractice = !isGeneral && !!input.practiceDate;
+
+  if (!wantsStatus && !wantsPractice && !observation && !imageUrl) {
+    return { ok: false, error: "Nothing to record yet — add at least one thing." };
+  }
+
+  const recorded: string[] = [];
+
+  if (wantsStatus || wantsPractice) {
+    const progressId = await upsertProgress(
+      supabase,
+      schoolId,
+      input.studentId,
+      input.leafId,
+      wantsStatus ? input.status : undefined,
+    );
+    if (!progressId) return { ok: false, error: "Could not update the record book." };
+    if (wantsStatus) recorded.push("level");
+    if (wantsPractice) {
+      const { error } = await supabase.from("curriculum_practices").insert({
+        curriculum_progress_id: progressId,
+        practiced_on: input.practiceDate as string,
+      });
+      if (error) return { ok: false, error: error.message };
+      recorded.push("practice");
+    }
+  }
+
+  if (observation) {
+    const { error } = await supabase.from("observations").insert({
+      school_id: schoolId,
+      student_id: input.studentId,
+      teacher_id: ctx.user.id,
+      leaf_id: input.leafId,
+      content: observation,
+    });
+    if (error) return { ok: false, error: error.message };
+    recorded.push("observation");
+  }
+
+  if (imageUrl) {
+    const { error } = await supabase.from("activity_posts").insert({
+      school_id: schoolId,
+      student_id: input.studentId,
+      teacher_id: ctx.user.id,
+      caption,
+      image_url: imageUrl,
+      // A general marker is a fine home for a photo, so this one is not gated.
+      leaf_id: input.leafId,
+    });
+    if (error) return { ok: false, error: error.message };
+    recorded.push("photo");
+  }
+
+  revalidatePath("/teacher/curriculum");
+  revalidatePath(`/teacher/curriculum/${input.studentId}`);
+  revalidatePath("/teacher/activity");
+  revalidatePath("/teacher/gallery");
+  revalidatePath("/teacher");
+  revalidatePath("/parent");
+  revalidatePath("/parent/progress");
+
+  return { ok: true, recorded };
 }
 
 export async function addActivityPost(input: {

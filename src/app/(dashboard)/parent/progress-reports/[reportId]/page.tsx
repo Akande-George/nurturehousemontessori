@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
 import { getConferenceReportById } from "@/lib/db/conferenceReports";
+import { getProfileName } from "@/lib/db/people";
+import { ParentCommentCard } from "./ParentCommentCard";
 import { PrintButton } from "@/components/PrintButton";
 import { DownloadPdfButton } from "@/components/DownloadPdfButton";
 import { ProgressReportDocument } from "@/components/montessori/ProgressReportDocument";
@@ -36,6 +38,11 @@ export default async function ParentProgressReportPage({
     );
   }
 
+  const commentAuthor =
+    supabase && report.parent_comment
+      ? await getProfileName(supabase, report.parent_comment_by)
+      : null;
+
   const kind = report.snapshot.header.reportType === "midterm" ? "mid-term" : "progress";
   const filename = `${slugify(report.snapshot.header.childName)}-${kind}-report-${report.term}-${slugify(report.academic_year)}.pdf`;
 
@@ -58,6 +65,20 @@ export default async function ParentProgressReportPage({
         snapshot={report.snapshot}
         narrative={report.narrative}
         sections={report.sections}
+        parentComment={{
+          text: report.parent_comment,
+          author: commentAuthor,
+          at: report.parent_comment_at,
+        }}
+      />
+
+      <ParentCommentCard
+        reportId={report.id}
+        childFirstName={
+          report.snapshot.header.childName.split(" ")[0] || "your child"
+        }
+        initialComment={report.parent_comment ?? ""}
+        savedAt={report.parent_comment_at}
       />
     </div>
   );

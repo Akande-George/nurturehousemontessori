@@ -149,7 +149,7 @@ export const SECTION_LABELS: { key: ConferenceSectionKey; label: string }[] = [
   { key: "materials", label: "Documents shared with home" },
   { key: "narrative", label: "Guide's summary" },
   { key: "cumulative", label: "Everything to date" },
-  { key: "signature", label: "Comments & signature" },
+  { key: "signature", label: "Parent's comment & signature" },
 ];
 
 export const DEFAULT_SECTIONS: ConferenceSections = {
@@ -356,6 +356,12 @@ export type ConferenceNarrative = {
   character: Record<string, number>;
   includedNoteIds: string[];
   includedPictureIds: string[];
+  /**
+   * Legacy: the comment above the signature line used to be the teacher's.
+   * It is now the parent's and lives in its own columns on the row, written
+   * after publish. Still parsed so reports written under the old model keep
+   * printing their note; nothing writes it any more.
+   */
   finalComment: string;
 };
 

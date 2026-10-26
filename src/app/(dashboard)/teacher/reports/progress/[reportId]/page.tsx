@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth/context";
 import { createClient } from "@/supabase/server";
 import { getConferenceReportById } from "@/lib/db/conferenceReports";
 import { getTeacherStudents } from "@/lib/db/students";
+import { getProfileName } from "@/lib/db/people";
 import { ProgressReportEditorClient } from "./ProgressReportEditorClient";
 
 export default async function TeacherProgressReportPage({
@@ -46,6 +47,11 @@ export default async function TeacherProgressReportPage({
     );
   }
 
+  const commentAuthor =
+    supabase && report.parent_comment
+      ? await getProfileName(supabase, report.parent_comment_by)
+      : null;
+
   return (
     <ProgressReportEditorClient
       id={report.id}
@@ -54,6 +60,11 @@ export default async function TeacherProgressReportPage({
       snapshot={report.snapshot}
       narrative={report.narrative}
       sections={report.sections}
+      parentComment={{
+        text: report.parent_comment,
+        author: commentAuthor,
+        at: report.parent_comment_at,
+      }}
     />
   );
 }

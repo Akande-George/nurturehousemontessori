@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { ArrowLeft, BookOpen, Check, ChevronDown, ChevronRight, Plus, Search } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, ChevronDown, ChevronRight, NotebookPen, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,10 +25,16 @@ import {
   type ProgressMap,
 } from "@/lib/curriculum/progress-utils";
 import { setCurriculumStatus, addPractice } from "@/lib/actions/montessori";
+import { RecordWorkDialog } from "@/components/montessori/RecordWorkDialog";
+import { StudentNotesPanel } from "@/components/montessori/StudentNotesPanel";
 import { useToast } from "@/hooks/use-toast";
 import type { CurriculumStatus, Student } from "@/lib/db/types";
+import type { ObservationWithLeaf } from "@/lib/db/montessori";
 
 type Filter = "all" | "in-progress" | "proficient" | "not-started";
+
+/** The record book's two halves — lessons and statuses, or the note journal. */
+type View = "record" | "notes";
 
 const STATUS_LABEL: Record<CurriculumStatus, string> = {
   not_started: "Not started",
@@ -60,17 +66,28 @@ function leafMatchesFilter(status: CurriculumStatus, filter: Filter): boolean {
 
 export function StudentCurriculumClient({
   student,
+  teacherStudents,
   progress,
   curriculum,
+  catalog,
+  observations,
+  currentUserId,
 }: {
   student: Student;
+  /** Everyone this teacher is assigned to, for the header's switcher. */
+  teacherStudents: Student[];
   progress: ProgressMap;
   curriculum: Area[];
+  /** Full catalog (hidden nodes included) for the record dialog's picker. */
+  catalog: Area[];
+  observations: ObservationWithLeaf[];
+  currentUserId: string;
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const [pending, start] = useTransition();
 
+  const [view, setView] = useState<View>("record");
   const [activeAreaId, setActiveAreaId] = useState(curriculum[0]?.id ?? "");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -84,6 +101,14 @@ export function StudentCurriculumClient({
     return initial;
   });
   const [openActivities, setOpenActivities] = useState<Record<string, boolean>>({});
+  // `recordKey` remounts the dialog on every open so its lesson picker starts
+  // from the row that was clicked rather than the last one.
+  const [record, setRecord] = useState<{ key: string; leafId: string | null } | null>(
+    null,
+  );
+
+  const openRecord = (leafId: string | null) =>
+    setRecord({ key: `${leafId ?? "any"}-${Date.now()}`, leafId });
 
   const stats = getCurriculumStats(progress, curriculum);
   const activeArea = curriculum.find((a) => a.id === activeAreaId) ?? curriculum[0];
@@ -126,133 +151,197 @@ export function StudentCurriculumClient({
           <h1 className="text-2xl font-serif text-slate-900 truncate">{student.name}</h1>
           <p className="text-sm text-slate-500">Record Book · {student.classroom ?? "—"}</p>
         </div>
-        <Link
-          href={`/teacher/observations/${student.id}`}
-          className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-montessori-primary hover:underline"
+        <div className="hidden sm:block w-full max-w-[200px]">
+          <Select
+            value={student.id}
+            onValueChange={(value) => router.push(`/teacher/curriculum/${value}`)}
+          >
+            <SelectTrigger className="bg-white border-slate-200">
+              <SelectValue placeholder="Switch student" />
+            </SelectTrigger>
+            <SelectContent>
+              {teacherStudents.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          onClick={() => openRecord(null)}
+          className="bg-montessori-primary hover:bg-montessori-primary/90 shadow-sm"
         >
-          <BookOpen className="h-3.5 w-3.5" />
-          View journal
-        </Link>
+          <NotebookPen className="h-4 w-4 mr-1.5" />
+          Record work
+        </Button>
       </div>
 
-      <Card className="border-slate-100 shadow-sm">
-        <CardContent className="p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Overall progress</p>
-              <p className="text-2xl font-serif text-slate-900 mt-1">
-                {stats.overall.introduced + stats.overall.developing + stats.overall.proficient}{" "}
-                <span className="text-slate-400 text-base font-sans font-normal">
-                  / {stats.overall.total} activities introduced
-                </span>
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                {stats.overall.proficient} proficient · {stats.overall.developing} developing
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-right">
-                <p className="text-3xl font-bold text-montessori-primary">{overallPct}%</p>
-                <p className="text-[10px] uppercase tracking-wide text-slate-400">Touched</p>
-              </div>
-              <div className="w-20 h-20 rounded-full bg-slate-50 grid place-items-center">
-                <div
-                  className="w-16 h-16 rounded-full grid place-items-center text-white text-sm font-bold"
-                  style={{ background: `conic-gradient(rgb(12 92 76) ${overallPct}%, #e2e8f0 ${overallPct}%)` }}
-                >
-                  <div className="w-12 h-12 rounded-full bg-white grid place-items-center text-slate-700 text-sm font-bold">
-                    {overallPct}
+      {/* One child, two halves: the lessons and statuses, and the journal of
+          notes written against them. These used to be two separate screens. */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setView("record")}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            view === "record" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <BookOpen className="h-3.5 w-3.5" /> Record book
+        </button>
+        <button
+          onClick={() => setView("notes")}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            view === "notes" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <NotebookPen className="h-3.5 w-3.5" /> Notes ({observations.length})
+        </button>
+      </div>
+
+      {view === "notes" && (
+        <StudentNotesPanel
+          student={{ id: student.id, name: student.name }}
+          observations={observations}
+          catalog={catalog}
+          currentUserId={currentUserId}
+        />
+      )}
+
+      {view === "record" && (
+        <>
+          <Card className="border-slate-100 shadow-sm">
+            <CardContent className="p-5">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Overall progress</p>
+                  <p className="text-2xl font-serif text-slate-900 mt-1">
+                    {stats.overall.introduced + stats.overall.developing + stats.overall.proficient}{" "}
+                    <span className="text-slate-400 text-base font-sans font-normal">
+                      / {stats.overall.total} activities introduced
+                    </span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {stats.overall.proficient} proficient · {stats.overall.developing} developing
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="text-right">
+                    <p className="text-3xl font-bold text-montessori-primary">{overallPct}%</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-400">Touched</p>
+                  </div>
+                  <div className="w-20 h-20 rounded-full bg-slate-50 grid place-items-center">
+                    <div
+                      className="w-16 h-16 rounded-full grid place-items-center text-white text-sm font-bold"
+                      style={{ background: `conic-gradient(rgb(12 92 76) ${overallPct}%, #e2e8f0 ${overallPct}%)` }}
+                    >
+                      <div className="w-12 h-12 rounded-full bg-white grid place-items-center text-slate-700 text-sm font-bold">
+                        {overallPct}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-5">
-            {curriculum.map((area) => {
-              const pct = touchedPercent(stats.byArea[area.id]);
-              return (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-5">
+                {curriculum.map((area) => {
+                  const pct = touchedPercent(stats.byArea[area.id]);
+                  return (
+                    <button
+                      key={area.id}
+                      onClick={() => setActiveAreaId(area.id)}
+                      className={`text-left rounded-lg p-2.5 border transition-all ${
+                        activeAreaId === area.id
+                          ? `${area.tone.border} ${area.tone.soft} shadow-sm`
+                          : "border-slate-100 hover:border-slate-200 bg-white"
+                      }`}
+                    >
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold truncate">{area.name}</p>
+                      <p className="text-base font-bold text-slate-900 mt-0.5">
+                        {pct}
+                        <span className="text-xs text-slate-400 font-normal">%</span>
+                      </p>
+                      <div className="h-1 mt-1.5 rounded-full bg-slate-100 overflow-hidden">
+                        <div className={`h-full ${area.tone.accent} transition-all`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="overflow-x-auto -mx-1 px-1">
+            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+              {curriculum.map((area) => (
                 <button
                   key={area.id}
                   onClick={() => setActiveAreaId(area.id)}
-                  className={`text-left rounded-lg p-2.5 border transition-all ${
-                    activeAreaId === area.id
-                      ? `${area.tone.border} ${area.tone.soft} shadow-sm`
-                      : "border-slate-100 hover:border-slate-200 bg-white"
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                    activeAreaId === area.id ? `bg-white shadow-sm ${area.tone.text}` : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold truncate">{area.name}</p>
-                  <p className="text-base font-bold text-slate-900 mt-0.5">
-                    {pct}
-                    <span className="text-xs text-slate-400 font-normal">%</span>
-                  </p>
-                  <div className="h-1 mt-1.5 rounded-full bg-slate-100 overflow-hidden">
-                    <div className={`h-full ${area.tone.accent} transition-all`} style={{ width: `${pct}%` }} />
-                  </div>
+                  {area.name}
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </CardContent>
-      </Card>
 
-      <div className="overflow-x-auto -mx-1 px-1">
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-          {curriculum.map((area) => (
-            <button
-              key={area.id}
-              onClick={() => setActiveAreaId(area.id)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                activeAreaId === area.id ? `bg-white shadow-sm ${area.tone.text}` : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              {area.name}
-            </button>
-          ))}
-        </div>
-      </div>
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search activities…"
+                className="pl-9 bg-white border-slate-200"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(["all", "in-progress", "proficient", "not-started"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                    filter === f
+                      ? "border-montessori-primary bg-montessori-primary/5 text-montessori-primary"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {f === "all" ? "All" : f === "in-progress" ? "In progress" : f === "proficient" ? "Proficient" : "Not started"}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search activities…"
-            className="pl-9 bg-white border-slate-200"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {(["all", "in-progress", "proficient", "not-started"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                filter === f
-                  ? "border-montessori-primary bg-montessori-primary/5 text-montessori-primary"
-                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {f === "all" ? "All" : f === "in-progress" ? "In progress" : f === "proficient" ? "Proficient" : "Not started"}
-            </button>
-          ))}
-        </div>
-      </div>
+          {activeArea && (
+            <AreaBody
+              area={activeArea}
+              progress={progress}
+              search={trimmedSearch}
+              filter={filter}
+              openSubs={openSubs}
+              setOpenSubs={setOpenSubs}
+              openActivities={openActivities}
+              setOpenActivities={setOpenActivities}
+              pending={pending}
+              onAddPracticeToday={handleAddPracticeToday}
+              onAddPracticeOnDate={handleAddPracticeOnDate}
+              onStatusChange={handleStatusChange}
+              onRecord={openRecord}
+            />
+          )}
+        </>
+      )}
 
-      {activeArea && (
-        <AreaBody
-          area={activeArea}
+      {record && (
+        <RecordWorkDialog
+          key={record.key}
+          open
+          onOpenChange={(v) => !v && setRecord(null)}
+          student={{ id: student.id, name: student.name }}
+          catalog={catalog}
           progress={progress}
-          search={trimmedSearch}
-          filter={filter}
-          openSubs={openSubs}
-          setOpenSubs={setOpenSubs}
-          openActivities={openActivities}
-          setOpenActivities={setOpenActivities}
-          pending={pending}
-          onAddPracticeToday={handleAddPracticeToday}
-          onAddPracticeOnDate={handleAddPracticeOnDate}
-          onStatusChange={handleStatusChange}
+          initialLeafId={record.leafId}
         />
       )}
     </div>
@@ -264,6 +353,8 @@ type SharedHandlers = {
   onAddPracticeToday: (leafId: string, leafName: string) => void;
   onAddPracticeOnDate: (leafId: string, date: string) => void;
   onStatusChange: (leafId: string, status: CurriculumStatus) => void;
+  /** Opens the one form that records level, practice, observation and photo. */
+  onRecord: (leafId: string | null) => void;
 };
 
 type AreaBodyProps = SharedHandlers & {
@@ -302,6 +393,7 @@ function AreaBody(props: AreaBodyProps) {
           onAddPracticeToday={props.onAddPracticeToday}
           onAddPracticeOnDate={props.onAddPracticeOnDate}
           onStatusChange={props.onStatusChange}
+          onRecord={props.onRecord}
         />
       ))}
     </div>
@@ -391,6 +483,7 @@ function SubcategoryBlock(props: SubcategoryBlockProps) {
               onAddPracticeToday={props.onAddPracticeToday}
               onAddPracticeOnDate={props.onAddPracticeOnDate}
               onStatusChange={props.onStatusChange}
+              onRecord={props.onRecord}
             />
           ))}
         </div>
@@ -438,6 +531,7 @@ function ActivityGroup(props: ActivityGroupProps) {
         onAddPracticeToday={props.onAddPracticeToday}
         onAddPracticeOnDate={props.onAddPracticeOnDate}
         onStatusChange={props.onStatusChange}
+        onRecord={props.onRecord}
       />
     );
   }
@@ -477,6 +571,7 @@ function ActivityGroup(props: ActivityGroupProps) {
               onAddPracticeToday={props.onAddPracticeToday}
               onAddPracticeOnDate={props.onAddPracticeOnDate}
               onStatusChange={props.onStatusChange}
+              onRecord={props.onRecord}
             />
           ))}
         </div>
@@ -567,11 +662,21 @@ function LeafRow(props: LeafRowProps) {
 
         <Button
           size="sm"
+          variant="outline"
           disabled={pending}
           onClick={() => props.onAddPracticeToday(leafId, leafName)}
-          className="h-7 px-2.5 text-[11px] bg-montessori-primary hover:bg-montessori-primary/90"
+          className="h-7 px-2.5 text-[11px]"
         >
           <Plus className="h-3 w-3 mr-1" /> Practice today
+        </Button>
+
+        <Button
+          size="sm"
+          disabled={pending}
+          onClick={() => props.onRecord(leafId)}
+          className="h-7 px-2.5 text-[11px] bg-montessori-primary hover:bg-montessori-primary/90"
+        >
+          <NotebookPen className="h-3 w-3 mr-1" /> Record
         </Button>
 
         <Select value={status} onValueChange={(v) => props.onStatusChange(leafId, v as CurriculumStatus)}>

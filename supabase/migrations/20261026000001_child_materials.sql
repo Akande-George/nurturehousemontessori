@@ -42,8 +42,27 @@ create policy child_materials_staff_read on public.child_materials for select
 create policy child_materials_parent_read on public.child_materials for select
   using (is_parent_of(student_id));
 
--- Only staff write. Which children a TEACHER may upload for is narrowed again
--- in the server action (their own classrooms / classes), the same deny-by-
--- default rule as getTeacherStudents and recordAttendance.
+-- Only staff write, and only for a child who actually belongs to the school
+-- they are staff of.
+--
+-- That second half is load-bearing, not belt-and-braces. school_id arrives
+-- with the insert, so a policy testing it alone would let a staff member of
+-- school A write a row {school_id: A, student_id: <a child at school B>}
+-- straight to PostgREST, bypassing the server action — and the parent read
+-- policy below keys on student_id, so that document would surface in another
+-- school's family portal. student_school() (defined in the RLS migration,
+-- SECURITY DEFINER) ties the two columns together, the same way the
+-- student_parents and student_medications policies do.
+--
+-- Which children a TEACHER may upload for is narrowed further still in the
+-- server action (their own classrooms / classes), the same deny-by-default
+-- rule as getTeacherStudents and recordAttendance.
 create policy child_materials_write on public.child_materials for all
-  using (is_school_staff(school_id)) with check (is_school_staff(school_id));
+  using (
+    is_school_staff(school_id)
+    and student_school(student_id) = school_id
+  )
+  with check (
+    is_school_staff(school_id)
+    and student_school(student_id) = school_id
+  );

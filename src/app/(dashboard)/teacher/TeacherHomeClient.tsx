@@ -80,8 +80,8 @@ export function TeacherHomeClient({
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline" className="bg-white border-slate-200 gap-2">
-            <Link href="/teacher/observations">
-              <BookOpen className="w-4 h-4" /> Observations
+            <Link href="/teacher/curriculum">
+              <BookOpen className="w-4 h-4" /> Record book
             </Link>
           </Button>
           <Button asChild className="bg-montessori-primary text-white hover:bg-montessori-primary/90 gap-2">
@@ -199,7 +199,7 @@ export function TeacherHomeClient({
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Recent Observations</CardTitle>
-            <Link href="/teacher/observations" className="text-xs text-montessori-primary font-medium hover:underline">
+            <Link href="/teacher/curriculum" className="text-xs text-montessori-primary font-medium hover:underline">
               View all →
             </Link>
           </div>
@@ -272,7 +272,7 @@ function RosterRow({
       </div>
       <div className="flex gap-2 shrink-0">
         <Button asChild variant="outline" size="sm" className="text-xs bg-white">
-          <Link href={`/teacher/observations/${student.id}`}>Observe</Link>
+          <Link href={`/teacher/curriculum/${student.id}`}>Record</Link>
         </Button>
         {showPost && (
           <Button asChild variant="outline" size="sm" className="text-xs bg-white hidden sm:flex">

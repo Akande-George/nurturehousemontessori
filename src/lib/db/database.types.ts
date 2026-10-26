@@ -857,6 +857,9 @@ export type Database = {
           generated_at: string
           id: string
           narrative: Json
+          parent_comment: string | null
+          parent_comment_at: string | null
+          parent_comment_by: string | null
           period_end: string
           period_start: string
           published_at: string | null
@@ -876,6 +879,9 @@ export type Database = {
           generated_at?: string
           id?: string
           narrative?: Json
+          parent_comment?: string | null
+          parent_comment_at?: string | null
+          parent_comment_by?: string | null
           period_end: string
           period_start: string
           published_at?: string | null
@@ -895,6 +901,9 @@ export type Database = {
           generated_at?: string
           id?: string
           narrative?: Json
+          parent_comment?: string | null
+          parent_comment_at?: string | null
+          parent_comment_by?: string | null
           period_end?: string
           period_start?: string
           published_at?: string | null
@@ -926,6 +935,13 @@ export type Database = {
           {
             foreignKeyName: "conference_reports_author_id_fkey"
             columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conference_reports_parent_comment_by_fkey"
+            columns: ["parent_comment_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2114,6 +2130,10 @@ export type Database = {
       }
       grade_for: { Args: { p: number }; Returns: string }
       is_parent_of: { Args: { p_student: string }; Returns: boolean }
+      set_parent_report_comment: {
+        Args: { p_report: string; p_comment: string }
+        Returns: undefined
+      }
       is_platform_admin: { Args: never; Returns: boolean }
       is_school_admin: { Args: { p_school: string }; Returns: boolean }
       is_school_member: { Args: { p_school: string }; Returns: boolean }

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/supabase/server";
 import { getActiveContext } from "@/lib/auth/context";
 import { getStudentById } from "@/lib/db/students";
-import { getStudentParentEmails } from "@/lib/db/people";
+import { getProfileEmail, getStudentParentEmails } from "@/lib/db/people";
 import {
   collectConferenceInputs,
   type ConferenceReportRow,
@@ -25,7 +25,10 @@ import {
   type ConferenceSections,
   type ReportKind,
 } from "@/lib/montessori/conference";
-import { sendProgressReportPublished } from "@/lib/email/notifications";
+import {
+  sendParentReportComment,
+  sendProgressReportPublished,
+} from "@/lib/email/notifications";
 import type { Term } from "@/lib/db/types";
 
 type Result = { ok: boolean; error?: string };
@@ -377,5 +380,81 @@ export async function deleteConferenceReport(id: string): Promise<Result> {
   if (dbError) return { ok: false, error: dbError.message };
 
   revalidateAll(id);
+  return { ok: true };
+}
+
+/**
+ * The comment printed above the signature line belongs to the FAMILY, so this
+ * is the one write on a published report that isn't staff-only.
+ *
+ * It goes through the set_parent_report_comment RPC rather than a direct
+ * update: RLS gates rows, not columns, so any policy loose enough to let a
+ * parent update their child's report would also let them rewrite the teacher's
+ * narrative and the frozen snapshot. The RPC touches three columns and
+ * re-checks is_parent_of() and status itself, so this action can't widen it.
+ */
+export async function submitParentReportComment(input: {
+  reportId: string;
+  comment: string;
+}): Promise<Result> {
+  const { ctx, supabase } = await ctxClient();
+  if (!ctx || !supabase) return { ok: false, error: "Not authorized" };
+  if (ctx.role !== "parent") return { ok: false, error: "Not authorized" };
+
+  const comment = input.comment.trim();
+  if (comment.length > 4000) {
+    return { ok: false, error: "That comment is too long." };
+  }
+
+  const { error } = await supabase.rpc("set_parent_report_comment", {
+    p_report: input.reportId,
+    p_comment: comment,
+  });
+  if (error) {
+    // The RPC raises for "not yours", "not published" and "too long"; its
+    // message is already written for a person to read.
+    return { ok: false, error: error.message || "Could not save your comment." };
+  }
+
+  // Best-effort: tell the guide who wrote the report. Never block the save.
+  if (comment) {
+    try {
+      // Named explicitly: the row shape is only needed for the mail copy, and
+      // spelling it out keeps `term` as the enum rather than widening to any.
+      const { data: report } = await supabase
+        .from("conference_reports")
+        .select("author_id, term, report_type, student_id")
+        .eq("id", input.reportId)
+        .maybeSingle<{
+          author_id: string | null;
+          term: Term;
+          report_type: string;
+          student_id: string;
+        }>();
+      const authorEmail = report
+        ? await getProfileEmail(supabase, report.author_id)
+        : null;
+      if (report && authorEmail) {
+        const { data: student } = await supabase
+          .from("students")
+          .select("name")
+          .eq("id", report.student_id)
+          .maybeSingle();
+        await sendParentReportComment(authorEmail, ctx.school?.name ?? "School", {
+          studentName: student?.name ?? "A child",
+          parentName: ctx.user.full_name || "A parent",
+          reportLabel: `${TERM_LABELS[report.term]} ${
+            readReportKind(report.report_type) === "midterm"
+              ? "mid-term report"
+              : "progress report"
+          }`,
+        });
+      }
+    } catch {
+      // ignored
+    }
+  }
+
+  revalidateAll(input.reportId);
   return { ok: true };
 }

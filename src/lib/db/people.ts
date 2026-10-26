@@ -81,3 +81,32 @@ export async function getSchoolStaffEmails(
     .map((r) => (r.profile as { email?: string } | null)?.email)
     .filter((e): e is string => Boolean(e));
 }
+
+// One profile's email — used to tell the guide who wrote a report that the
+// family has replied to it.
+export async function getProfileEmail(
+  db: DB,
+  profileId: string | null,
+): Promise<string | null> {
+  if (!profileId) return null;
+  const { data } = await db
+    .from("profiles")
+    .select("email")
+    .eq("id", profileId)
+    .maybeSingle();
+  return data?.email ?? null;
+}
+
+/** One profile's display name — the byline under a parent's report comment. */
+export async function getProfileName(
+  db: DB,
+  profileId: string | null,
+): Promise<string | null> {
+  if (!profileId) return null;
+  const { data } = await db
+    .from("profiles")
+    .select("full_name")
+    .eq("id", profileId)
+    .maybeSingle();
+  return data?.full_name || null;
+}

@@ -90,10 +90,10 @@ export function BulkObservationClient({
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Link
-        href="/teacher/observations"
+        href="/teacher/curriculum"
         className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-montessori-primary"
       >
-        <ArrowLeft className="w-4 h-4" /> All Observations
+        <ArrowLeft className="w-4 h-4" /> Back to curriculum
       </Link>
 
       <div>

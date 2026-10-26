@@ -137,7 +137,8 @@ const montessoriTeacherNav: NavSection[] = [
     items: [
       { href: "/teacher/students", label: "Students", icon: Users },
       { href: "/teacher/activity", label: "Activity Feed", icon: Heart },
-      { href: "/teacher/observations", label: "Observations", icon: FileText },
+      // Observations merged into Curriculum — the record book holds both the
+      // lessons and the notes written against them.
       { href: "/teacher/curriculum", label: "Curriculum", icon: GraduationCap },
       {
         href: "/teacher/reports/child-report",

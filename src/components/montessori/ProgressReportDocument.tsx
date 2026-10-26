@@ -49,16 +49,28 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
+/**
+ * The parent's comment lives outside the snapshot: it is written after the
+ * report is published, when everything the teacher wrote is already frozen.
+ */
+export type ParentComment = {
+  text: string | null;
+  author: string | null;
+  at: string | null;
+};
+
 export function ProgressReportDocument({
   title,
   snapshot,
   narrative,
   sections,
+  parentComment,
 }: {
   title: string;
   snapshot: ConferenceSnapshot;
   narrative: ConferenceNarrative;
   sections: ConferenceSections;
+  parentComment?: ParentComment;
 }) {
   const h = snapshot.header;
   const initials = h.childName
@@ -324,8 +336,15 @@ export function ProgressReportDocument({
         </section>
       )}
 
-      {/* ---- Comments & signature ---------------------------------------- */}
-      {sections.signature && <SignatureBlock comment={narrative.finalComment} />}
+      {/* ---- Parent's comment & signature -------------------------------- */}
+      {sections.signature && (
+        <SignatureBlock
+          parentComment={parentComment?.text}
+          parentCommentBy={parentComment?.author}
+          parentCommentAt={parentComment?.at}
+          teacherNote={narrative.finalComment}
+        />
+      )}
     </div>
   );
 }

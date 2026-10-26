@@ -2,9 +2,19 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Grid3x3, Pencil, Search, Sparkles, Users } from "lucide-react";
+import {
+  ArrowRight,
+  Clock,
+  Grid3x3,
+  NotebookPen,
+  Pencil,
+  Search,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Area } from "@/lib/curriculum/curriculum";
 import {
@@ -14,18 +24,42 @@ import {
 } from "@/lib/curriculum/progress-utils";
 import { CurriculumMatrix, type MatrixStudent } from "./CurriculumMatrix";
 import type { Student } from "@/lib/db/types";
+import type { ObservationWithLeaf } from "@/lib/db/montessori";
+
+/** How many notes one child has, and the most recent of them. */
+export type NotesSummary = { count: number; latest: ObservationWithLeaf | null };
+
+function initials(name: string) {
+  return name.split(" ").map((n) => n[0]).join("");
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleDateString("en-NG", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export function CurriculumIndexClient({
   students,
   progressByStudent,
   curriculum,
+  notesByStudent,
+  recentNotes,
 }: {
   students: Student[];
   progressByStudent: Record<string, ProgressMap>;
   curriculum: Area[];
+  notesByStudent: Record<string, NotesSummary>;
+  /** The school's latest notes, newest first, for the Recent notes tab. */
+  recentNotes: ObservationWithLeaf[];
 }) {
-  const [view, setView] = useState<"students" | "matrix">("matrix");
+  const [view, setView] = useState<"students" | "matrix" | "recent">("matrix");
   const [search, setSearch] = useState("");
+  const studentMap = new Map(students.map((s) => [s.id, s]));
+  const totalNotes = Object.values(notesByStudent).reduce((a, r) => a + r.count, 0);
 
   const matrixStudents: MatrixStudent[] = students.map((s) => ({
     id: s.id,
@@ -46,10 +80,21 @@ export function CurriculumIndexClient({
         <div>
           <h1 className="text-2xl font-serif text-slate-900">Curriculum</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Record book — track presentations across the five Montessori areas.
+            Record book — presentations and notes across the five Montessori areas.
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {students.length > 0 && (
+            <Button
+              asChild
+              size="sm"
+              className="bg-montessori-primary text-white hover:bg-montessori-primary/90 shadow-sm gap-2"
+            >
+              <Link href="/teacher/curriculum/bulk">
+                <Users className="w-3.5 h-3.5" /> Bulk note
+              </Link>
+            </Button>
+          )}
           <Button asChild variant="outline" size="sm" className="gap-2">
             <Link href="/teacher/curriculum/edit">
               <Pencil className="w-3.5 h-3.5" /> Edit curriculum
@@ -57,7 +102,9 @@ export function CurriculumIndexClient({
           </Button>
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Tracking</p>
-            <p className="text-sm font-semibold text-slate-700">{students.length} students</p>
+            <p className="text-sm font-semibold text-slate-700">
+              {students.length} students · {totalNotes} notes
+            </p>
           </div>
         </div>
       </div>
@@ -78,6 +125,14 @@ export function CurriculumIndexClient({
           }`}
         >
           <Users className="h-3.5 w-3.5" /> By student
+        </button>
+        <button
+          onClick={() => setView("recent")}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            view === "recent" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <NotebookPen className="h-3.5 w-3.5" /> Recent notes
         </button>
       </div>
 
@@ -115,6 +170,9 @@ export function CurriculumIndexClient({
             {filtered.map((student) => {
               const stats = getCurriculumStats(progressByStudent[student.id] ?? {}, curriculum);
               const pct = touchedPercent(stats.overall);
+              const notes = notesByStudent[student.id];
+              const noteCount = notes?.count ?? 0;
+              const latestNote = notes?.latest ?? null;
               return (
                 <Link key={student.id} href={`/teacher/curriculum/${student.id}`} className="block group">
                   <Card className="border-slate-100 shadow-sm hover:shadow-md hover:border-montessori-primary/30 transition-all h-full">
@@ -127,9 +185,18 @@ export function CurriculumIndexClient({
                           <p className="font-semibold text-slate-900 truncate">{student.name}</p>
                           <p className="text-xs text-slate-500 truncate">{student.classroom ?? "—"}</p>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-lg font-bold text-montessori-primary leading-none">{pct}%</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">touched</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            className="flex items-center gap-1 text-xs font-semibold text-montessori-primary bg-montessori-primary/10 rounded-full px-2 py-0.5"
+                            title={`${noteCount} ${noteCount === 1 ? "note" : "notes"}`}
+                          >
+                            <NotebookPen className="h-3 w-3" />
+                            {noteCount}
+                          </span>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-montessori-primary leading-none">{pct}%</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">touched</p>
+                          </div>
                         </div>
                       </div>
 
@@ -148,6 +215,30 @@ export function CurriculumIndexClient({
                           );
                         })}
                       </div>
+
+                      {latestNote && (
+                        <div className="mt-4 rounded-lg bg-slate-50 border border-slate-100 p-3 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            {latestNote.leaf && (
+                              <Badge
+                                variant="outline"
+                                className={`text-[11px] py-0 ${latestNote.leaf.areaTone.soft} ${latestNote.leaf.areaTone.text} ${latestNote.leaf.areaTone.border}`}
+                              >
+                                {latestNote.leaf.areaName} · {latestNote.leaf.activityName}
+                              </Badge>
+                            )}
+                            <span className="text-[10px] text-slate-400 shrink-0">
+                              {new Date(latestNote.created_at).toLocaleDateString("en-NG", {
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                            {latestNote.content}
+                          </p>
+                        </div>
+                      )}
 
                       <div className="mt-4 flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2 text-slate-500">
@@ -174,6 +265,58 @@ export function CurriculumIndexClient({
             )}
           </div>
         </>
+      )}
+
+      {view === "recent" && (
+        <div className="space-y-3">
+          {recentNotes.map((obs) => {
+            const student = studentMap.get(obs.student_id);
+            return (
+              <Card key={obs.id} className="border-slate-100 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`w-9 h-9 rounded-full ${student?.avatar_color ?? "bg-slate-300"} text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5`}
+                    >
+                      {student ? initials(student.name) : "?"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <Link
+                          href={`/teacher/curriculum/${obs.student_id}`}
+                          className="text-sm font-semibold text-slate-900 hover:text-montessori-primary"
+                        >
+                          {student?.name}
+                        </Link>
+                        {obs.leaf && (
+                          <Badge
+                            variant="outline"
+                            className={`text-xs py-0 ${obs.leaf.areaTone.soft} ${obs.leaf.areaTone.text} ${obs.leaf.areaTone.border}`}
+                          >
+                            {obs.leaf.areaName} · {obs.leaf.activityName}
+                            {obs.leaf.leafName !== obs.leaf.activityName && (
+                              <span className="opacity-60">
+                                {" · "}
+                                {obs.leaf.leafName}
+                              </span>
+                            )}
+                          </Badge>
+                        )}
+                        <span className="text-xs text-slate-400 flex items-center gap-1 ml-auto">
+                          <Clock className="w-3 h-3" /> {formatDateTime(obs.created_at)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-700 leading-relaxed">{obs.content}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+          {recentNotes.length === 0 && (
+            <p className="text-sm text-slate-500 py-8 text-center">No notes logged yet.</p>
+          )}
+        </div>
       )}
     </div>
   );
