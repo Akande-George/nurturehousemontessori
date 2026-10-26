@@ -3,7 +3,14 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, Loader2, Plus, AlertTriangle, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  FileText,
+  Loader2,
+  MessageSquare,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -62,6 +69,9 @@ type ReportLite = {
   periodEnd: string;
   status: ConferenceReportStatus;
   updatedAt: string;
+  /** The family's reply, written after the report was published. */
+  parentComment: string | null;
+  parentCommentAt: string | null;
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -110,6 +120,10 @@ export function ProgressReportsListClient({
     setPeriodStart(defaultStart(kind));
     setPeriodEnd(today());
   };
+
+  // A family's reply mails the guide who wrote the report, and that mail links
+  // here — so this list is where they arrive looking for it.
+  const replied = reports.filter((r) => r.parentComment);
 
   // Lesson levels are recorded as "current status", not history — so a period
   // ending well in the past prints today's levels. Warn rather than block.
@@ -339,6 +353,26 @@ export function ProgressReportsListClient({
         </Dialog>
       </div>
 
+      {replied.length > 0 && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-montessori-primary/20 bg-montessori-primary/5 p-3.5">
+          <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-montessori-primary" />
+          <p className="text-sm text-slate-700">
+            <span className="font-semibold">
+              {replied.length === 1
+                ? "One family has replied"
+                : `${replied.length} families have replied`}
+            </span>{" "}
+            —{" "}
+            {replied
+              .slice(0, 3)
+              .map((r) => r.studentName)
+              .join(", ")}
+            {replied.length > 3 && ` and ${replied.length - 3} more`}. Open a
+            report to read the comment above its signature line.
+          </p>
+        </div>
+      )}
+
       {students.length === 0 ? (
         <p className="py-16 text-center text-sm text-slate-500">
           No children yet. Add children before writing progress reports.
@@ -391,16 +425,31 @@ export function ProgressReportsListClient({
                     {formatReportDate(r.periodEnd)}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={
-                        r.status === "published"
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                          : "border-slate-200 bg-slate-50 text-slate-600"
-                      }
-                    >
-                      {r.status === "published" ? "Published" : "Draft"}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge
+                        variant="outline"
+                        className={
+                          r.status === "published"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-slate-200 bg-slate-50 text-slate-600"
+                        }
+                      >
+                        {r.status === "published" ? "Published" : "Draft"}
+                      </Badge>
+                      {r.parentComment && (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 border-montessori-primary/30 bg-montessori-primary/10 text-montessori-primary"
+                          title={
+                            r.parentCommentAt
+                              ? `Replied ${formatReportDate(r.parentCommentAt)}`
+                              : undefined
+                          }
+                        >
+                          <MessageSquare className="h-3 w-3" /> Parent replied
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">

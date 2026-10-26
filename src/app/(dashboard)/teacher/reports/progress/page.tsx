@@ -37,6 +37,8 @@ export default async function TeacherProgressReportsPage() {
         periodEnd: r.period_end,
         status: r.status,
         updatedAt: r.updated_at,
+        parentComment: r.parent_comment,
+        parentCommentAt: r.parent_comment_at,
       }))}
     />
   );
