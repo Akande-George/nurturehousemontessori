@@ -89,6 +89,29 @@ export async function uploadDocument(
   return { url: res.secure_url, publicId: res.public_id, bytes: res.bytes ?? 0 };
 }
 
+/** How long a generated download URL stays valid. The server fetches it at once. */
+const DOWNLOAD_TTL_SECONDS = 300;
+
+/**
+ * A short-lived, authenticated URL for reading a raw asset back.
+ *
+ * Cloudinary accounts can restrict DELIVERY of raw assets: the plain
+ * `secure_url` saved at upload time then answers 401 for every caller, signed
+ * delivery URLs included, even though the bytes are perfectly intact. The
+ * `/download` endpoint authenticates with the API secret instead of going
+ * through the delivery CDN, so it is not subject to that restriction.
+ *
+ * Safe to build here because it never reaches a browser — the material route
+ * fetches it server-side and streams the body on.
+ */
+export function documentDownloadUrl(publicId: string): string {
+  return cloudinary.utils.private_download_url(publicId, "", {
+    resource_type: "raw",
+    type: "upload",
+    expires_at: Math.floor(Date.now() / 1000) + DOWNLOAD_TTL_SECONDS,
+  });
+}
+
 /** Best-effort removal of a raw asset; a storage miss must not block the row delete. */
 export async function deleteDocument(publicId: string): Promise<void> {
   try {

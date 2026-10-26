@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { createClient } from "@/supabase/server";
 import { getChildMaterialById } from "@/lib/db/childMaterials";
+import { documentDownloadUrl } from "@/lib/cloudinary";
 import { opensInline } from "@/lib/materials";
 
 // Child materials are streamed through the app rather than linked straight to
@@ -49,12 +50,31 @@ export async function GET(
   }
 
   const material = await getChildMaterialById(supabase, materialId);
-  if (!material || !isTrustedStorageUrl(material.file_url)) {
+  if (!material) {
     return new Response("Not found", { status: 404 });
   }
 
-  const upstream = await fetch(material.file_url, { cache: "no-store" });
+  // Prefer an authenticated download URL built from the public_id: accounts
+  // that restrict raw DELIVERY answer 401 on the stored secure_url, signed or
+  // not, even while the bytes are intact. Rows saved before public_id was
+  // recorded fall back to the stored URL, which still has to be ours.
+  const source = material.storage_public_id
+    ? documentDownloadUrl(material.storage_public_id)
+    : isTrustedStorageUrl(material.file_url)
+      ? material.file_url
+      : null;
+  if (!source) {
+    return new Response("Not found", { status: 404 });
+  }
+
+  const upstream = await fetch(source, { cache: "no-store" });
   if (!upstream.ok || !upstream.body) {
+    // Without this the message is a dead end: the status is the one thing that
+    // says whether storage lost the file or refused to serve it.
+    console.error(
+      `[child-materials] upstream ${upstream.status} for material ${materialId}` +
+        ` (public_id=${material.storage_public_id ?? "none"})`,
+    );
     return new Response("That file is no longer available.", { status: 502 });
   }
 
