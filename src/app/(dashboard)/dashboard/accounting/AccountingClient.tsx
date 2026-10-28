@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { Check, ChevronDown, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,13 +16,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   createInvoice,
@@ -65,6 +59,11 @@ export function AccountingClient({
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [studentId, setStudentId] = useState(students[0]?.id ?? "");
+  const [studentSearch, setStudentSearch] = useState("");
+  const [isStudentPickerOpen, setIsStudentPickerOpen] = useState(false);
+  const studentPickerRef = useRef<HTMLDivElement>(null);
+  const [ledgerSearch, setLedgerSearch] = useState("");
+
   const [items, setItems] = useState<{ description: string; amount: string }[]>(
     [{ description: "Tuition", amount: "" }],
   );
@@ -75,6 +74,23 @@ export function AccountingClient({
   const [dueDate, setDueDate] = useState("");
   // Unpaid invoice being edited; null while the dialog issues a new one.
   const [editing, setEditing] = useState<Invoice | null>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        studentPickerRef.current &&
+        !studentPickerRef.current.contains(event.target as Node)
+      ) {
+        setIsStudentPickerOpen(false);
+      }
+    }
+    if (isStudentPickerOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [isStudentPickerOpen]);
 
   // Invoice having a payment recorded against it; null when the dialog is shut.
   const [paying, setPaying] = useState<Invoice | null>(null);
@@ -160,6 +176,8 @@ export function AccountingClient({
     setPeriodStart("");
     setPeriodEnd("");
     setDueDate("");
+    setStudentSearch("");
+    setIsStudentPickerOpen(false);
   };
 
   const openCreate = () => {
@@ -205,6 +223,23 @@ export function AccountingClient({
 
   const studentName = (id: string) =>
     students.find((s) => s.id === id)?.name ?? "Unknown Student";
+
+  const filteredStudentOptions = useMemo(() => {
+    const q = studentSearch.trim().toLowerCase();
+    if (!q) return students;
+    return students.filter((s) => s.name.toLowerCase().includes(q));
+  }, [students, studentSearch]);
+
+  const filteredInvoices = useMemo(() => {
+    const q = ledgerSearch.trim().toLowerCase();
+    if (!q) return invoices;
+    return invoices.filter((invoice) => {
+      const sName = (students.find((s) => s.id === invoice.student_id)?.name ?? "").toLowerCase();
+      const invNo = (invoice.invoice_no ?? "").toLowerCase();
+      const desc = invoice.description.toLowerCase();
+      return sName.includes(q) || invNo.includes(q) || desc.includes(q);
+    });
+  }, [invoices, ledgerSearch, students]);
 
   // Sum the money actually received and actually outstanding. Counting whole
   // invoices by status would misreport every part-paid invoice.
@@ -346,16 +381,42 @@ export function AccountingClient({
       </div>
 
       <Card className="border-slate-100 shadow-sm">
-        <CardHeader>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <CardTitle>Invoice ledger</CardTitle>
+          {invoices.length > 0 && (
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Input
+                type="text"
+                placeholder="Search by student or invoice #..."
+                value={ledgerSearch}
+                onChange={(e) => setLedgerSearch(e.target.value)}
+                className="pl-9 h-9 text-xs"
+              />
+              {ledgerSearch && (
+                <button
+                  type="button"
+                  onClick={() => setLedgerSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  aria-label="Clear invoice search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-3">
           {invoices.length === 0 ? (
             <p className="text-sm text-slate-500 py-6 text-center">
               No invoices issued yet.
             </p>
+          ) : filteredInvoices.length === 0 ? (
+            <p className="text-sm text-slate-500 py-6 text-center">
+              No invoices match &quot;{ledgerSearch}&quot;.
+            </p>
           ) : (
-            invoices.map((invoice) => {
+            filteredInvoices.map((invoice) => {
               const position = invoicePayment(invoice);
               return (
               <div
@@ -542,8 +603,8 @@ export function AccountingClient({
           if (!open) resetForm();
         }}
       >
-        <DialogContent className="sm:max-w-[520px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[540px] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b border-slate-100 shrink-0 pr-12">
             <DialogTitle>
               {editing
                 ? `Edit invoice${editing.invoice_no ? ` ${editing.invoice_no}` : ""}`
@@ -555,25 +616,97 @@ export function AccountingClient({
                 : "Issue an invoice to a student's family."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-1">
-              <Label>Student</Label>
-              <Select
-                value={studentId}
-                onValueChange={setStudentId}
+          <div className="space-y-4 p-6 py-4 overflow-y-auto flex-1 min-h-0">
+            <div className="space-y-1 relative" ref={studentPickerRef}>
+              <Label htmlFor="student-picker-trigger">Student</Label>
+              <button
+                id="student-picker-trigger"
+                type="button"
                 disabled={!!editing}
+                onClick={() => {
+                  if (!editing) {
+                    setIsStudentPickerOpen((prev) => !prev);
+                  }
+                }}
+                className="flex h-9 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-slate-900"
+                aria-haspopup="listbox"
+                aria-expanded={isStudentPickerOpen}
               >
-                <SelectTrigger className="bg-white border-slate-200">
-                  <SelectValue placeholder="Select student" />
-                </SelectTrigger>
-                <SelectContent>
-                  {students.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <span className="truncate">
+                  {students.find((s) => s.id === studentId)?.name ?? "Select student"}
+                </span>
+                <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+              </button>
+
+              {isStudentPickerOpen && !editing && (
+                <div className="absolute left-0 top-full mt-1 w-full z-50 rounded-md border border-slate-200 bg-white shadow-lg animate-in fade-in-0 zoom-in-95">
+                  <div className="p-2 border-b border-slate-100">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                      <Input
+                        type="text"
+                        placeholder="Type to search student name..."
+                        value={studentSearch}
+                        onChange={(e) => setStudentSearch(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && filteredStudentOptions.length > 0) {
+                            e.preventDefault();
+                            setStudentId(filteredStudentOptions[0].id);
+                            setIsStudentPickerOpen(false);
+                            setStudentSearch("");
+                          } else if (e.key === "Escape") {
+                            setIsStudentPickerOpen(false);
+                          }
+                        }}
+                        className="h-8 pl-8 pr-7 text-xs bg-slate-50 focus-visible:ring-1"
+                        autoFocus
+                      />
+                      {studentSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setStudentSearch("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          aria-label="Clear student search"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="max-h-56 overflow-y-auto p-1 divide-y divide-slate-50">
+                    {filteredStudentOptions.length === 0 ? (
+                      <div className="py-4 text-center text-xs text-slate-500">
+                        No students found matching &quot;{studentSearch}&quot;
+                      </div>
+                    ) : (
+                      filteredStudentOptions.map((s) => {
+                        const isSelected = s.id === studentId;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              setStudentId(s.id);
+                              setIsStudentPickerOpen(false);
+                              setStudentSearch("");
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-md text-left transition-colors ${
+                              isSelected
+                                ? "bg-montessori-primary/10 text-montessori-primary font-medium"
+                                : "text-slate-700 hover:bg-slate-100"
+                            }`}
+                          >
+                            <span className="truncate">{s.name}</span>
+                            {isSelected && (
+                              <Check className="h-4 w-4 text-montessori-primary shrink-0 ml-2" />
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Items</Label>
@@ -709,7 +842,7 @@ export function AccountingClient({
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="p-4 sm:p-6 sm:py-4 border-t border-slate-100 shrink-0 bg-slate-50/70">
             <Button
               variant="outline"
               onClick={() => {
