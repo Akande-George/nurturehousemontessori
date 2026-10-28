@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Search, X } from "lucide-react";
+import { Building2, Check, ChevronDown, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import {
   recordPayment,
   updateInvoice,
 } from "@/lib/actions/operations";
+import { updateSchoolBankDetails } from "@/lib/actions/schools";
 import {
   invoiceLineItems,
   invoicePayment,
@@ -31,6 +32,14 @@ import {
 } from "@/lib/db/types";
 
 type StudentOption = { id: string; name: string };
+
+type SchoolBankDetails = {
+  id: string;
+  name: string;
+  bank_name: string | null;
+  bank_account_name: string | null;
+  bank_account_number: string | null;
+};
 
 function formatCurrency(cents: number) {
   return `₦${(cents / 100).toLocaleString("en-NG", {
@@ -50,12 +59,24 @@ function formatDate(iso: string) {
 export function AccountingClient({
   invoices,
   students,
+  school,
 }: {
   invoices: Invoice[];
   students: StudentOption[];
+  school?: SchoolBankDetails;
 }) {
   const { toast } = useToast();
   const [pending, start] = useTransition();
+
+  // School-level bank details modal
+  const [isBankDialogOpen, setIsBankDialogOpen] = useState(false);
+  const [schoolBankName, setSchoolBankName] = useState(school?.bank_name ?? "");
+  const [schoolAccountName, setSchoolAccountName] = useState(
+    school?.bank_account_name ?? school?.name ?? "",
+  );
+  const [schoolAccountNumber, setSchoolAccountNumber] = useState(
+    school?.bank_account_number ?? "",
+  );
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [studentId, setStudentId] = useState(students[0]?.id ?? "");
@@ -72,6 +93,17 @@ export function AccountingClient({
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   const [dueDate, setDueDate] = useState("");
+
+  // Invoice-specific bank details
+  const [invBankName, setInvBankName] = useState(school?.bank_name ?? "");
+  const [invAccountName, setInvAccountName] = useState(
+    school?.bank_account_name ?? school?.name ?? "",
+  );
+  const [invAccountNumber, setInvAccountNumber] = useState(
+    school?.bank_account_number ?? "",
+  );
+  const [showCustomBank, setShowCustomBank] = useState(false);
+
   // Unpaid invoice being edited; null while the dialog issues a new one.
   const [editing, setEditing] = useState<Invoice | null>(null);
 
@@ -168,6 +200,26 @@ export function AccountingClient({
     });
   };
 
+  const handleSaveSchoolBank = () => {
+    if (!school?.id) return;
+    start(async () => {
+      const res = await updateSchoolBankDetails(school.id, {
+        bank_name: schoolBankName,
+        bank_account_name: schoolAccountName,
+        bank_account_number: schoolAccountNumber,
+      });
+      if (res.ok) {
+        toast({
+          title: "Bank details saved",
+          description: "Default invoice payment details have been updated.",
+        });
+        setIsBankDialogOpen(false);
+      } else {
+        toast({ title: res.error ?? "Failed to save", variant: "destructive" });
+      }
+    });
+  };
+
   const resetForm = () => {
     setEditing(null);
     setItems([{ description: "Tuition", amount: "" }]);
@@ -178,6 +230,10 @@ export function AccountingClient({
     setDueDate("");
     setStudentSearch("");
     setIsStudentPickerOpen(false);
+    setShowCustomBank(false);
+    setInvBankName(schoolBankName);
+    setInvAccountName(schoolAccountName || school?.name || "");
+    setInvAccountNumber(schoolAccountNumber);
   };
 
   const openCreate = () => {
@@ -201,6 +257,21 @@ export function AccountingClient({
     setPeriodStart(invoice.period_start ?? "");
     setPeriodEnd(invoice.period_end ?? "");
     setDueDate(invoice.due_date ?? "");
+
+    const hasCustomBank = !!(
+      (invoice.bank_account_number &&
+        invoice.bank_account_number !== schoolAccountNumber) ||
+      (invoice.bank_name && invoice.bank_name !== schoolBankName) ||
+      (invoice.bank_account_name &&
+        invoice.bank_account_name !== schoolAccountName)
+    );
+    setShowCustomBank(hasCustomBank);
+    setInvBankName(invoice.bank_name ?? schoolBankName);
+    setInvAccountName(
+      invoice.bank_account_name ?? schoolAccountName ?? school?.name ?? "",
+    );
+    setInvAccountNumber(invoice.bank_account_number ?? schoolAccountNumber);
+
     setIsCreateOpen(true);
   };
 
@@ -287,6 +358,15 @@ export function AccountingClient({
     start(async () => {
       // Editing recomputes totals server-side and keeps the invoice number; no
       // email is re-sent.
+      const bankPayload = {
+        bankName: showCustomBank ? invBankName.trim() || null : schoolBankName.trim() || null,
+        bankAccountName: showCustomBank
+          ? invAccountName.trim() || null
+          : schoolAccountName.trim() || null,
+        bankAccountNumber: showCustomBank
+          ? invAccountNumber.trim() || null
+          : schoolAccountNumber.trim() || null,
+      };
       const res = editingId
         ? await updateInvoice(editingId, {
             items: validItems,
@@ -295,6 +375,7 @@ export function AccountingClient({
             periodStart: periodStart || null,
             periodEnd: periodEnd || null,
             dueDate,
+            ...bankPayload,
           })
         : await createInvoice({
             studentId,
@@ -304,6 +385,7 @@ export function AccountingClient({
             periodStart: periodStart || null,
             periodEnd: periodEnd || null,
             dueDate,
+            ...bankPayload,
           });
       if (res.ok) {
         setIsCreateOpen(false);
@@ -339,12 +421,24 @@ export function AccountingClient({
             Issue invoices and track which families have paid.
           </p>
         </div>
-        <Button
-          onClick={openCreate}
-          className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
-        >
-          Create Invoice
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {school?.id && (
+            <Button
+              variant="outline"
+              onClick={() => setIsBankDialogOpen(true)}
+              className="gap-2 border-slate-200"
+            >
+              <Building2 className="w-4 h-4 text-slate-500" />
+              Bank Details
+            </Button>
+          )}
+          <Button
+            onClick={openCreate}
+            className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+          >
+            Create Invoice
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -817,6 +911,73 @@ export function AccountingClient({
                 onChange={(event) => setDueDate(event.target.value)}
               />
             </div>
+
+            {/* Bank details on invoice */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-montessori-primary" />
+                  Bank Account on Invoice
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomBank((prev) => !prev)}
+                  className="text-xs text-montessori-primary hover:underline font-medium"
+                >
+                  {showCustomBank ? "Use school default" : "Customize account"}
+                </button>
+              </div>
+
+              {!showCustomBank ? (
+                <div className="text-xs text-slate-600">
+                  <p className="font-medium text-slate-800">
+                    {schoolAccountName.trim() || school?.name || "School default account"}
+                  </p>
+                  <p className="text-slate-500">
+                    {[schoolAccountNumber, schoolBankName].filter(Boolean).join(" · ") ||
+                      "No default bank details configured yet (use Bank Details button above)."}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 pt-1">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-medium text-slate-600 block">
+                      Account Name
+                    </span>
+                    <Input
+                      placeholder="e.g. Nurture House Montessori School"
+                      value={invAccountName}
+                      onChange={(e) => setInvAccountName(e.target.value)}
+                      className="h-8 text-xs bg-white"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-medium text-slate-600 block">
+                        Account Number
+                      </span>
+                      <Input
+                        placeholder="e.g. 1307478941"
+                        value={invAccountNumber}
+                        onChange={(e) => setInvAccountNumber(e.target.value)}
+                        className="h-8 text-xs bg-white font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-medium text-slate-600 block">
+                        Bank Name
+                      </span>
+                      <Input
+                        placeholder="e.g. Providus Bank"
+                        value={invBankName}
+                        onChange={(e) => setInvBankName(e.target.value)}
+                        className="h-8 text-xs bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 text-sm space-y-1.5">
               <div className="flex justify-between text-slate-600">
                 <span>Subtotal</span>
@@ -858,6 +1019,86 @@ export function AccountingClient({
               className="bg-montessori-primary text-white"
             >
               {editing ? "Save Changes" : "Issue Invoice"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* School Bank Details Dialog */}
+      <Dialog open={isBankDialogOpen} onOpenChange={setIsBankDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-montessori-primary" />
+              Invoice Bank Details
+            </DialogTitle>
+            <DialogDescription>
+              Set the bank account information displayed on invoices and receipts for parent payments.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="school-account-name">Account Name</Label>
+              <Input
+                id="school-account-name"
+                placeholder="e.g. Nurture House Montessori School LTD"
+                value={schoolAccountName}
+                onChange={(e) => setSchoolAccountName(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="school-account-number">Account Number</Label>
+                <Input
+                  id="school-account-number"
+                  placeholder="e.g. 1307478941"
+                  value={schoolAccountNumber}
+                  onChange={(e) => setSchoolAccountNumber(e.target.value)}
+                  className="font-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="school-bank-name">Bank</Label>
+                <Input
+                  id="school-bank-name"
+                  placeholder="e.g. Providus Bank"
+                  value={schoolBankName}
+                  onChange={(e) => setSchoolBankName(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Live Preview */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 space-y-1 text-center">
+              <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
+                Preview on invoice
+              </p>
+              <p className="text-xs text-slate-500">Please make all payments to</p>
+              <p className="text-sm font-bold text-slate-900">
+                {schoolAccountName.trim() || school?.name || "Account Name"}
+              </p>
+              <p className="text-base font-mono font-bold text-montessori-primary tracking-wider">
+                {schoolAccountNumber.trim() || "0000000000"}
+              </p>
+              <p className="text-xs text-slate-600 font-medium">
+                {schoolBankName.trim() || "Bank Name"}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBankDialogOpen(false)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveSchoolBank}
+              disabled={pending}
+              className="bg-montessori-primary text-white hover:bg-montessori-primary/90"
+            >
+              Save Bank Details
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -30,6 +30,32 @@ export async function updateSchoolBranding(
   revalidatePath("/super-admin/schools");
   revalidatePath(`/super-admin/schools/${schoolId}`);
   revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard/accounting");
+  return { ok: true };
+}
+
+// Admin or super-admin updates the school's bank account details for invoices.
+export async function updateSchoolBankDetails(
+  schoolId: string,
+  details: {
+    bank_name: string | null;
+    bank_account_name: string | null;
+    bank_account_number: string | null;
+  },
+): Promise<Result> {
+  const supabase = await createClient();
+  if (!supabase) return { ok: false, error: "Not configured" };
+  const { error } = await supabase
+    .from("schools")
+    .update({
+      bank_name: details.bank_name?.trim() || null,
+      bank_account_name: details.bank_account_name?.trim() || null,
+      bank_account_number: details.bank_account_number?.trim() || null,
+    })
+    .eq("id", schoolId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/dashboard/accounting");
+  revalidatePath("/dashboard/settings");
   return { ok: true };
 }
 

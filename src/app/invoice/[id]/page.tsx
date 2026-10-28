@@ -79,6 +79,11 @@ export default async function InvoicePage({
   const billTo =
     parents.find((p) => p.id === invoice.parent_id) ?? parents[0] ?? null;
   const invoiceNo = invoice.invoice_no ?? invoice.id.slice(0, 8).toUpperCase();
+  const bankAccountName =
+    invoice.bank_account_name || school?.bank_account_name || school?.name;
+  const bankAccountNumber =
+    invoice.bank_account_number || school?.bank_account_number;
+  const bankName = invoice.bank_name || school?.bank_name;
   // Pad the table with blank rows so short invoices keep the paper-form look.
   const fillerRows = Math.max(0, 4 - items.length);
 
@@ -293,20 +298,32 @@ export default async function InvoicePage({
             )}
 
             {/* Payment instructions */}
-            <div className="mt-10 text-center text-sm text-slate-800 space-y-0.5">
-              {(school?.bank_account_number || school?.bank_name) && (
-                <>
-                  <p>Please make all payments to</p>
-                  <p className="font-medium">
-                    {school?.bank_account_name || school?.name}
+            <div className="mt-10 text-center text-sm text-slate-800 space-y-1">
+              {bankAccountNumber || bankName ? (
+                <div className="inline-block mx-auto rounded-lg border border-slate-200 bg-slate-50/70 px-6 py-4 min-w-[280px]">
+                  <p className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-1">
+                    Please make all payments to
                   </p>
-                  {school?.bank_account_number && (
-                    <p>{school.bank_account_number}</p>
+                  <p className="font-bold text-slate-900 text-base">
+                    {bankAccountName}
+                  </p>
+                  {bankAccountNumber && (
+                    <p className="font-mono text-lg font-bold text-montessori-primary tracking-wider my-0.5">
+                      {bankAccountNumber}
+                    </p>
                   )}
-                  {school?.bank_name && <p>{school.bank_name}</p>}
-                </>
+                  {bankName && (
+                    <p className="text-sm text-slate-600 font-medium">
+                      {bankName}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">
+                  Please contact the school office for payment details.
+                </p>
               )}
-              <p className="font-serif font-semibold italic pt-3">
+              <p className="font-serif font-semibold italic pt-3 text-slate-700">
                 Thank you for your patronage!
               </p>
             </div>

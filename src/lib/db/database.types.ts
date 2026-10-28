@@ -1247,6 +1247,9 @@ export type Database = {
           amount_cents: number
           amount_paid_cents: number
           balance_due_date: string | null
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
           description: string
           discount_cents: number
           due_date: string | null
@@ -1268,6 +1271,9 @@ export type Database = {
           amount_cents?: number
           amount_paid_cents?: number
           balance_due_date?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           description: string
           discount_cents?: number
           due_date?: string | null
@@ -1289,6 +1295,9 @@ export type Database = {
           amount_cents?: number
           amount_paid_cents?: number
           balance_due_date?: string | null
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
           description?: string
           discount_cents?: number
           due_date?: string | null

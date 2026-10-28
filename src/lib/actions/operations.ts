@@ -168,6 +168,9 @@ export async function createInvoice(input: {
   periodStart?: string | null;
   periodEnd?: string | null;
   dueDate: string;
+  bankName?: string | null;
+  bankAccountName?: string | null;
+  bankAccountNumber?: string | null;
 }): Promise<Result> {
   const { ctx, supabase } = await ctxClient();
   if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
@@ -189,6 +192,9 @@ export async function createInvoice(input: {
       period_start: input.periodStart || null,
       period_end: input.periodEnd || null,
       due_date: input.dueDate,
+      bank_name: input.bankName?.trim() || null,
+      bank_account_name: input.bankAccountName?.trim() || null,
+      bank_account_number: input.bankAccountNumber?.trim() || null,
       status: "unpaid",
     })
     .select("id, invoice_no")
@@ -228,6 +234,9 @@ export async function updateInvoice(
     periodStart?: string | null;
     periodEnd?: string | null;
     dueDate: string;
+    bankName?: string | null;
+    bankAccountName?: string | null;
+    bankAccountNumber?: string | null;
   },
 ): Promise<Result> {
   const admin = await adminClient();
@@ -247,6 +256,9 @@ export async function updateInvoice(
       period_start: input.periodStart || null,
       period_end: input.periodEnd || null,
       due_date: input.dueDate,
+      bank_name: input.bankName?.trim() || null,
+      bank_account_name: input.bankAccountName?.trim() || null,
+      bank_account_number: input.bankAccountNumber?.trim() || null,
     })
     .eq("id", invoiceId)
     .eq("school_id", admin.school.id)

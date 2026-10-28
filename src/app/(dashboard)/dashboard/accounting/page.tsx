@@ -17,6 +17,16 @@ export default async function AccountingPage() {
   const studentOptions = students.map((s) => ({ id: s.id, name: s.name }));
 
   return (
-    <AccountingClient invoices={invoices} students={studentOptions} />
+    <AccountingClient
+      invoices={invoices}
+      students={studentOptions}
+      school={{
+        id: school.id,
+        name: school.name,
+        bank_name: school.bank_name,
+        bank_account_name: school.bank_account_name,
+        bank_account_number: school.bank_account_number,
+      }}
+    />
   );
 }
