@@ -139,6 +139,7 @@ export async function markNoticeRead(noticeId: string): Promise<Result> {
 function priceInvoice(
   rawItems: { description: string; amountCents: number }[],
   rawTaxCents?: number,
+  rawDiscountCents?: number,
 ) {
   const items = rawItems
     .map((item) => ({
@@ -148,13 +149,14 @@ function priceInvoice(
     .filter((item) => item.description && item.amount_cents > 0);
   if (items.length === 0) return null;
   const taxCents = Math.max(0, Math.round(rawTaxCents ?? 0));
+  const discountCents = Math.max(0, Math.round(rawDiscountCents ?? 0));
   const subtotalCents = items.reduce((sum, item) => sum + item.amount_cents, 0);
-  const totalCents = subtotalCents + taxCents;
+  const totalCents = Math.max(0, subtotalCents - discountCents + taxCents);
   const description =
     items.length === 1
       ? items[0].description
       : `${items[0].description} + ${items.length - 1} more`;
-  return { items, taxCents, totalCents, description };
+  return { items, taxCents, discountCents, subtotalCents, totalCents, description };
 }
 
 export async function createInvoice(input: {
@@ -162,14 +164,17 @@ export async function createInvoice(input: {
   parentId?: string | null;
   items: { description: string; amountCents: number }[];
   taxCents?: number;
+  discountCents?: number;
+  periodStart?: string | null;
+  periodEnd?: string | null;
   dueDate: string;
 }): Promise<Result> {
   const { ctx, supabase } = await ctxClient();
   if (!ctx?.school || !supabase) return { ok: false, error: "Not authorized" };
-  const priced = priceInvoice(input.items, input.taxCents);
+  const priced = priceInvoice(input.items, input.taxCents, input.discountCents);
   if (!priced)
     return { ok: false, error: "At least one line item is required" };
-  const { items, taxCents, totalCents, description } = priced;
+  const { items, taxCents, discountCents, totalCents, description } = priced;
   const { data: invoice, error } = await supabase
     .from("invoices")
     .insert({
@@ -179,7 +184,10 @@ export async function createInvoice(input: {
       description,
       line_items: items,
       tax_cents: taxCents,
+      discount_cents: discountCents,
       amount_cents: totalCents,
+      period_start: input.periodStart || null,
+      period_end: input.periodEnd || null,
       due_date: input.dueDate,
       status: "unpaid",
     })
@@ -187,6 +195,10 @@ export async function createInvoice(input: {
     .single();
   if (error || !invoice) return { ok: false, error: error?.message ?? "Failed" };
   const emails = await getStudentParentEmails(supabase, input.studentId);
+  const periodCovered =
+    input.periodStart && input.periodEnd
+      ? `${input.periodStart} – ${input.periodEnd}`
+      : input.periodStart || input.periodEnd || null;
   await Promise.all(
     emails.map((email) =>
       sendInvoiceIssued(email, ctx.school!.name, {
@@ -195,6 +207,7 @@ export async function createInvoice(input: {
         dueDate: input.dueDate,
         invoiceId: invoice.id,
         invoiceNo: invoice.invoice_no,
+        periodCovered,
       }),
     ),
   );
@@ -211,13 +224,16 @@ export async function updateInvoice(
   input: {
     items: { description: string; amountCents: number }[];
     taxCents?: number;
+    discountCents?: number;
+    periodStart?: string | null;
+    periodEnd?: string | null;
     dueDate: string;
   },
 ): Promise<Result> {
   const admin = await adminClient();
   if (!admin) return { ok: false, error: "Not authorized" };
   if (!input.dueDate) return { ok: false, error: "A due date is required" };
-  const priced = priceInvoice(input.items, input.taxCents);
+  const priced = priceInvoice(input.items, input.taxCents, input.discountCents);
   if (!priced)
     return { ok: false, error: "At least one line item is required" };
   const { data, error } = await admin.supabase
@@ -226,7 +242,10 @@ export async function updateInvoice(
       description: priced.description,
       line_items: priced.items,
       tax_cents: priced.taxCents,
+      discount_cents: priced.discountCents,
       amount_cents: priced.totalCents,
+      period_start: input.periodStart || null,
+      period_end: input.periodEnd || null,
       due_date: input.dueDate,
     })
     .eq("id", invoiceId)

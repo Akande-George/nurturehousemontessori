@@ -22,6 +22,11 @@ function fmtAmount(cents: number): string {
 
 // DD/MM/YYYY, matching the school's paper invoice.
 function fmtDate(iso: string): string {
+  if (!iso) return "—";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-GB");
+  }
   return new Date(iso).toLocaleDateString("en-GB");
 }
 
@@ -156,9 +161,19 @@ export default async function InvoicePage({
               </div>
             </div>
 
-            {/* Payment date + amount */}
+            {/* Payment date + coverage + amount */}
             <div className="mt-10 flex justify-center">
               <div className="grid grid-cols-[auto_auto] gap-x-10 gap-y-1 text-sm text-slate-800">
+                {(invoice.period_start || invoice.period_end) && (
+                  <>
+                    <p className="font-medium">Period Covered:</p>
+                    <p className="text-right">
+                      {invoice.period_start && invoice.period_end
+                        ? `${fmtDate(invoice.period_start)} – ${fmtDate(invoice.period_end)}`
+                        : fmtDate((invoice.period_start ?? invoice.period_end)!)}
+                    </p>
+                  </>
+                )}
                 <p className="font-medium">Payment Date:</p>
                 <p className="text-right">
                   {invoice.due_date ? fmtDate(invoice.due_date) : "—"}
@@ -228,13 +243,19 @@ export default async function InvoicePage({
                   <p>Subtotal</p>
                   <p>{fmtAmount(subtotalCents)}</p>
                 </div>
+                {(invoice.discount_cents ?? 0) > 0 && (
+                  <div className="flex justify-between px-3 py-2 border border-slate-300 border-t-0 text-emerald-700 font-medium">
+                    <p>Discount</p>
+                    <p>-₦{fmtAmount(invoice.discount_cents)}</p>
+                  </div>
+                )}
                 <div className="flex justify-between px-3 py-2 border border-slate-300 border-t-0">
                   <p>Tax</p>
                   <p>{fmtAmount(taxCents)}</p>
                 </div>
                 <div className="flex justify-between px-3 py-2 border border-slate-300 border-t-0 font-bold">
                   <p>Total</p>
-                  <p>₦{fmtAmount(subtotalCents + taxCents)}</p>
+                  <p>₦{fmtAmount(invoice.amount_cents)}</p>
                 </div>
                 {isReceipt && (
                   <div className="flex justify-between px-3 py-2 border border-slate-300 border-t-0 text-emerald-700">

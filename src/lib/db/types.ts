@@ -52,7 +52,10 @@ export function invoiceLineItems(invoice: Invoice): InvoiceLineItem[] {
   return [
     {
       description: invoice.description,
-      amount_cents: invoice.amount_cents - (invoice.tax_cents ?? 0),
+      amount_cents:
+        invoice.amount_cents +
+        (invoice.discount_cents ?? 0) -
+        (invoice.tax_cents ?? 0),
     },
   ];
 }

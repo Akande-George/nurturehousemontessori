@@ -19,6 +19,23 @@ function formatCurrency(amountCents: number) {
   })}`;
 }
 
+function formatDate(iso: string) {
+  if (!iso) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-NG", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+  return new Date(iso).toLocaleDateString("en-NG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export function ParentInvoicesClient({
   childrenList,
   invoicesByChild,
@@ -236,6 +253,30 @@ export function ParentInvoicesClient({
                               (position.balanceDueDate ?? invoice.due_date) &&
                               ` · Due: ${new Date((position.balanceDueDate ?? invoice.due_date) as string).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}`}
                           </p>
+                          {(invoice.period_start || invoice.period_end) && (
+                            <p className="text-xs text-slate-600 mt-1">
+                              Coverage:{" "}
+                              <span className="font-medium text-slate-700">
+                                {invoice.period_start && invoice.period_end
+                                  ? `${formatDate(invoice.period_start)} – ${formatDate(invoice.period_end)}`
+                                  : formatDate(
+                                      (invoice.period_start ?? invoice.period_end)!,
+                                    )}
+                              </span>
+                              {invoice.discount_cents > 0 && (
+                                <span className="ml-2 text-emerald-600 font-medium">
+                                  ({formatCurrency(invoice.discount_cents)} discount)
+                                </span>
+                              )}
+                            </p>
+                          )}
+                          {invoice.discount_cents > 0 &&
+                            !invoice.period_start &&
+                            !invoice.period_end && (
+                              <p className="text-xs text-emerald-600 mt-1 font-medium">
+                                {formatCurrency(invoice.discount_cents)} discount applied
+                              </p>
+                            )}
                           {position.state === "part_paid" && (
                             <p className="text-xs text-slate-600 mt-1">
                               {formatCurrency(position.paid)} paid ·{" "}

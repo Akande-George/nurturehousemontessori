@@ -44,6 +44,15 @@ function formatCurrency(cents: number) {
   })}`;
 }
 
+function formatDate(iso: string) {
+  if (!iso) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-GB");
+  }
+  return new Date(iso).toLocaleDateString("en-GB");
+}
+
 export function AccountingClient({
   invoices,
   students,
@@ -60,6 +69,9 @@ export function AccountingClient({
     [{ description: "Tuition", amount: "" }],
   );
   const [tax, setTax] = useState("");
+  const [discount, setDiscount] = useState("");
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
   const [dueDate, setDueDate] = useState("");
   // Unpaid invoice being edited; null while the dialog issues a new one.
   const [editing, setEditing] = useState<Invoice | null>(null);
@@ -144,6 +156,9 @@ export function AccountingClient({
     setEditing(null);
     setItems([{ description: "Tuition", amount: "" }]);
     setTax("");
+    setDiscount("");
+    setPeriodStart("");
+    setPeriodEnd("");
     setDueDate("");
   };
 
@@ -162,6 +177,11 @@ export function AccountingClient({
       })),
     );
     setTax(invoice.tax_cents > 0 ? String(invoice.tax_cents / 100) : "");
+    setDiscount(
+      invoice.discount_cents > 0 ? String(invoice.discount_cents / 100) : "",
+    );
+    setPeriodStart(invoice.period_start ?? "");
+    setPeriodEnd(invoice.period_end ?? "");
     setDueDate(invoice.due_date ?? "");
     setIsCreateOpen(true);
   };
@@ -180,7 +200,8 @@ export function AccountingClient({
     return sum + (Number.isNaN(value) || value <= 0 ? 0 : value);
   }, 0);
   const taxAmount = Number(tax) > 0 ? Number(tax) : 0;
-  const grandTotal = subtotal + taxAmount;
+  const discountAmount = Number(discount) > 0 ? Number(discount) : 0;
+  const grandTotal = Math.max(0, subtotal - discountAmount + taxAmount);
 
   const studentName = (id: string) =>
     students.find((s) => s.id === id)?.name ?? "Unknown Student";
@@ -219,6 +240,14 @@ export function AccountingClient({
       });
       return;
     }
+    if (periodStart && periodEnd && periodStart > periodEnd) {
+      toast({
+        title: "Invalid coverage dates",
+        description: "The coverage start date cannot be after the end date.",
+        variant: "destructive",
+      });
+      return;
+    }
     const editingId = editing?.id ?? null;
     start(async () => {
       // Editing recomputes totals server-side and keeps the invoice number; no
@@ -227,12 +256,18 @@ export function AccountingClient({
         ? await updateInvoice(editingId, {
             items: validItems,
             taxCents: Math.round(taxAmount * 100),
+            discountCents: Math.round(discountAmount * 100),
+            periodStart: periodStart || null,
+            periodEnd: periodEnd || null,
             dueDate,
           })
         : await createInvoice({
             studentId,
             items: validItems,
             taxCents: Math.round(taxAmount * 100),
+            discountCents: Math.round(discountAmount * 100),
+            periodStart: periodStart || null,
+            periodEnd: periodEnd || null,
             dueDate,
           });
       if (res.ok) {
@@ -339,6 +374,19 @@ export function AccountingClient({
                     )}
                     {invoice.description}
                   </p>
+                  {(invoice.period_start || invoice.period_end) && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      <span className="font-medium text-slate-600">Period:</span>{" "}
+                      {invoice.period_start && invoice.period_end
+                        ? `${formatDate(invoice.period_start)} – ${formatDate(invoice.period_end)}`
+                        : formatDate(invoice.period_start ?? invoice.period_end!)}
+                    </p>
+                  )}
+                  {invoice.discount_cents > 0 && (
+                    <p className="text-xs text-emerald-600 mt-0.5 font-medium">
+                      Discount: {formatCurrency(invoice.discount_cents)} applied
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <Badge
@@ -580,35 +628,82 @@ export function AccountingClient({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Tax (₦, optional)</Label>
+                <Label htmlFor="invoice-discount">Discount (₦, optional)</Label>
                 <Input
+                  id="invoice-discount"
                   type="number"
                   min="0"
                   step="0.01"
-                  placeholder="0"
+                  placeholder="0.00"
+                  value={discount}
+                  onChange={(event) => setDiscount(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="invoice-tax">Tax (₦, optional)</Label>
+                <Input
+                  id="invoice-tax"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
                   value={tax}
                   onChange={(event) => setTax(event.target.value)}
                 />
               </div>
-              <div className="space-y-1">
-                <Label>Due date</Label>
-                <Input
-                  type="date"
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
-                />
+            </div>
+            <div className="space-y-1">
+              <Label>Coverage period (optional)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <span className="text-xs text-slate-500 block">From</span>
+                  <Input
+                    type="date"
+                    value={periodStart}
+                    onChange={(event) => setPeriodStart(event.target.value)}
+                    aria-label="Coverage start date"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs text-slate-500 block">To</span>
+                  <Input
+                    type="date"
+                    value={periodEnd}
+                    onChange={(event) => setPeriodEnd(event.target.value)}
+                    aria-label="Coverage end date"
+                  />
+                </div>
               </div>
             </div>
-            <div className="rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 text-sm space-y-1">
+            <div className="space-y-1">
+              <Label htmlFor="invoice-due-date">Due date</Label>
+              <Input
+                id="invoice-due-date"
+                type="date"
+                value={dueDate}
+                onChange={(event) => setDueDate(event.target.value)}
+              />
+            </div>
+            <div className="rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 text-sm space-y-1.5">
               <div className="flex justify-between text-slate-600">
                 <span>Subtotal</span>
                 <span>{formatCurrency(Math.round(subtotal * 100))}</span>
               </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Tax</span>
-                <span>{formatCurrency(Math.round(taxAmount * 100))}</span>
-              </div>
-              <div className="flex justify-between font-medium text-slate-900">
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-emerald-600 font-medium">
+                  <span>Discount</span>
+                  <span>
+                    -{formatCurrency(Math.round(discountAmount * 100))}
+                  </span>
+                </div>
+              )}
+              {taxAmount > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Tax</span>
+                  <span>{formatCurrency(Math.round(taxAmount * 100))}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-semibold text-slate-900 border-t border-slate-200/80 pt-1.5">
                 <span>Total</span>
                 <span>{formatCurrency(Math.round(grandTotal * 100))}</span>
               </div>

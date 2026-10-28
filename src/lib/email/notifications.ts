@@ -155,6 +155,7 @@ export function sendInvoiceIssued(
     dueDate: string;
     invoiceId: string;
     invoiceNo?: string | null;
+    periodCovered?: string | null;
   },
 ) {
   const label = invoice.invoiceNo
@@ -167,6 +168,7 @@ export function sendInvoiceIssued(
       schoolName,
       h`<h2 style="margin:0 0 12px;font-size:18px">${label}</h2>
        <p style="margin:0 0 4px">${invoice.description}</p>
+       ${invoice.periodCovered ? h`<p style="margin:0 0 4px;color:#64748b">Coverage: ${invoice.periodCovered}</p>` : ""}
        <p style="margin:0 0 4px;font-size:22px;font-weight:700">${invoice.amount}</p>
        <p style="margin:0 0 16px;color:#64748b">Due ${invoice.dueDate}</p>
        <a href="${APP_URL}/invoice/${invoice.invoiceId}" style="display:inline-block;background:#0c5c4c;color:#fff;text-decoration:none;padding:10px 18px;border-radius:10px">View invoice</a>`,

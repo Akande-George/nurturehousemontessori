@@ -1138,3 +1138,21 @@ create policy daily_reports_staff_read on public.daily_reports for select
   using (is_school_staff(school_id));
 create policy daily_reports_parent_read on public.daily_reports for select
   using (status = 'sent' and is_parent_of(student_id));
+
+-- ===== 20261028000001_invoice_discount_and_period.sql =====
+-- Invoice discount and coverage period: allow schools to apply discounts
+-- to invoices and specify the date range/term the invoice covers.
+
+alter table public.invoices
+  add column if not exists discount_cents bigint not null default 0,
+  add column if not exists period_start date,
+  add column if not exists period_end date;
+
+-- Ensure discount cannot be negative
+alter table public.invoices
+  drop constraint if exists invoices_discount_cents_check;
+
+alter table public.invoices
+  add constraint invoices_discount_cents_check
+  check (discount_cents >= 0);
+
